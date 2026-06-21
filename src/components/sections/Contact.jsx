@@ -13,7 +13,7 @@ import githubShot from '../../assets/social/github-profile.webp'
 import resumeShot from '../../assets/social/resume-preview.webp'
 
 const PLATFORMS = [
-  { label: 'GitHub', value: '18+ Repos · 100+ Contributions', href: SOCIALS.github, color: '#9aa5b1', shot: githubShot, tag: 'OPEN SOURCE' },
+  { label: 'GitHub', value: '18+ Repos', href: SOCIALS.github, color: '#9aa5b1', shot: githubShot, tag: 'OPEN SOURCE' },
   { label: 'LeetCode', value: 'Knight Rank · 1909 Rated', href: SOCIALS.leetcode, color: '#ffa116', shot: leetcodeShot, tag: '600+ SOLVED' },
   { label: 'CodeChef', value: '4★ Coder · gaurav_jb', href: SOCIALS.codechef, color: '#d68f4c', shot: codechefShot, tag: 'RATING 1830' },
   { label: 'LinkedIn', value: 'IIIT Vadodara · CSE Graduate \'26', href: SOCIALS.linkedin, color: '#3b9eef', shot: linkedinShot, tag: 'CONNECT' },

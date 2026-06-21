@@ -2,7 +2,7 @@
 
 Personal portfolio website. Built with React and Vite.
 
-**Live:** _add deployment URL here_
+**Live:** [Portfolio](https://gauravportfolio-beryl.vercel.app/)
 
 ## Stack
 
