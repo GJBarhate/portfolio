@@ -4,6 +4,7 @@ import gsap from 'gsap'
 import SplitType from 'split-type'
 import MagneticButton from '../ui/MagneticButton.jsx'
 import AmbientField from '../ui/AmbientField.jsx'
+import HeroAurora from '../ui/HeroAurora.jsx'
 import { SOCIALS } from '../../lib/content.js'
 import { EASE_FORGE } from '../../lib/motion.js'
 
@@ -54,15 +55,36 @@ export default function Hero() {
     <section id="hero" className="relative h-screen w-full overflow-hidden flex items-center">
       <div className="absolute inset-0">
         <AmbientField />
+        <HeroAurora />
       </div>
 
       <div className="relative z-10 container-px w-full">
-        <h1
-          ref={nameRef}
-          className="font-display text-[clamp(3rem,12vw,10rem)] leading-[0.92] text-[var(--ink)] overflow-hidden"
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, ease: EASE_FORGE, delay: 0.1 }}
+          className="hero-badge mb-6"
         >
-          Gaurav Barhate
-        </h1>
+          <span className="hero-badge__dot" />
+          <span className="font-mono text-[11px] tracking-wide text-[var(--ink-dim)]">
+            Open to opportunities
+          </span>
+        </motion.div>
+
+        <div className="relative">
+          <h1
+            aria-hidden="true"
+            className="font-display text-[clamp(3rem,12vw,10rem)] leading-[0.92] hero-name-ghost"
+          >
+            Gaurav Barhate
+          </h1>
+          <h1
+            ref={nameRef}
+            className="font-display text-[clamp(3rem,12vw,10rem)] leading-[0.92] hero-name-iridescent overflow-hidden"
+          >
+            Gaurav Barhate
+          </h1>
+        </div>
 
         <div className="overflow-hidden mt-3 h-[1.4em]">
           <p
@@ -77,8 +99,13 @@ export default function Hero() {
           transition={{ duration: 0.8, ease: EASE_FORGE, delay: 0.5 }}
           className="mt-6 max-w-md text-[var(--ink-dim)] text-sm md:text-base"
         >
-          LeetCode Knight, rated 1909 · 600+ problems solved · I build full-stack
-          web applications with real-time features and AI integrations.
+          <span className="hero-stat-strong">LeetCode Knight</span>, rated{' '}
+          <span className="hero-stat-strong">1909</span>
+          <span className="hero-stat-sep" />
+          <span className="hero-stat-strong">600+</span> problems solved
+          <span className="hero-stat-sep" />
+          I build full-stack web applications with real-time features and AI
+          integrations.
         </motion.p>
 
         <motion.div
@@ -91,7 +118,7 @@ export default function Hero() {
             as="a"
             href="#projects"
             data-cursor="view"
-            className="px-7 py-3.5 rounded-full bg-[var(--plasma)] text-[var(--void-0)] font-medium text-sm shadow-[0_0_40px_var(--plasma-dim)] hover:shadow-[0_0_60px_var(--plasma)] transition-shadow duration-500"
+            className="hero-cta hero-cta--primary px-7 py-3.5 rounded-full font-medium text-sm shadow-[0_0_40px_var(--plasma-dim)] hover:shadow-[0_0_60px_var(--plasma)] transition-shadow duration-500"
             onClick={(e) => {
               e.preventDefault()
               document.getElementById('projects')?.scrollIntoView({ behavior: 'smooth' })
@@ -105,7 +132,7 @@ export default function Hero() {
             target="_blank"
             rel="noopener noreferrer"
             data-cursor="view"
-            className="px-7 py-3.5 rounded-full border border-[var(--void-3)] text-sm font-mono text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--ink-faint)] transition-colors duration-300"
+            className="hero-cta hero-cta--ghost px-7 py-3.5 rounded-full text-sm font-mono text-[var(--ink-dim)] hover:text-[var(--ink)] transition-colors duration-300"
           >
             GitHub ↗
           </MagneticButton>

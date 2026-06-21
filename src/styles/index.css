@@ -284,6 +284,260 @@ a { color: inherit; text-decoration: none; }
 
 .tabular { font-variant-numeric: tabular-nums; }
 
+/* === Hero aurora — cursor-tracked blobs + grid + scanline (GPU only) === */
+.hero-aurora {
+  --mx: 50%;
+  --my: 50%;
+  overflow: hidden;
+  mask-image: radial-gradient(ellipse 110% 90% at 50% 55%, #000 60%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 110% 90% at 50% 55%, #000 60%, transparent 100%);
+}
+.hero-aurora__blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(80px);
+  opacity: 0.55;
+  will-change: transform;
+  mix-blend-mode: screen;
+}
+.hero-aurora__blob--a {
+  width: 60vmax;
+  height: 60vmax;
+  left: calc(var(--mx) - 30vmax);
+  top: calc(var(--my) - 30vmax);
+  background: radial-gradient(circle, var(--plasma) 0%, transparent 65%);
+  animation: auroraDriftA 18s ease-in-out infinite;
+  transition: left 0.6s cubic-bezier(0.16,1,0.3,1), top 0.6s cubic-bezier(0.16,1,0.3,1);
+}
+.hero-aurora__blob--b {
+  width: 45vmax;
+  height: 45vmax;
+  right: calc(100% - var(--mx) - 22vmax);
+  bottom: calc(100% - var(--my) - 22vmax);
+  background: radial-gradient(circle, var(--cyan) 0%, transparent 65%);
+  opacity: 0.4;
+  animation: auroraDriftB 22s ease-in-out infinite;
+  transition: right 0.8s cubic-bezier(0.16,1,0.3,1), bottom 0.8s cubic-bezier(0.16,1,0.3,1);
+}
+.hero-aurora__blob--c {
+  width: 35vmax;
+  height: 35vmax;
+  left: 12%;
+  top: 65%;
+  background: radial-gradient(circle, var(--ember) 0%, transparent 65%);
+  opacity: 0.3;
+  animation: auroraDriftC 26s ease-in-out infinite;
+}
+@keyframes auroraDriftA {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(6vw, -4vh) scale(1.08); }
+}
+@keyframes auroraDriftB {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(-5vw, 5vh) scale(0.95); }
+}
+@keyframes auroraDriftC {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(4vw, -3vh) scale(1.05); }
+}
+.hero-aurora__grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, color-mix(in oklch, var(--plasma) 8%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklch, var(--plasma) 8%, transparent) 1px, transparent 1px);
+  background-size: 80px 80px;
+  mask-image: radial-gradient(circle 320px at var(--mx) var(--my), #000 0%, transparent 70%);
+  -webkit-mask-image: radial-gradient(circle 320px at var(--mx) var(--my), #000 0%, transparent 70%);
+  opacity: 0.7;
+  transition: opacity 0.4s ease;
+}
+.hero-aurora__scan {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 0%, color-mix(in oklch, var(--plasma-bright) 6%, transparent) 50%, transparent 100%);
+  background-size: 100% 8px;
+  opacity: 0.25;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+}
+.hero-aurora__vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 100% 80% at 50% 50%, transparent 50%, var(--void-0) 100%);
+  pointer-events: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-aurora__blob { animation: none; }
+}
+
+/* === Iridescent gradient name effect for hero h1 === */
+.hero-name-iridescent {
+  background-image: linear-gradient(
+    120deg,
+    var(--ink) 0%,
+    var(--ink) 30%,
+    var(--plasma-bright) 45%,
+    var(--cyan) 55%,
+    var(--ink) 70%,
+    var(--ink) 100%
+  );
+  background-size: 220% 100%;
+  background-position: 100% 50%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: iridescentSweep 9s ease-in-out infinite;
+}
+@keyframes iridescentSweep {
+  0%, 100% { background-position: 100% 50%; }
+  50%      { background-position: 0% 50%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-name-iridescent { animation: none; }
+}
+
+/* === Hero name depth — blurred outlined ghost duplicate sitting behind the real text === */
+.hero-name-ghost {
+  position: absolute;
+  inset: 0;
+  color: transparent;
+  -webkit-text-stroke: 1px color-mix(in oklch, var(--plasma) 35%, transparent);
+  filter: blur(2px);
+  opacity: 0.5;
+  transform: translate(0.18em, 0.1em) scale(1.015);
+  user-select: none;
+  pointer-events: none;
+  z-index: -1;
+  animation: ghostDrift 7s ease-in-out infinite;
+}
+@keyframes ghostDrift {
+  0%, 100% { transform: translate(0.18em, 0.1em) scale(1.015); }
+  50%      { transform: translate(0.24em, 0.14em) scale(1.025); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-name-ghost { animation: none; }
+}
+
+/* === Status badge — glass pill with pulsing live dot === */
+.hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.9rem 0.45rem 0.7rem;
+  border-radius: 9999px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 1px 0 var(--glass-highlight) inset, 0 8px 24px -12px var(--plasma-dim);
+}
+.hero-badge__dot {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--plasma);
+  box-shadow: 0 0 8px var(--plasma);
+  flex-shrink: 0;
+}
+.hero-badge__dot::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 1px solid var(--plasma);
+  animation: badgePulse 2s ease-out infinite;
+}
+@keyframes badgePulse {
+  0%   { transform: scale(0.4); opacity: 0.9; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-badge__dot::after { animation: none; }
+}
+
+/* === Stat strip — glowing dot separators for the hero subtext === */
+.hero-stat-sep {
+  display: inline-block;
+  width: 3px;
+  height: 3px;
+  margin: 0 0.55em;
+  border-radius: 50%;
+  background: var(--plasma);
+  box-shadow: 0 0 6px var(--plasma);
+  vertical-align: middle;
+}
+.hero-stat-strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* === Gradient-border CTA — animated conic border + shimmer sweep === */
+.hero-cta {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+.hero-cta--primary {
+  background: var(--plasma);
+  color: var(--void-0);
+}
+.hero-cta--primary::before {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.55) 48%, transparent 66%);
+  transform: translateX(-120%);
+  transition: transform 0.7s cubic-bezier(0.16,1,0.3,1);
+}
+.hero-cta--primary:hover::before {
+  transform: translateX(120%);
+}
+.hero-cta--ghost {
+  background: var(--glass-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.hero-cta--ghost::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(from var(--cta-angle, 0deg), var(--plasma), var(--cyan), var(--ember), var(--plasma));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.7;
+  animation: ctaSpin 4s linear infinite;
+}
+@property --cta-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes ctaSpin {
+  to { --cta-angle: 360deg; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-cta--primary::before,
+  .hero-cta--ghost::before { animation: none; transition: none; }
+}
+
+/* === Scroll progress bar — fixed top, gradient fill driven by scroll % === */
+.scroll-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2.5px;
+  z-index: 9999;
+  transform-origin: 0% 50%;
+  background: linear-gradient(90deg, var(--plasma), var(--cyan), var(--ember));
+  box-shadow: 0 0 12px var(--plasma-dim);
+}
+
 /* === Film grain overlay (animated, site-wide) === */
 .film-grain {
   position: fixed;
