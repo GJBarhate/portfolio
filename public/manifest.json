@@ -1,0 +1,17 @@
+{
+  "name": "Gaurav Barhate — Portfolio",
+  "short_name": "Gaurav Barhate",
+  "description": "Portfolio of Gaurav Barhate — Full-Stack Developer & Competitive Programmer",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#070709",
+  "theme_color": "#070709",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

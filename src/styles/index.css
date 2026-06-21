@@ -1,0 +1,596 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* === Self-hosted fonts (no external render-blocking requests) === */
+@font-face {
+  font-family: 'Clash Display';
+  src: url('/fonts/clash-display-400.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Clash Display';
+  src: url('/fonts/clash-display-500.woff2') format('woff2');
+  font-weight: 500;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Clash Display';
+  src: url('/fonts/clash-display-600.woff2') format('woff2');
+  font-weight: 600;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Clash Display';
+  src: url('/fonts/clash-display-700.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('/fonts/space-grotesk-400.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('/fonts/space-grotesk-500.woff2') format('woff2');
+  font-weight: 500;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('/fonts/space-grotesk-600.woff2') format('woff2');
+  font-weight: 600;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('/fonts/space-grotesk-700.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/jetbrains-mono-400.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/jetbrains-mono-500.woff2') format('woff2');
+  font-weight: 500;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/jetbrains-mono-600.woff2') format('woff2');
+  font-weight: 600;
+  font-display: swap;
+  font-style: normal;
+}
+
+:root {
+  /* === Base void layers — deep mossy black (Deep Forest, default) === */
+  --void-0: oklch(12% 0.016 145);
+  --void-1: oklch(15% 0.02 145);
+  --void-2: oklch(19% 0.024 145);
+  --void-3: oklch(25% 0.028 145);
+
+  /* === Signature palette: moss green × oiled walnut === */
+  --plasma: oklch(70% 0.16 145);
+  --plasma-dim: oklch(48% 0.14 145);
+  --plasma-bright: oklch(83% 0.16 145);
+  --cyan: oklch(72% 0.13 70);
+  --cyan-dim: oklch(52% 0.12 70);
+
+  /* === 3rd accent: amber glow === */
+  --ember: oklch(78% 0.16 70);
+  --ember-dim: oklch(56% 0.14 70);
+
+  /* === Ink (text hierarchy) === */
+  --ink: oklch(94% 0.006 320);
+  --ink-dim: oklch(68% 0.012 320);
+  --ink-faint: oklch(44% 0.016 320);
+
+  /* === Scroll-linked hue grade === */
+  --grade-hue: 0deg;
+  --grade-base-hue: 145;
+
+  /* === Glow tokens === */
+  --glow-sm: 0 0 12px;
+  --glow-md: 0 0 32px;
+  --glow-lg: 0 0 64px;
+
+  /* === Named easing curves === */
+  --ease-forge: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-snap: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-anticipate: cubic-bezier(0.68, -0.6, 0.32, 1.6);
+  --ease-glide: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
+
+  /* === Glass tokens === */
+  --glass-bg: color-mix(in oklch, var(--void-1) 65%, transparent);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-highlight: rgba(255, 255, 255, 0.04);
+  --glass-blur: 16px;
+
+  /* === Z-index layers === */
+  --z-cursor: 9999;
+  --z-cmdpal: 9500;
+  --z-preloader: 9000;
+  --z-nav: 500;
+  --z-overlay: 400;
+  --z-content: 1;
+}
+
+/* === Theme palette overrides — each theme fully reskins the site, === */
+/* === not just accent colors: void layers, ink tint, and glow base hue all shift === */
+[data-theme="ocean"] {
+  --grade-base-hue: 215;
+  --void-0: oklch(17% 0.024 232);
+  --void-1: oklch(21% 0.026 232);
+  --void-2: oklch(26% 0.028 232);
+  --void-3: oklch(34% 0.03 232);
+  --plasma: oklch(80% 0.09 225);
+  --plasma-dim: oklch(58% 0.09 225);
+  --plasma-bright: oklch(90% 0.07 225);
+  --cyan: oklch(94% 0.014 225);
+  --cyan-dim: oklch(74% 0.014 225);
+  --ember: oklch(93% 0.012 225);
+  --ember-dim: oklch(72% 0.012 225);
+  --ink: oklch(95% 0.01 225);
+  --ink-dim: oklch(74% 0.018 225);
+  --ink-faint: oklch(52% 0.02 225);
+  --glass-bg: color-mix(in oklch, var(--void-1) 55%, transparent);
+  --glass-border: rgba(220, 235, 245, 0.12);
+  --glass-highlight: rgba(220, 235, 245, 0.07);
+}
+[data-theme="golden"] {
+  --grade-base-hue: 70;
+  --void-0: oklch(16% 0.024 65);
+  --void-1: oklch(20% 0.028 65);
+  --void-2: oklch(25% 0.032 65);
+  --void-3: oklch(32% 0.036 65);
+  --plasma: oklch(82% 0.16 80);
+  --plasma-dim: oklch(60% 0.15 80);
+  --plasma-bright: oklch(90% 0.14 80);
+  --cyan: oklch(93% 0.06 75);
+  --cyan-dim: oklch(72% 0.06 75);
+  --ember: oklch(88% 0.13 60);
+  --ember-dim: oklch(66% 0.12 60);
+  --ink: oklch(96% 0.015 75);
+  --ink-dim: oklch(76% 0.022 75);
+  --ink-faint: oklch(54% 0.026 75);
+  --glass-bg: color-mix(in oklch, var(--void-1) 55%, transparent);
+  --glass-border: rgba(255, 226, 170, 0.12);
+  --glass-highlight: rgba(255, 226, 170, 0.07);
+}
+/* Dawn — the only light palette: a pale, warm sunrise instead of a dark mode
+   with a gold tint. Void/ink roles are deliberately flipped from the other
+   three themes so text stays legible against the bright backdrop. */
+[data-theme="dawn"] {
+  --grade-base-hue: 50;
+  --void-0: oklch(97% 0.012 75);
+  --void-1: oklch(94% 0.018 75);
+  --void-2: oklch(90% 0.024 75);
+  --void-3: oklch(84% 0.03 75);
+  --plasma: oklch(68% 0.13 70);
+  --plasma-dim: oklch(78% 0.1 70);
+  --plasma-bright: oklch(58% 0.15 65);
+  --cyan: oklch(55% 0.06 35);
+  --cyan-dim: oklch(68% 0.05 35);
+  --ember: oklch(62% 0.13 40);
+  --ember-dim: oklch(74% 0.1 40);
+  --ink: oklch(24% 0.018 75);
+  --ink-dim: oklch(42% 0.022 75);
+  --ink-faint: oklch(58% 0.02 75);
+  --glass-bg: color-mix(in oklch, var(--void-0) 60%, transparent);
+  --glass-border: rgba(120, 90, 30, 0.12);
+  --glass-highlight: rgba(255, 255, 255, 0.65);
+}
+html[data-theme="dawn"] { color-scheme: light; }
+
+* { box-sizing: border-box; }
+
+html {
+  background: var(--void-0);
+  color-scheme: dark;
+  scroll-behavior: auto;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+body {
+  background: var(--void-0);
+  color: var(--ink);
+  font-family: 'Space Grotesk', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  cursor: none;
+  transition: background-color 0.6s var(--ease-forge), color 0.6s var(--ease-forge);
+}
+
+@media (max-width: 768px), (hover: none) {
+  body { cursor: auto; }
+}
+
+::selection {
+  background: var(--plasma-dim);
+  color: var(--ink);
+}
+
+a { color: inherit; text-decoration: none; }
+
+/* === Skip to content (a11y) === */
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 16px;
+  z-index: 10000;
+  padding: 8px 16px;
+  background: var(--plasma);
+  color: var(--void-0);
+  border-radius: 0 0 8px 8px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: top 0.2s;
+}
+.skip-link:focus {
+  top: 0;
+}
+
+/* === Focus visible === */
+:focus-visible {
+  outline: 2px solid var(--plasma);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* === Display typography === */
+.font-display {
+  font-family: 'Clash Display', 'Space Grotesk', sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.text-gradient {
+  background: linear-gradient(120deg, var(--ink) 20%, var(--plasma-bright) 50%, var(--cyan) 80%, var(--plasma) 100%);
+  background-size: 200% 100%;
+  animation: gradientShift 6s ease-in-out infinite;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+@keyframes gradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.glow-text { text-shadow: var(--glow-sm) var(--plasma-dim); }
+
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* === Film grain overlay (animated, site-wide) === */
+.film-grain {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9998;
+  mix-blend-mode: overlay;
+  opacity: 0.04;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  animation: grain 0.5s steps(5) infinite;
+}
+@keyframes grain {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-2%, -3%); }
+  30% { transform: translate(3%, 2%); }
+  50% { transform: translate(-1%, 4%); }
+  70% { transform: translate(2%, -2%); }
+}
+
+/* === Grade wash (scroll-linked hue-shift overlay) === */
+.grade-wash {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  mix-blend-mode: soft-light;
+  opacity: 0.5;
+  background: radial-gradient(120% 80% at 50% 0%, hsl(calc(var(--grade-base-hue) * 1deg + var(--grade-hue)) 45% 50% / 0.18), transparent 60%);
+  transition: background 0.6s var(--ease-forge);
+}
+
+/* === Hero poster (CSS fallback for WebGL) === */
+.hero-poster {
+  background:
+    radial-gradient(ellipse 90% 80% at 35% 40%, color-mix(in oklch, var(--plasma-dim) 50%, transparent), transparent 55%),
+    radial-gradient(ellipse 60% 50% at 70% 60%, color-mix(in oklch, var(--cyan-dim) 35%, transparent), transparent 50%),
+    radial-gradient(circle at 50% 50%, var(--void-1), var(--void-0) 70%);
+}
+
+/* === Mesh gradient section backgrounds === */
+.mesh-gradient-a {
+  background:
+    radial-gradient(ellipse 100% 70% at 20% 10%, color-mix(in oklch, var(--plasma) 16%, transparent), transparent 55%),
+    radial-gradient(ellipse 80% 60% at 80% 90%, color-mix(in oklch, var(--cyan) 12%, transparent), transparent 55%);
+  transition: background 0.6s var(--ease-forge);
+}
+.mesh-gradient-b {
+  background:
+    radial-gradient(ellipse 90% 60% at 70% 20%, color-mix(in oklch, var(--cyan) 18%, transparent), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 20% 80%, color-mix(in oklch, var(--plasma) 12%, transparent), transparent 55%);
+  transition: background 0.6s var(--ease-forge);
+}
+
+/* === Glass panel === */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  box-shadow: inset 0 1px 0 0 var(--glass-highlight);
+  transition: background-color 0.6s var(--ease-forge), border-color 0.6s var(--ease-forge);
+}
+
+/* === Spotlight follow (JS sets --mx, --my via onMouseMove) === */
+.spotlight {
+  --mx: 50%;
+  --my: 50%;
+  position: relative;
+  overflow: hidden;
+}
+.spotlight::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle 250px at var(--mx) var(--my), color-mix(in oklch, var(--plasma) 15%, transparent), transparent 50%);
+  opacity: 0;
+  transition: opacity 0.4s var(--ease-forge);
+  pointer-events: none;
+  z-index: 1;
+}
+.spotlight:hover::before {
+  opacity: 1;
+}
+
+/* === Specular sheen sweep on hover === */
+.sheen {
+  position: relative;
+  overflow: hidden;
+}
+.sheen::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+  transform: skewX(-15deg);
+  transition: left 0.6s var(--ease-forge);
+  pointer-events: none;
+  z-index: 2;
+}
+.sheen:hover::after {
+  left: 130%;
+}
+
+/* === Ghost numeral behind sections === */
+.ghost-numeral {
+  position: absolute;
+  top: -0.15em;
+  right: -0.05em;
+  font-family: 'Clash Display', sans-serif;
+  font-size: clamp(8rem, 20vw, 18rem);
+  font-weight: 700;
+  color: transparent;
+  -webkit-text-stroke: 1px color-mix(in oklch, var(--ink-faint) 15%, transparent);
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+}
+
+/* === Marquee === */
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes outroMarquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+/* === Avatar: posterized duotone illustration (not a raw photo) === */
+.avatar-stylized {
+  filter: url(#avatarPosterize) grayscale(1) contrast(1.55) brightness(1.08);
+  mix-blend-mode: luminosity;
+  transform: scale(1.08);
+}
+.avatar-container {
+  position: relative;
+  background: var(--void-2);
+}
+.avatar-container::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(160deg, var(--plasma) 0%, var(--cyan) 100%);
+  mix-blend-mode: color;
+  opacity: 0.8;
+  transition: opacity 0.7s var(--ease-forge);
+  pointer-events: none;
+  z-index: 4;
+}
+.avatar-container:hover::after {
+  opacity: 0.62;
+}
+.avatar-halftone::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: radial-gradient(circle 1.4px, rgba(255,255,255,0.22) 0.7px, transparent 0.7px);
+  background-size: 6px 6px;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+  z-index: 2;
+}
+.avatar-scanlines::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.16) 2px, rgba(0,0,0,0.16) 4px);
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* === Monogram badge over avatar === */
+.avatar-monogram {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  z-index: 5;
+  width: 44px;
+  height: 44px;
+  border-radius: 9999px;
+  background: var(--void-0);
+  border: 1.5px solid var(--plasma);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  letter-spacing: 0.05em;
+  color: var(--plasma-bright);
+  box-shadow: 0 0 18px var(--plasma-dim);
+}
+
+/* === Data ring (rotating ticks around avatar) === */
+@keyframes dataRing { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes dataRingReverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
+
+/* === Section divider — glowing line between sections === */
+.section-divider {
+  position: relative;
+  height: 1px;
+  margin: 0 auto;
+  width: 100%;
+  max-width: 90%;
+  overflow: visible;
+}
+.section-divider::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, var(--plasma), var(--cyan), transparent);
+  opacity: 0.5;
+}
+.section-divider::after {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 50%;
+  height: 7px;
+  background: linear-gradient(90deg, transparent, var(--plasma-dim), transparent);
+  filter: blur(4px);
+}
+
+/* === Level badge — game HUD-style section label === */
+.level-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 14px 4px 10px;
+  border: 1px solid var(--plasma-dim);
+  border-radius: 999px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  color: var(--plasma-bright);
+  background: color-mix(in oklch, var(--plasma) 8%, transparent);
+  box-shadow: 0 0 12px color-mix(in oklch, var(--plasma) 15%, transparent),
+              inset 0 0 12px color-mix(in oklch, var(--plasma) 5%, transparent);
+}
+.level-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--plasma);
+  box-shadow: 0 0 8px var(--plasma);
+  animation: levelPulse 2s ease-in-out infinite;
+}
+@keyframes levelPulse {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.3); }
+}
+
+/* === Marquee edge fade === */
+.marquee-mask {
+  mask-image: linear-gradient(90deg, transparent, white 10%, white 90%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, white 10%, white 90%, transparent);
+}
+
+/* === Enhanced glass hover glow === */
+.glass-glow {
+  transition: box-shadow 0.5s var(--ease-forge), border-color 0.5s var(--ease-forge);
+}
+.glass-glow:hover {
+  border-color: color-mix(in oklch, var(--plasma) 30%, transparent);
+  box-shadow: 0 0 32px color-mix(in oklch, var(--plasma) 12%, transparent),
+              inset 0 1px 0 0 rgba(255,255,255,0.06);
+}
+
+/* === Cursor trail === */
+.cursor-trail {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--plasma);
+  pointer-events: none;
+  z-index: 9998;
+  opacity: 0;
+  transition: opacity 0.15s;
+  filter: blur(2px);
+}
+
+/* === Reduced motion === */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .film-grain { display: none; }
+}
+
+/* === Content-visibility optimization for below-fold sections === */
+section:not(#hero) {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 800px;
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+@layer utilities {
+  .container-px { @apply px-6 md:px-12 lg:px-20; }
+}
