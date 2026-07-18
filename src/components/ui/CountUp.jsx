@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useInView } from 'framer-motion'
 
 export default function CountUp({ value, duration = 1.6, suffix = '' }) {
   const ref = useRef(null)
   const inView = useInView(ref, { once: true, margin: '-15% 0px -15% 0px' })
   const [display, setDisplay] = useState(0)
+  const [key, setKey] = useState(0)
 
-  useEffect(() => {
-    if (!inView) return
+  const animate = useCallback(() => {
     let raf
     const start = performance.now()
     const tick = (now) => {
@@ -18,10 +18,25 @@ export default function CountUp({ value, duration = 1.6, suffix = '' }) {
     }
     raf = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(raf)
-  }, [inView, value, duration])
+  }, [value, duration])
+
+  useEffect(() => {
+    if (!inView) return
+    return animate()
+  }, [inView, animate, key])
+
+  const reroll = () => {
+    setDisplay(0)
+    setKey((k) => k + 1)
+  }
 
   return (
-    <span ref={ref} className="tabular">
+    <span
+      ref={ref}
+      className="tabular cursor-pointer"
+      onClick={reroll}
+      title="Click to re-roll"
+    >
       {display}
       {suffix}
     </span>

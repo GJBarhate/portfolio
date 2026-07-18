@@ -13,7 +13,7 @@ export default function AchievementToast() {
     game.toasts.forEach((t) => {
       if (!seen.current.has(t.toastId)) {
         seen.current.add(t.toastId)
-        sound?.play('open')
+        sound?.play('achievement')
       }
     })
   }, [game?.toasts, sound])

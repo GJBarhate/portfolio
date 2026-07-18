@@ -29,12 +29,20 @@ export default function AmbientField() {
     const onVisibility = () => { visible = !document.hidden }
     document.addEventListener('visibilitychange', onVisibility)
 
-    const colorFor = (mix) => {
+    // Theme colors are read once per theme change, NOT per stroke — calling
+    // getComputedStyle inside the draw loop cost hundreds of forced style
+    // reads per frame.
+    let colorA = '#6a9955'
+    let colorB = '#d0a05c'
+    const readColors = () => {
       const root = getComputedStyle(document.documentElement)
-      const a = root.getPropertyValue('--plasma').trim()
-      const b = root.getPropertyValue('--cyan').trim()
-      return mix ? b : a
+      colorA = root.getPropertyValue('--plasma').trim() || colorA
+      colorB = root.getPropertyValue('--cyan').trim() || colorB
     }
+    readColors()
+    const themeObserver = new MutationObserver(readColors)
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    const colorFor = (mix) => (mix ? colorB : colorA)
 
     const resize = () => {
       const rect = canvas.parentElement.getBoundingClientRect()
@@ -125,6 +133,7 @@ export default function AmbientField() {
     return () => {
       cancelAnimationFrame(raf)
       ro.disconnect()
+      themeObserver.disconnect()
       document.removeEventListener('visibilitychange', onVisibility)
     }
   }, [reduced])

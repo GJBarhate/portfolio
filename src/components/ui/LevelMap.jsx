@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, useScroll, useSpring, useTransform } from 'framer-motion'
+import { useIsMobile } from '../../lib/useIsMobile.js'
 
 const LEVELS = [
   { id: 'hero', label: 'START', num: '00' },
@@ -11,16 +12,38 @@ const LEVELS = [
   { id: 'contact', label: 'LINK', num: '06' },
 ]
 
+function PixelAvatar({ className = '' }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 16 16" className={className} aria-hidden="true">
+      <rect x="5" y="0" width="6" height="3" fill="var(--accent-reward)" />
+      <rect x="4" y="3" width="8" height="4" fill="var(--plasma-bright)" />
+      <rect x="3" y="7" width="10" height="3" fill="var(--plasma)" />
+      <rect x="5" y="10" width="2" height="3" fill="var(--ink-dim)" />
+      <rect x="9" y="10" width="2" height="3" fill="var(--ink-dim)" />
+      <rect x="4" y="5" width="2" height="2" fill="var(--void-0)" />
+      <rect x="10" y="5" width="2" height="2" fill="var(--void-0)" />
+    </svg>
+  )
+}
+
 export default function LevelMap() {
   const [active, setActive] = useState('hero')
-  const [progress, setProgress] = useState(0)
+  const [passed, setPassed] = useState(new Set())
+  const isMobile = useIsMobile()
+  const { scrollYProgress } = useScroll()
+  const smooth = useSpring(scrollYProgress, { stiffness: 260, damping: 38, mass: 0.3 })
+  const fillHeight = useTransform(smooth, (v) => `${(v * 100).toFixed(2)}%`)
+  const mobileWidth = useTransform(smooth, (v) => `${(v * 100).toFixed(2)}%`)
 
   useEffect(() => {
     const sections = LEVELS.map((l) => document.getElementById(l.id)).filter(Boolean)
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
-          if (entry.isIntersecting) setActive(entry.target.id)
+          if (entry.isIntersecting) {
+            setActive(entry.target.id)
+            setPassed((prev) => new Set([...prev, entry.target.id]))
+          }
         })
       },
       { rootMargin: '-40% 0px -40% 0px' }
@@ -29,20 +52,19 @@ export default function LevelMap() {
     return () => observer.disconnect()
   }, [])
 
-  useEffect(() => {
-    const onScroll = () => {
-      const h = document.documentElement.scrollHeight - window.innerHeight
-      setProgress(h > 0 ? window.scrollY / h : 0)
-    }
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
-
   const goTo = (id) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
   }
 
   const activeIdx = LEVELS.findIndex((l) => l.id === active)
+
+  if (isMobile) {
+    return (
+      <div className="avatar-track--mobile">
+        <motion.div className="avatar-track__fill" style={{ width: mobileWidth }} />
+      </div>
+    )
+  }
 
   return (
     <nav
@@ -51,26 +73,23 @@ export default function LevelMap() {
       aria-label="Section navigation"
     >
       <div className="relative flex flex-col items-center">
-        {/* Track line */}
         <div
           className="absolute top-2 bottom-2 w-px bg-[var(--void-3)]"
           style={{ left: '50%', transform: 'translateX(-50%)' }}
         />
-        {/* Filled progress line */}
         <motion.div
-          className="absolute top-2 w-px bg-gradient-to-b from-[var(--plasma)] to-[var(--cyan)]"
+          className="absolute top-2 w-px bg-gradient-to-b from-[var(--plasma)] to-[var(--accent-reward)]"
           style={{
             left: '50%',
-            transform: 'translateX(-50%)',
+            translateX: '-50%',
             boxShadow: '0 0 8px var(--plasma)',
+            height: fillHeight,
           }}
-          animate={{ height: `${progress * 100}%` }}
-          transition={{ duration: 0.15, ease: 'linear' }}
         />
 
         {LEVELS.map((level, i) => {
           const isActive = level.id === active
-          const isPast = i <= activeIdx
+          const isPast = passed.has(level.id)
           return (
             <button
               key={level.id}
@@ -78,30 +97,54 @@ export default function LevelMap() {
               className="relative group flex items-center py-3"
               aria-label={`Go to ${level.label}`}
             >
-              {/* Node dot */}
+              {isActive && (
+                <motion.div
+                  className="absolute -left-7 avatar-track__avatar"
+                  layoutId="avatar"
+                  transition={{ type: 'spring', stiffness: 200, damping: 20 }}
+                >
+                  <PixelAvatar />
+                </motion.div>
+              )}
+
               <motion.div
                 animate={{
                   scale: isActive ? 1.4 : 1,
                   boxShadow: isActive
                     ? '0 0 14px var(--plasma), 0 0 4px var(--plasma)'
+                    : isPast
+                    ? '0 0 8px var(--accent-reward)'
                     : '0 0 0px transparent',
                 }}
                 transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                className="relative z-10 w-2.5 h-2.5 rounded-full border transition-colors duration-300"
+                className={`relative z-10 w-2.5 h-2.5 rounded-full border transition-colors duration-300 ${
+                  isPast && !isActive ? 'avatar-track__stamp' : ''
+                }`}
                 style={{
-                  background: isPast ? 'var(--plasma)' : 'var(--void-2)',
-                  borderColor: isPast ? 'var(--plasma)' : 'var(--void-3)',
+                  background: isPast
+                    ? isActive
+                      ? 'var(--plasma)'
+                      : 'var(--accent-reward)'
+                    : 'var(--void-2)',
+                  borderColor: isPast
+                    ? isActive
+                      ? 'var(--plasma)'
+                      : 'var(--accent-reward)'
+                    : 'var(--void-3)',
                 }}
               />
-              {/* Label tooltip */}
+
               <div className="absolute right-7 top-1/2 -translate-y-1/2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--void-1)] border border-white/10 whitespace-nowrap">
-                  <span className="font-mono text-[9px] tracking-widest text-[var(--plasma-bright)]">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--void-1)] border border-[var(--glass-border)] whitespace-nowrap">
+                  <span className="font-mono text-[9px] tracking-widest" style={{ color: isPast ? 'var(--accent-reward)' : 'var(--plasma-bright)' }}>
                     {level.num}
                   </span>
                   <span className="font-mono text-[10px] tracking-wider text-[var(--ink-dim)]">
                     {level.label}
                   </span>
+                  {isPast && !isActive && (
+                    <span className="text-[9px]" style={{ color: 'var(--accent-reward)' }}>✓</span>
+                  )}
                 </div>
               </div>
             </button>

@@ -1,47 +1,40 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useInView } from 'framer-motion'
 
-const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&*'
+const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%'
 
-export default function TextScramble({ text, className = '', as = 'span', delay = 0 }) {
+export default function TextScramble({ children, className = '', tag: Tag = 'span' }) {
+  const text = typeof children === 'string' ? children : ''
   const ref = useRef(null)
-  const inView = useInView(ref, { once: true, margin: '-10%' })
-  const [display, setDisplay] = useState('')
+  const inView = useInView(ref, { once: true, margin: '-15%' })
+  const [display, setDisplay] = useState(text)
+  const hasRun = useRef(false)
 
   useEffect(() => {
-    if (!inView) return
-
+    if (!inView || hasRun.current || !text) return
+    hasRun.current = true
     let frame = 0
-    const totalFrames = 28
-    const timer = setTimeout(() => {
-      const interval = setInterval(() => {
-        frame++
-        const progress = frame / totalFrames
-        const resolved = Math.floor(progress * text.length)
-        const result = text
+    const totalFrames = text.length + 10
+    const interval = setInterval(() => {
+      frame++
+      setDisplay(
+        text
           .split('')
           .map((char, i) => {
-            if (i < resolved) return char
             if (char === ' ') return ' '
+            if (frame > i + 5) return char
             return CHARS[Math.floor(Math.random() * CHARS.length)]
           })
           .join('')
-        setDisplay(result)
-        if (frame >= totalFrames) {
-          clearInterval(interval)
-          setDisplay(text)
-        }
-      }, 30)
-      return () => clearInterval(interval)
-    }, delay * 1000)
+      )
+      if (frame >= totalFrames) clearInterval(interval)
+    }, 30)
+    return () => clearInterval(interval)
+  }, [inView, text])
 
-    return () => clearTimeout(timer)
-  }, [inView, text, delay])
-
-  const Tag = as
   return (
     <Tag ref={ref} className={className}>
-      {display || ' '}
+      {display}
     </Tag>
   )
 }

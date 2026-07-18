@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, useScroll, useSpring, useTransform } from 'framer-motion'
 import { useSmoothScroll } from '../../contexts/SmoothScrollContext.jsx'
 import { useSound } from '../../contexts/SoundContext.jsx'
 import MagneticButton from './MagneticButton.jsx'
 import ThemeToggle from './ThemeToggle.jsx'
+import MorphLink from './MorphLink.jsx'
+import { SparkCounter } from './SparkHunt.jsx'
 
 const LINKS = [
   { id: 'about', label: 'About' },
@@ -11,15 +13,22 @@ const LINKS = [
   { id: 'skills', label: 'Skills' },
   { id: 'projects', label: 'Work' },
   { id: 'timeline', label: 'Journey' },
+  { id: 'how-i-build', label: 'Process' },
   { id: 'contact', label: 'Contact' },
 ]
+
+const RING_R = 18
+const RING_C = 2 * Math.PI * RING_R
 
 export default function Navbar() {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState('')
   const scroll = useSmoothScroll()
   const sound = useSound()
-  const progress = scroll?.progress ?? 0
+  // Motion values update the SVG directly — no React re-render per scroll frame
+  const { scrollYProgress } = useScroll()
+  const smoothProgress = useSpring(scrollYProgress, { stiffness: 240, damping: 36, mass: 0.3 })
+  const ringOffset = useTransform(smoothProgress, [0, 1], [RING_C, 0])
 
   useEffect(() => {
     const sections = LINKS.map((l) => document.getElementById(l.id)).filter(Boolean)
@@ -50,12 +59,9 @@ export default function Navbar() {
     sound?.setMuted((v) => !v)
   }
 
-  const r = 18
-  const circumference = 2 * Math.PI * r
-
   return (
     <header
-      className="fixed top-0 left-0 right-0 container-px py-4 flex items-center justify-between backdrop-blur-md bg-[color-mix(in_oklch,var(--void-0)_70%,transparent)] border-b border-white/5"
+      className="fixed top-0 left-0 right-0 container-px py-4 flex items-center justify-between progressive-blur bg-[color-mix(in_oklch,var(--void-0)_70%,transparent)] border-b border-[var(--glass-border)]"
       style={{ zIndex: 'var(--z-nav)' }}
     >
       <a href="#hero" data-cursor="view" className="font-display text-sm tracking-wide text-[var(--ink)]">
@@ -69,41 +75,75 @@ export default function Navbar() {
             data-cursor="view"
             onClick={() => goTo(l.id)}
             onMouseEnter={() => sound?.play('hover')}
-            className={`uppercase transition-colors duration-300 ${
-              active === l.id ? 'text-[var(--plasma-bright)]' : 'text-[var(--ink-dim)] hover:text-[var(--ink)]'
+            className={`uppercase ${
+              active === l.id ? 'text-[var(--plasma-bright)]' : ''
             }`}
           >
-            {l.label}
+            <MorphLink className={active === l.id ? 'text-[var(--plasma-bright)]' : ''}>
+              {l.label}
+            </MorphLink>
           </button>
         ))}
+        <div className="relative">
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('forge:open-arcade'))}
+            data-cursor="view"
+            className="arcade-nav-btn group relative px-3 py-1.5 rounded-full font-mono text-[11px] tracking-wider flex items-center gap-1.5 transition-all duration-300"
+          >
+            <span className="relative z-10 flex items-center gap-1.5">
+              <span className="arcade-nav-icon text-[13px]">🎮</span>
+              <span className="arcade-nav-text">ARCADE</span>
+              <span className="arcade-nav-dot w-1 h-1 rounded-full bg-emerald-400 shadow-[0_0_6px_rgb(52,211,153)]" />
+            </span>
+          </button>
+          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 pointer-events-none">
+            <div className="bg-[var(--void-1)] border border-[var(--plasma-dim)] rounded-xl p-3 shadow-2xl min-w-[180px]">
+              <p className="font-mono text-[8px] tracking-[0.25em] text-[var(--plasma-bright)] mb-2 text-center">5 GAMES</p>
+              <div className="space-y-1">
+                {[
+                  { icon: '🏃', label: 'Forge Runner' },
+                  { icon: '🎲', label: 'Ludo: Recruiter' },
+                  { icon: '🪜', label: 'Snakes & CV' },
+                  { icon: '🧠', label: 'Memory Match' },
+                  { icon: '🐍', label: 'Snake Classic' },
+                ].map((g) => (
+                  <div key={g.label} className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-[var(--void-2)] transition-colors">
+                    <span className="text-[11px]">{g.icon}</span>
+                    <span className="font-mono text-[9px] text-[var(--ink-dim)]">{g.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       </nav>
 
       <div className="flex items-center gap-4">
+        <SparkCounter />
         <ThemeToggle />
 
         <button
           onClick={toggleMute}
           data-cursor="view"
           aria-label={sound?.muted ? 'Unmute sound' : 'Mute sound'}
-          className="w-8 h-8 rounded-full border border-white/15 bg-[var(--void-2)] flex items-center justify-center hover:border-[var(--plasma-dim)] transition-colors duration-300 font-mono text-[9px] text-[var(--ink-dim)]"
+          className="w-8 h-8 rounded-full border border-[var(--glass-border)] bg-[var(--void-2)] flex items-center justify-center hover:border-[var(--plasma-dim)] transition-colors duration-300 font-mono text-[9px] text-[var(--ink-dim)]"
         >
           {sound?.muted ? 'OFF' : 'ON'}
         </button>
 
         <svg width="40" height="40" className="hidden md:block">
-          <circle cx="20" cy="20" r={r} fill="none" stroke="var(--void-3)" strokeWidth="2" />
-          <circle
+          <circle cx="20" cy="20" r={RING_R} fill="none" stroke="var(--void-3)" strokeWidth="2" />
+          <motion.circle
             cx="20"
             cy="20"
-            r={r}
+            r={RING_R}
             fill="none"
             stroke="var(--plasma)"
             strokeWidth="2"
-            strokeDasharray={circumference}
-            strokeDashoffset={circumference * (1 - progress)}
+            strokeDasharray={RING_C}
             strokeLinecap="round"
             transform="rotate(-90 20 20)"
-            style={{ transition: 'stroke-dashoffset 0.1s linear' }}
+            style={{ strokeDashoffset: ringOffset }}
           />
         </svg>
 
@@ -134,7 +174,7 @@ export default function Navbar() {
         initial={false}
         animate={{ height: open ? 'auto' : 0, opacity: open ? 1 : 0 }}
         transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        className="md:hidden absolute top-full left-0 right-0 overflow-hidden bg-[var(--void-0)] border-b border-white/5"
+        className="md:hidden absolute top-full left-0 right-0 overflow-hidden bg-[var(--void-0)] border-b border-[var(--glass-border)]"
       >
         <div className="flex flex-col p-6 gap-4">
           {LINKS.map((l, i) => (

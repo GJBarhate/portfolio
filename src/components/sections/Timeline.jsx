@@ -2,17 +2,20 @@ import { useRef } from 'react'
 import { motion, useScroll, useTransform } from 'framer-motion'
 import Reveal from '../ui/Reveal.jsx'
 import { TIMELINE } from '../../lib/content.js'
+import { Spark } from '../ui/SparkHunt.jsx'
 
 export default function Timeline() {
   const ref = useRef(null)
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start 80%', 'end 60%'] })
   const lineHeight = useTransform(scrollYProgress, [0, 1], ['0%', '100%'])
+  const dashOffset = useTransform(scrollYProgress, [0, 1], [800, 0])
 
   return (
-    <section id="timeline" className="relative py-32 container-px mesh-gradient-a overflow-hidden">
+    <section id="timeline" className="relative section-rhythm container-px mesh-gradient-a overflow-hidden melt-enter">
       <span className="ghost-numeral" aria-hidden="true">05</span>
+      <div className="absolute top-[30%] right-[6%]"><Spark id="spark-timeline" /></div>
 
-      <div className="relative z-[1]">
+      <div className="relative z-[1] section-shell">
         <Reveal>
           <span className="level-badge mb-4">05 — EXPERIENCE</span>
         </Reveal>
@@ -22,12 +25,27 @@ export default function Timeline() {
           </h2>
         </Reveal>
 
-        <div ref={ref} className="relative max-w-3xl ml-2 md:ml-10">
+        <div ref={ref} className="relative max-w-3xl ml-4 md:ml-10">
+          {/* Track background */}
           <div className="absolute left-0 top-0 bottom-0 w-px bg-[var(--void-3)]" />
+          {/* Gradient fill line */}
           <motion.div
             className="absolute left-0 top-0 w-px bg-gradient-to-b from-[var(--plasma)] via-[var(--cyan)] to-[var(--plasma)]"
             style={{ height: lineHeight, boxShadow: '0 0 12px var(--plasma), 0 0 4px var(--cyan)' }}
           />
+          {/* Self-drawing SVG path — scroll-scrubbed stroke dash offset */}
+          <svg className="absolute left-0 top-0 w-full h-full pointer-events-none" aria-hidden="true">
+            <motion.line
+              x1="0" y1="0" x2="0"
+              y2="100%"
+              stroke="var(--plasma-bright)"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeDasharray="800 20"
+              opacity="0.3"
+              style={{ strokeDashoffset: dashOffset }}
+            />
+          </svg>
 
           <div className="flex flex-col gap-16">
             {TIMELINE.map((item, i) => (

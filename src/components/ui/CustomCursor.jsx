@@ -1,82 +1,99 @@
 import { useEffect, useRef } from 'react'
 import { useIsMobile } from '../../lib/useIsMobile.js'
 
-const TRAIL_COUNT = 4
+const TRAIL_COUNT = 5
+
+const THEME_COLORS = {
+  forest:  { trail: '#6a9955', dot: '#e8a23d' },
+  ocean:   { trail: '#8fb8d9', dot: '#b8d0e0' },
+  golden:  { trail: '#e0b35c', dot: '#fff3d6' },
+  dawn:    { trail: '#d9a85e', dot: '#fff8e8' },
+  obsidian:{ trail: '#d4b876', dot: '#f0e0b8' },
+}
 
 export default function CustomCursor() {
   const dotRef = useRef(null)
-  const ringRef = useRef(null)
-  const labelRef = useRef(null)
   const trailRefs = useRef([])
   const isMobile = useIsMobile()
 
+  const reducedMotion =
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
+  const disabled =
+    typeof document !== 'undefined' &&
+    (document.documentElement.getAttribute('data-cursor-disabled') === 'true' ||
+      document.documentElement.hasAttribute('data-no-custom-cursor'))
+
   useEffect(() => {
-    if (isMobile) return
+    if (isMobile || disabled || reducedMotion) return
 
     const dot = dotRef.current
-    const ring = ringRef.current
-    const label = labelRef.current
     const trails = trailRefs.current
+    if (!dot) return
+
+    document.documentElement.style.cursor = 'none'
+    document.querySelectorAll('canvas, iframe, video, [data-cursor-restore]').forEach((el) => {
+      el.style.cursor = 'auto'
+    })
+
+    const applyTheme = () => {
+      const theme = document.documentElement.getAttribute('data-theme') || 'forest'
+      const c = THEME_COLORS[theme] || THEME_COLORS.forest
+      if (dot) dot.style.background = c.dot
+      trails.forEach((t) => {
+        if (t) t.style.background = c.trail
+      })
+    }
+    applyTheme()
 
     let mouseX = window.innerWidth / 2
     let mouseY = window.innerHeight / 2
-    let ringX = mouseX
-    let ringY = mouseY
-    const stiffness = 0.18
-
     const trailPositions = trails.map(() => ({ x: mouseX, y: mouseY }))
+    let raf
+
+    const observer = new MutationObserver(applyTheme)
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
 
     const onMove = (e) => {
       mouseX = e.clientX
       mouseY = e.clientY
       dot.style.transform = `translate3d(${mouseX}px, ${mouseY}px, 0) translate(-50%, -50%)`
+      dot.style.opacity = '1'
     }
+
     window.addEventListener('mousemove', onMove)
 
-    let raf
     const tick = () => {
-      ringX += (mouseX - ringX) * stiffness
-      ringY += (mouseY - ringY) * stiffness
-      ring.style.transform = `translate3d(${ringX}px, ${ringY}px, 0) translate(-50%, -50%)`
-
       for (let i = 0; i < trails.length; i++) {
         const target = i === 0 ? { x: mouseX, y: mouseY } : trailPositions[i - 1]
-        const ease = 0.12 - i * 0.02
+        const ease = 0.12 - i * 0.018
         trailPositions[i].x += (target.x - trailPositions[i].x) * ease
         trailPositions[i].y += (target.y - trailPositions[i].y) * ease
         trails[i].style.transform = `translate3d(${trailPositions[i].x}px, ${trailPositions[i].y}px, 0) translate(-50%, -50%)`
-        trails[i].style.opacity = String(0.3 - i * 0.06)
+        trails[i].style.opacity = String(0.35 - i * 0.06)
       }
-
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
 
-    const handleEnter = (e) => {
-      const target = e.target.closest('[data-cursor]')
-      if (!target) return
-      const variant = target.getAttribute('data-cursor')
-      ring.dataset.variant = variant
-      if (label) label.textContent = variant.toUpperCase()
-    }
-    const handleLeave = (e) => {
-      const target = e.target.closest('[data-cursor]')
-      if (!target) return
-      delete ring.dataset.variant
-      if (label) label.textContent = ''
-    }
-    document.addEventListener('mouseover', handleEnter)
-    document.addEventListener('mouseout', handleLeave)
+    const onLeave = () => { dot.style.opacity = '0'; trails.forEach(t => t.style.opacity = '0') }
+    const onEnter = () => { dot.style.opacity = '1' }
+
+    document.addEventListener('mouseleave', onLeave)
+    document.addEventListener('mouseenter', onEnter)
 
     return () => {
-      window.removeEventListener('mousemove', onMove)
-      document.removeEventListener('mouseover', handleEnter)
-      document.removeEventListener('mouseout', handleLeave)
       cancelAnimationFrame(raf)
+      observer.disconnect()
+      window.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseleave', onLeave)
+      document.removeEventListener('mouseenter', onEnter)
+      document.documentElement.style.cursor = ''
     }
-  }, [isMobile])
+  }, [isMobile, disabled, reducedMotion])
 
-  if (isMobile) return null
+  if (isMobile || disabled || reducedMotion) return null
 
   return (
     <div className="pointer-events-none fixed inset-0" style={{ zIndex: 'var(--z-cursor)' }}>
@@ -85,24 +102,10 @@ export default function CustomCursor() {
           key={i}
           ref={(el) => (trailRefs.current[i] = el)}
           className="cursor-trail"
-          style={{ width: 6 - i, height: 6 - i }}
+          style={{ width: 6 - i * 0.6, height: 6 - i * 0.6, filter: `blur(${1 + i * 0.5}px)` }}
         />
       ))}
-      <div
-        ref={dotRef}
-        className="fixed top-0 left-0 w-1.5 h-1.5 rounded-full bg-[var(--ink)]"
-        style={{ mixBlendMode: 'difference' }}
-      />
-      <div
-        ref={ringRef}
-        className="cursor-ring fixed top-0 left-0 w-10 h-10 rounded-full border border-[var(--plasma)] flex items-center justify-center transition-[width,height,opacity] duration-300"
-        style={{ willChange: 'transform' }}
-      >
-        <span ref={labelRef} className="text-[8px] font-mono tracking-widest text-[var(--plasma-bright)]" />
-      </div>
-      <style>{`
-        .cursor-ring[data-variant] { width: 64px; height: 64px; background: color-mix(in oklch, var(--plasma) 15%, transparent); border-color: var(--cyan); }
-      `}</style>
+      <div ref={dotRef} className="cursor-dot" />
     </div>
   )
 }

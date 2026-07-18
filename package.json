@@ -12,12 +12,11 @@
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
     "framer-motion": "^11.11.17",
-    "gsap": "^3.12.5",
-    "howler": "^2.2.4",
     "lenis": "^1.1.18",
+    "matter-js": "^0.20.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "split-type": "^0.3.4"
+    "three": "^0.185.1"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",

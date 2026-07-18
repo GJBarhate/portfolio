@@ -1,11 +1,13 @@
-import { useRef, useState } from 'react'
+﻿import { useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import emailjs from '@emailjs/browser'
 import Reveal from '../ui/Reveal.jsx'
 import MagneticButton from '../ui/MagneticButton.jsx'
+import MagneticTilt from '../ui/MagneticTilt.jsx'
 import { SOCIALS } from '../../lib/content.js'
 import { useSpotlight } from '../../hooks/useSpotlight.js'
 import { EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, EMAILJS_PUBLIC_KEY } from '../../lib/emailConfig.js'
+// Spark moved to footer wordmark per plan §3.3
 import leetcodeShot from '../../assets/social/leetcode-profile.webp'
 import codechefShot from '../../assets/social/codechef-profile.webp'
 import linkedinShot from '../../assets/social/linkedin-profile.webp'
@@ -14,7 +16,7 @@ import resumeShot from '../../assets/social/resume-preview.webp'
 
 const PLATFORMS = [
   { label: 'GitHub', value: '18+ Repos', href: SOCIALS.github, color: '#9aa5b1', shot: githubShot, tag: 'OPEN SOURCE' },
-  { label: 'LeetCode', value: 'Knight Rank · 1909 Rated', href: SOCIALS.leetcode, color: '#ffa116', shot: leetcodeShot, tag: '600+ SOLVED' },
+  { label: 'LeetCode', value: 'Knight Rank · 1972 Max Rating', href: SOCIALS.leetcode, color: '#ffa116', shot: leetcodeShot, tag: '800+ SOLVED' },
   { label: 'CodeChef', value: '4★ Coder · gaurav_jb', href: SOCIALS.codechef, color: '#d68f4c', shot: codechefShot, tag: 'RATING 1830' },
   { label: 'LinkedIn', value: 'IIIT Vadodara · CSE Graduate \'26', href: SOCIALS.linkedin, color: '#3b9eef', shot: linkedinShot, tag: 'CONNECT' },
   { label: 'Resume', value: 'Full Build Log · PDF', href: '/Gaurav_Resume.pdf', color: 'var(--plasma)', shot: resumeShot, tag: 'DOWNLOAD' },
@@ -57,7 +59,7 @@ function PlatformCard({ platform, index }) {
         className="group relative rounded-[26px] overflow-hidden block p-[1.5px]"
         style={{ transformStyle: 'preserve-3d' }}
       >
-        {/* Rotating gradient ring border — revealed on hover */}
+        {/* Rotating gradient ring border â€” revealed on hover */}
         <span
           className="absolute -inset-[40%] opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-[spin_4s_linear_infinite]"
           style={{
@@ -139,15 +141,16 @@ export default function Contact() {
   }
 
   return (
-    <section id="contact" className="relative py-32 container-px mesh-gradient-b overflow-hidden">
-      <span className="ghost-numeral" aria-hidden="true">06</span>
+    <section id="contact" className="relative section-rhythm container-px mesh-gradient-b overflow-hidden">
+      <span className="ghost-numeral" aria-hidden="true">07</span>
+      {/* Spark moved to footer wordmark */}
 
-      <div className="relative z-[1]">
+      <div className="relative z-[1] section-shell">
         <Reveal>
-          <span className="level-badge mb-4">06 — CONTACT</span>
+          <span className="level-badge mb-4">07 — CONTACT</span>
         </Reveal>
         <Reveal delay={0.1}>
-          <h2 className="font-display text-[clamp(2.5rem,8vw,6rem)] leading-[0.95] mb-16 max-w-4xl">
+          <h2 className="font-display text-[clamp(2.5rem,8vw,6rem)] leading-[0.95] mb-12 max-w-4xl">
             Get in <span className="text-gradient">touch.</span>
           </h2>
         </Reveal>
@@ -186,7 +189,7 @@ export default function Contact() {
                     value={values[f.name]}
                     onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
                     placeholder=" "
-                    className="w-full bg-transparent border-b border-white/15 py-3 outline-none focus:border-[var(--plasma)] transition-colors duration-300 peer disabled:opacity-50"
+                    className="w-full bg-transparent border-b border-[var(--glass-border)] py-3 outline-none focus:border-[var(--plasma)] transition-colors duration-300 peer disabled:opacity-50"
                   />
                   <label className="absolute left-0 top-3 text-[var(--ink-faint)] text-sm pointer-events-none transition-all duration-300 peer-focus:-translate-y-5 peer-focus:text-xs peer-focus:text-[var(--plasma-bright)] peer-[&:not(:placeholder-shown)]:-translate-y-5 peer-[&:not(:placeholder-shown)]:text-xs">
                     {f.label}
@@ -202,25 +205,27 @@ export default function Contact() {
                   value={values.from_message}
                   onChange={(e) => setValues((v) => ({ ...v, from_message: e.target.value }))}
                   placeholder=" "
-                  className="w-full bg-transparent border-b border-white/15 py-3 outline-none focus:border-[var(--plasma)] transition-colors duration-300 resize-none peer disabled:opacity-50"
+                  className="w-full bg-transparent border-b border-[var(--glass-border)] py-3 outline-none focus:border-[var(--plasma)] transition-colors duration-300 resize-none peer disabled:opacity-50"
                 />
                 <label className="absolute left-0 top-3 text-[var(--ink-faint)] text-sm pointer-events-none transition-all duration-300 peer-focus:-translate-y-5 peer-focus:text-xs peer-focus:text-[var(--plasma-bright)] peer-[&:not(:placeholder-shown)]:-translate-y-5 peer-[&:not(:placeholder-shown)]:text-xs">
                   Message
                 </label>
               </div>
 
-              <MagneticButton
-                as="button"
-                type="submit"
-                data-cursor="send"
-                disabled={status === 'sending'}
-                className="w-full px-7 py-4 rounded-full bg-[var(--plasma)] text-[var(--void-0)] font-medium shadow-[0_0_32px_color-mix(in_oklch,var(--plasma)_40%,transparent)] hover:shadow-[0_0_56px_color-mix(in_oklch,var(--plasma)_50%,transparent)] transition-shadow duration-500 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {status === 'sending' && (
-                  <span className="w-4 h-4 rounded-full border-2 border-[var(--void-0)]/30 border-t-[var(--void-0)] animate-spin" aria-hidden="true" />
-                )}
-                {status === 'sending' ? 'Sending…' : status === 'success' ? 'Sent — thank you!' : 'Send Message'}
-              </MagneticButton>
+              <MagneticTilt>
+                <MagneticButton
+                  as="button"
+                  type="submit"
+                  data-cursor="send"
+                  disabled={status === 'sending'}
+                  className="w-full px-7 py-4 rounded-full bg-[var(--plasma)] text-[var(--void-0)] font-medium shadow-[0_0_32px_color-mix(in_oklch,var(--plasma)_40%,transparent)] hover:shadow-[0_0_56px_color-mix(in_oklch,var(--plasma)_50%,transparent)] transition-shadow duration-500 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {status === 'sending' && (
+                    <span className="w-4 h-4 rounded-full border-2 border-[var(--void-0)]/30 border-t-[var(--void-0)] animate-spin" aria-hidden="true" />
+                  )}
+                  {status === 'sending' ? 'Sending…' : status === 'success' ? 'Sent — thank you!' : 'Send Message'}
+                </MagneticButton>
+              </MagneticTilt>
 
               <AnimatePresence mode="wait">
                 {status === 'success' && (
@@ -259,14 +264,15 @@ export default function Contact() {
   )
 }
 
-function ContactLink({ label, value, href, external }) {
+function ContactLink({ label, value, href }) {
+  const external = typeof href === 'string' && !href.startsWith('mailto:') && !href.startsWith('tel:')
   return (
     <a
       href={href}
       target={external ? '_blank' : undefined}
       rel={external ? 'noopener noreferrer' : undefined}
       data-cursor="view"
-      className="group flex items-center justify-between border-b border-white/8 pb-4 hover:border-[var(--plasma-dim)] transition-colors duration-300"
+      className="group flex items-center justify-between border-b border-[var(--glass-border)] pb-4 hover:border-[var(--plasma-dim)] transition-colors duration-300"
     >
       <span className="font-mono text-xs tracking-widest text-[var(--ink-faint)]">{label}</span>
       <motion.span

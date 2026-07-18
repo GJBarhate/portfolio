@@ -6,6 +6,7 @@ import RatingGraph from '../ui/RatingGraph.jsx'
 import ContributionHeatmap from '../ui/ContributionHeatmap.jsx'
 import { STATS, SOCIALS } from '../../lib/content.js'
 import { useSpotlight } from '../../hooks/useSpotlight.js'
+import { Spark } from '../ui/SparkHunt.jsx'
 
 export default function PlayerStats() {
   const achievementRef = useRef(null)
@@ -13,10 +14,11 @@ export default function PlayerStats() {
   const spotlight = useSpotlight()
 
   return (
-    <section id="stats" className="relative py-32 container-px mesh-gradient-b overflow-hidden">
+    <section id="stats" className="relative section-rhythm container-px mesh-gradient-b overflow-hidden">
       <span className="ghost-numeral" aria-hidden="true">02</span>
+      <div className="absolute top-[20%] right-[8%]"><Spark id="spark-stats" /></div>
 
-      <div className="relative z-[1]">
+      <div className="relative z-[1] section-shell">
         <Reveal>
           <span className="level-badge mb-4">02 — TRACK RECORD</span>
         </Reveal>
@@ -26,10 +28,10 @@ export default function PlayerStats() {
           </h2>
         </Reveal>
 
-        {/* Headline result */}
+        {/* Headline stat */}
         <div
           ref={achievementRef}
-          className="relative mb-16 overflow-hidden rounded-2xl glass glass-glow p-8 md:p-10 border-[var(--plasma-dim)] spotlight sheen"
+          className="relative mb-16 overflow-hidden rounded-2xl glass glass-glow p-8 md:p-10 border-[var(--plasma-dim)] spotlight sheen sheen--auto"
           {...spotlight}
         >
           <motion.div
@@ -59,7 +61,7 @@ export default function PlayerStats() {
             animate={achievementInView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.7, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
           >
-            LeetCode Knight — Rating <CountUp value={1909} />
+            LeetCode Knight — Max Rating <CountUp value={1972} />
           </motion.h3>
           <motion.p
             className="text-[var(--ink-dim)] mt-2 relative z-10 max-w-lg"
@@ -67,7 +69,8 @@ export default function PlayerStats() {
             animate={achievementInView ? { opacity: 1 } : {}}
             transition={{ duration: 0.6, delay: 0.4 }}
           >
-            Reached over dozens of rated contests, placing in the top percentile.
+            Earned over dozens of rated contests — best global ranks include 659 and 883 in
+            LeetCode Biweekly Contests, and 132 in CodeChef Starters (Div 2).
           </motion.p>
         </div>
 
@@ -107,7 +110,7 @@ function StatCard({ stat }) {
   const spotlight = useSpotlight()
   return (
     <div
-      className="relative group h-full p-6 rounded-2xl glass glass-glow spotlight sheen overflow-hidden transition-transform duration-400 [transition-timing-function:var(--ease-forge)] hover:-translate-y-1.5"
+      className="relative group h-full p-6 rounded-2xl glass glass-glow spotlight sheen sheen--auto overflow-hidden transition-transform duration-400 [transition-timing-function:var(--ease-forge)] hover:-translate-y-1.5"
       {...spotlight}
     >
       <div

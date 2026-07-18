@@ -3,20 +3,20 @@ export const SOCIALS = {
   leetcode: 'https://leetcode.com/u/chgyCygKwQ/',
   codechef: 'https://www.codechef.com/users/gaurav_jb',
   linkedin: 'https://www.linkedin.com/in/gaurav-barhate-056175271/',
-  email: 'gauravjbarhate554@gmail.com',
+  email: 'gauravbarhate55@gmail.com',
   phone: '+91 93733 27427',
 }
 
 export const STATS = [
-  { label: 'LeetCode Rating', value: 1909, suffix: '', tag: 'Knight Rank', accent: 'plasma' },
-  { label: 'Problems Solved', value: 600, suffix: '+', tag: 'LeetCode, CodeChef, GFG', accent: 'cyan' },
-  { label: 'Projects Deployed', value: 2, suffix: '', tag: 'Live in production', accent: 'plasma' },
+  { label: 'LeetCode Max Rating', value: 1972, suffix: '', tag: 'Knight Rank', accent: 'plasma' },
+  { label: 'Problems Solved', value: 800, suffix: '+', tag: 'LeetCode, CodeChef, GFG', accent: 'cyan' },
+  { label: 'Projects Deployed', value: 5, suffix: '+', tag: 'Live in production', accent: 'plasma' },
   { label: 'Real-time Technologies Used', value: 5, suffix: '', tag: 'WebSockets, WebRTC, CRDT', accent: 'cyan' },
 ]
 
 export const RATING_HISTORY = [
   1200, 1320, 1410, 1380, 1520, 1610, 1590, 1700, 1755, 1690,
-  1800, 1860, 1820, 1900, 1875, 1909,
+  1800, 1860, 1820, 1909, 1875, 1930, 1902, 1972,
 ]
 
 export const SKILLS = [
@@ -82,6 +82,42 @@ export const PROJECTS = [
     live: 'https://flowshield-delta.vercel.app/login',
     repo: 'https://github.com/GJBarhate/flowshield',
   },
+  {
+    id: 'voiceans',
+    title: 'VoiceAns',
+    tagline: 'AI voice interview coach',
+    description:
+      'A real-time interview coach powered by Google Gemini. Tap the mic and ask a question out loud — speech is transcribed in the browser, shown for review and editing, then answered by Gemini as structured, interview-ready bullet points. Includes typed input, chat history, user profiles, and light/dark themes.',
+    tech: ['React', 'Node.js', 'Express', 'Gemini AI', 'Web Speech API', 'MongoDB', 'JWT', 'Tailwind CSS'],
+    accent: '#34d399',
+    images: ['voiceans-landing.webp', 'voiceans-question.webp', 'voiceans-history.webp'],
+    live: 'https://voice-ans-frontend.vercel.app/',
+    repo: 'https://github.com/GJBarhate/voice-ans',
+  },
+  {
+    id: 'onecart',
+    title: 'OneCart',
+    tagline: 'AI-powered e-commerce platform',
+    description:
+      'A full-stack e-commerce store with product collections, category and sub-category filters, search, and sorting. Shoppers manage a cart with size selection, check out, and track orders through a dedicated orders page. Includes JWT authentication, an admin panel for product management, and an integrated AI shopping assistant.',
+    tech: ['React', 'Node.js', 'Express', 'MongoDB', 'JWT Auth', 'AI Assistant', 'REST API', 'Tailwind CSS'],
+    accent: '#f59e0b',
+    images: ['onecart-home.webp', 'onecart-collections.webp', 'onecart-cart.webp', 'onecart-orders.webp'],
+    live: 'https://ai-powered-ecommerce-platform-frontendone.onrender.com/',
+    repo: 'https://github.com/GJBarhate/ai-powered-ecommerce-platform',
+  },
+  {
+    id: 'lms',
+    title: 'Virtual Courses',
+    tagline: 'Learning management system',
+    description:
+      'A learning management system with separate student and educator roles. Educators publish and manage courses; students browse a catalog spanning web development, AI/ML, data science and more, search courses with AI, enroll, and learn through structured lectures. Supports email and Google sign-in with role-based access.',
+    tech: ['React', 'Node.js', 'Express', 'MongoDB', 'Google OAuth', 'JWT', 'AI Search', 'REST API'],
+    accent: '#f472b6',
+    images: ['lms-landing.webp', 'lms-courses.webp', 'lms-signup.webp'],
+    live: 'https://learning-management-system-frontend-tx7b.onrender.com/signup',
+    repo: 'https://github.com/GJBarhate/learning-management-system',
+  },
 ]
 
 export const TIMELINE = [
@@ -107,7 +143,7 @@ export const TIMELINE = [
   },
   {
     year: '2026',
-    title: 'Reached LeetCode Knight, graduated, shipped PeerCode & FlowShield',
-    desc: 'Reached a peak rating of 1909 on LeetCode, placing in the Knight tier. Completed my B.Tech in Computer Science, and built and deployed PeerCode and FlowShield to production.',
+    title: 'Reached LeetCode Knight, graduated, shipped 5+ production apps',
+    desc: 'Reached a peak rating of 1972 on LeetCode, placing in the Knight tier with 800+ problems solved. Completed my B.Tech in Computer Science, and built and deployed PeerCode, FlowShield, VoiceAns, OneCart, and a full LMS to production.',
   },
 ]

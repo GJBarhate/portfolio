@@ -3,7 +3,7 @@ import { ACHIEVEMENTS, TOTAL_XP, getAchievement } from '../lib/achievements.js'
 
 const GameContext = createContext(null)
 const STORAGE_KEY = 'forge-progress'
-const SECTION_IDS = ['about', 'stats', 'skills', 'projects', 'timeline', 'contact']
+const SECTION_IDS = ['about', 'stats', 'skills', 'projects', 'timeline', 'how-i-build', 'contact']
 
 function loadProgress() {
   try {

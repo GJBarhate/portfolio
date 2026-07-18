@@ -30,7 +30,7 @@ export default function NowStatus() {
         <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
       </span>
       <span className="text-[var(--ink-dim)]">{time} IST</span>
-      <span className="w-px h-3 bg-white/10" />
+      <span className="w-px h-3 bg-[var(--glass-border)]" />
       <span>OPEN TO WORK</span>
     </motion.div>
   )

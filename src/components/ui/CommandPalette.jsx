@@ -12,6 +12,7 @@ const ACTIONS = [
   { id: 'projects', label: 'Go to Projects', icon: '04', section: 'projects' },
   { id: 'timeline', label: 'Go to Journey', icon: '05', section: 'timeline' },
   { id: 'contact', label: 'Go to Contact', icon: '06', section: 'contact' },
+  { id: 'arcade', label: 'Open Arcade', icon: 'AC', openArcade: true },
   { id: 'resume', label: 'Download Resume', icon: 'DL', href: '/Gaurav_Resume.pdf' },
   { id: 'github', label: 'Open GitHub', icon: 'GH', href: SOCIALS.github },
   { id: 'leetcode', label: 'Open LeetCode', icon: 'LC', href: SOCIALS.leetcode },
@@ -20,12 +21,13 @@ const ACTIONS = [
   { id: 'theme-ocean', label: 'Theme: Serene Ocean', icon: 'TH', theme: 'ocean' },
   { id: 'theme-golden', label: 'Theme: Golden Hour', icon: 'TH', theme: 'golden' },
   { id: 'theme-dawn', label: 'Theme: Dawn', icon: 'TH', theme: 'dawn' },
+  { id: 'theme-obsidian', label: 'Theme: Obsidian', icon: 'TH', theme: 'obsidian' },
   { id: 'sound', label: 'Toggle Sound', icon: 'SN', toggleSound: true },
   { id: 'game', label: 'Play Hidden Protocol', icon: 'GM', playGame: true },
   { id: 'top', label: 'Back to Top', icon: '^^', scrollTop: true },
 ]
 
-export default function CommandPalette({ onPlayGame }) {
+export default function CommandPalette({ onPlayGame, onOpenArcade }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState(0)
@@ -73,6 +75,8 @@ export default function CommandPalette({ onPlayGame }) {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } else if (action.playGame) {
       onPlayGame?.()
+    } else if (action.openArcade) {
+      onOpenArcade?.()
     }
   }
 
@@ -108,7 +112,7 @@ export default function CommandPalette({ onPlayGame }) {
             exit={{ opacity: 0, y: -20, scale: 0.96 }}
             transition={{ duration: 0.25, ease: EASE_FORGE }}
           >
-            <div className="flex items-center gap-3 px-5 py-4 border-b border-white/8">
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-[var(--glass-border)]">
               <span className="text-[var(--ink-faint)] text-sm">&#9906;</span>
               <input
                 ref={inputRef}
@@ -119,7 +123,7 @@ export default function CommandPalette({ onPlayGame }) {
                 placeholder="Type a command…"
                 className="flex-1 bg-transparent text-sm text-[var(--ink)] outline-none placeholder:text-[var(--ink-faint)]"
               />
-              <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-white/15 text-[var(--ink-faint)]">ESC</kbd>
+              <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-[var(--glass-border)] text-[var(--ink-faint)]">ESC</kbd>
             </div>
             <div className="max-h-[50vh] overflow-y-auto py-2">
               {filtered.length === 0 && (

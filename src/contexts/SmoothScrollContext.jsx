@@ -1,48 +1,63 @@
-import { createContext, useContext, useEffect, useRef, useState } from 'react'
-import Lenis from 'lenis'
-import gsap from 'gsap'
+import { createContext, useContext, useEffect, useMemo, useRef } from 'react'
 import { useReducedMotion } from '../lib/useReducedMotion.js'
 
 const SmoothScrollContext = createContext(null)
 
 export function SmoothScrollProvider({ children }) {
   const lenisRef = useRef(null)
-  const [progress, setProgress] = useState(0)
   const reduced = useReducedMotion()
 
   useEffect(() => {
     if (reduced) return
 
-    const lenis = new Lenis({
-      duration: 1.1,
-      easing: (t) => 1 - Math.pow(1 - t, 4),
-      smoothWheel: true,
-      wheelMultiplier: 1,
-      touchMultiplier: 1.4,
-    })
-    lenisRef.current = lenis
+    let rafId
+    let cancelled = false
 
-    lenis.on('scroll', ({ scroll, limit }) => {
-      setProgress(limit > 0 ? scroll / limit : 0)
-      document.documentElement.style.setProperty('--grade-hue', `${(scroll / Math.max(limit, 1)) * 40}deg`)
-    })
+    ;(async () => {
+      try {
+        const Lenis = (await import('lenis')).default
+        if (cancelled) return
+        const lenis = new Lenis({
+          duration: 1.05,
+          easing: (t) => 1 - Math.pow(1 - t, 4),
+          smoothWheel: true,
+          wheelMultiplier: 1,
+          touchMultiplier: 1.4,
+        })
+        lenisRef.current = lenis
 
-    function raf(time) {
-      lenis.raf(time)
-      rafId = requestAnimationFrame(raf)
-    }
-    let rafId = requestAnimationFrame(raf)
+        let tick = 0
+        lenis.on('scroll', ({ scroll, limit }) => {
+          if (++tick % 6 !== 0) return
+          const p = limit > 0 ? scroll / limit : 0
+          document.documentElement.style.setProperty('--grade-hue', `${(p * 40).toFixed(1)}deg`)
+        })
 
-    gsap.ticker.add((time) => lenis.raf(time * 1000))
+        const raf = (time) => {
+          if (cancelled) return
+          lenis.raf(time)
+          rafId = requestAnimationFrame(raf)
+        }
+        rafId = requestAnimationFrame(raf)
+      } catch {
+        // Lenis failed to load — native scroll works fine
+      }
+    })()
 
     return () => {
-      cancelAnimationFrame(rafId)
-      lenis.destroy()
+      cancelled = true
+      if (rafId) cancelAnimationFrame(rafId)
+      if (lenisRef.current) {
+        lenisRef.current.destroy()
+        lenisRef.current = null
+      }
     }
   }, [reduced])
 
+  const value = useMemo(() => ({ lenis: lenisRef, reduced }), [reduced])
+
   return (
-    <SmoothScrollContext.Provider value={{ lenis: lenisRef, progress, reduced }}>
+    <SmoothScrollContext.Provider value={value}>
       {children}
     </SmoothScrollContext.Provider>
   )
