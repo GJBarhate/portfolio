@@ -106,7 +106,7 @@ function RecruiterBar({ onExit }) {
           </a>
           <a
             className="recruiter-bar__cta font-mono"
-            href="mailto:gauravbarhate55@gmail.com?subject=Opportunity%20for%20Gaurav"
+            href="mailto:gauravjbarhate554@gmail.com?subject=Opportunity%20for%20Gaurav"
           >
             EMAIL
           </a>

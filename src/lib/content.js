@@ -5,7 +5,7 @@ export const SOCIALS = {
   leetcode: 'https://leetcode.com/u/chgyCygKwQ/',
   codechef: 'https://www.codechef.com/users/gaurav_jb',
   linkedin: 'https://www.linkedin.com/in/gaurav-barhate-056175271/',
-  email: 'gauravbarhate55@gmail.com',
+  email: 'gauravjbarhate554@gmail.com',
   phone: '+91 93733 27427',
 }
 

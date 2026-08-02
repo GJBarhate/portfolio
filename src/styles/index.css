@@ -576,86 +576,6 @@ a { color: inherit; text-decoration: none; }
   .hero-aurora__blob { animation: none; }
 }
 
-/* === Iridescent gradient name effect for hero h1 === */
-.hero-name-iridescent {
-  background-image: linear-gradient(
-    120deg in oklch,
-    var(--ink) 0%,
-    var(--ink) 30%,
-    var(--accent-bright) 45%,
-    var(--violet) 55%,
-    var(--ink) 70%,
-    var(--ink) 100%
-  );
-  background-size: 220% 100%;
-  background-position: 100% 50%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: iridescentSweep 9s ease-in-out infinite;
-}
-@keyframes iridescentSweep {
-  0%, 100% { background-position: 100% 50%; }
-  50%      { background-position: 0% 50%; }
-}
-/* Forge spark — one-time gradient shimmer pass on hero name */
-.hero-name-spark {
-  position: relative;
-  overflow: hidden;
-}
-.hero-name-spark::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 60%;
-  height: 100%;
-  background: linear-gradient(
-    90deg in oklch,
-    transparent 0%,
-    rgba(255, 255, 255, 0.12) 30%,
-    rgba(255, 255, 255, 0.3) 50%,
-    rgba(255, 255, 255, 0.12) 70%,
-    transparent 100%
-  );
-  animation: forgeSpark 1.2s 1.5s var(--ease-forge) forwards;
-  pointer-events: none;
-}
-@keyframes forgeSpark {
-  from { left: -60%; }
-  to { left: 120%; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .hero-name-iridescent { animation: none; }
-  .hero-name-spark::after { animation: none; display: none; }
-}
-
-/* === Hero name depth â€” blurred outlined ghost duplicate sitting behind the real text === */
-.hero-name-ghost {
-  position: absolute;
-  inset: 0;
-  color: transparent;
-  -webkit-text-stroke: 1px color-mix(in oklch, var(--accent) 35%, transparent);
-  filter: blur(2px);
-  opacity: 0.38;
-  /* 0.18em was ~11px when the name was 63px. At its real 108px it became a
-     19px offset — far enough that the outline stopped reading as depth behind
-     the name and started reading as a second, misaligned copy of it. Depth
-     wants a hint, not a shadow you can measure. */
-  transform: translate(0.045em, 0.03em) scale(1.008);
-  user-select: none;
-  pointer-events: none;
-  z-index: -1;
-  animation: ghostDrift 7s ease-in-out infinite;
-}
-@keyframes ghostDrift {
-  0%, 100% { transform: translate(0.18em, 0.1em) scale(1.015); }
-  50%      { transform: translate(0.24em, 0.14em) scale(1.025); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .hero-name-ghost { animation: none; }
-}
-
 /* === Status badge â€” glass pill with pulsing live dot === */
 .hero-badge {
   display: inline-flex;
@@ -2704,7 +2624,6 @@ body { font-size: max(11px, 1rem); }
   .mesh-animated,
   .chromatic-aberration,
   .film-grain,
-  .hero-name-ghost,
   .text-gradient--sweep
 ) {
   animation: none !important;
@@ -2721,7 +2640,7 @@ body { font-size: max(11px, 1rem); }
 
 /* Tier 1: nothing loops except the live/status indicators. */
 :where([data-gfx-tier='1']) :is(
-  .hero-name-iridescent,
+  .name-runner,
   .text-gradient,
   .spark-glow,
   .spark-mini,
@@ -3673,13 +3592,14 @@ html[data-recruiter] .arcade-fab {
 html[data-recruiter] [data-loop],
 html[data-recruiter] .text-gradient,
 html[data-recruiter] .text-gradient--sweep,
-html[data-recruiter] .hero-name-iridescent,
+html[data-recruiter] .name-runner,
 html[data-recruiter] .mesh-animated,
 html[data-recruiter] .border-run::before,
 html[data-recruiter] .chromatic-hover::after,
 html[data-recruiter] .level-badge::before {
   animation-play-state: paused !important;
 }
+html[data-recruiter] .name-runner__glyph { animation-play-state: paused !important; }
 /* …except the ones that carry live meaning. */
 html[data-recruiter] .live-ping__dot,
 html[data-recruiter] .recruiter-chip__dot,
@@ -3799,119 +3719,80 @@ html[data-recruiter] .section-rhythm {
   to   { opacity: 1; transform: none; }
 }
 
-/* ── Hero name reveal ────────────────────────────────────────────────────
-   The RESTING state is plain, visible text with no animation on it. Only the
-   `run` phase carries one, and it is removed again when the reveal finishes.
-   An animation is decoration; the name existing is not, so the two must not
-   share a fate. */
-.char-in {
+/* ── Athletic name treatment ────────────────────────────────────────────
+   The reference uses motion capture and 3-D lettering. This browser-native
+   version keeps the name fully legible, then carries a runner wave from left
+   to right: lean → push-off → airborne stretch → landing → recovery. */
+.name-runner {
+  position: relative;
   display: inline-block;
-  transform-origin: 50% 100%;
+  isolation: isolate;
+  color: var(--ink);
+  text-shadow: 0 0.035em 0 color-mix(in oklch, var(--accent) 16%, transparent);
 }
-/* Before the curtain lifts there is nothing to see yet. */
-.hero-name[data-intro='pending'] .char-in { opacity: 0; }
-
-/* ── The run cycle ───────────────────────────────────────────────────────
-   Modelled on Holke79's "Let's Move" Olympics campaign, where mocap-driven
-   letters actually run, jump and do sit-ups. The mocap is not reproducible in
-   CSS, but the ANIMATION PRINCIPLES underneath it are, and they are what make
-   it read as a body rather than a slide:
-
-     CONTACT   the foot lands, the body is at its lowest, and the letter
-               SQUASHES — wider and shorter (scale 1.14 / 0.86)
-     ABSORB    weight settles, the forward lean is at its steepest
-     PUSH-OFF  the letter STRETCHES — narrower and taller — as it drives up
-     FLIGHT    the apex, leaning into the direction of travel
-
-   Volume is roughly conserved across squash and stretch (x up ⇒ y down), which
-   is the difference between a body and a rectangle being scaled. The origin is
-   50% 100% — the feet, not the centre — so the letter pushes off the baseline
-   instead of floating around its own middle.
-
-   The stagger is the whole point: at 55 ms per letter the motion travels along
-   the word like a runner passing through it, rather than fourteen letters
-   twitching at once. */
-.hero-name[data-intro='run'] .char-in {
-  /* `backwards`, not `both`: the delay window shows the first keyframe, and
-     the END of the animation hands control back to the resting style. */
-  animation: letterRunIn 0.78s cubic-bezier(0.22, 0.9, 0.3, 1) backwards;
-  animation-delay: calc(0.15s + var(--i) * 0.055s);
-}
-@keyframes letterRunIn {
-  /* Approach — off-frame, stretched forward, leaning into the stride. */
-  0% {
-    opacity: 0;
-    transform: translate3d(-0.65em, -0.05em, 0) rotate(-9deg) scale(0.88, 1.12);
-  }
-  /* CONTACT — lands hard, squashes wide and low. */
-  30% {
-    opacity: 1;
-    transform: translate3d(-0.12em, 0.11em, 0) rotate(5deg) scale(1.16, 0.84);
-  }
-  /* PUSH-OFF → FLIGHT — drives up, stretches tall and narrow. */
-  52% {
-    transform: translate3d(0.02em, -0.17em, 0) rotate(-6deg) scale(0.9, 1.12);
-  }
-  /* Second, smaller contact — the stride shortening as it arrives. */
-  74% {
-    transform: translate3d(0, 0.055em, 0) rotate(2.5deg) scale(1.08, 0.93);
-  }
-  88% {
-    transform: translate3d(0, -0.02em, 0) rotate(-1deg) scale(0.98, 1.02);
-  }
-  100% { opacity: 1; transform: none; }
-}
-
-/* ── Idle stride — the letters keep running ──────────────────────────────
-   A one-shot entrance is missed by anyone who arrives mid-scroll or returns
-   in the same session, which is why the name read as "constant". Every ~6 s a
-   single stride travels the length of the word: most of the timeline is at
-   rest, so this is a beat, not a fidget. `data-loop` hands it to the animation
-   gate, so it costs nothing when the hero is off-screen. */
-.hero-name[data-intro='done'] .char-in {
-  animation: letterStride 6s cubic-bezier(0.3, 0.85, 0.35, 1) infinite;
-  animation-delay: calc(var(--i) * 0.055s);
-}
-@keyframes letterStride {
-  0%, 70%, 100% { transform: none; }
-  /* PUSH-OFF */
-  75% { transform: translate3d(0, -0.15em, 0) rotate(-5deg) scale(0.93, 1.1); }
-  /* CONTACT */
-  81% { transform: translate3d(0, 0.06em, 0) rotate(4deg) scale(1.12, 0.88); }
-  /* Recovery bounce */
-  87% { transform: translate3d(0, -0.05em, 0) rotate(-1.5deg) scale(0.97, 1.04); }
-  93% { transform: translate3d(0, 0.015em, 0) scale(1.02, 0.98); }
-}
-
-/* Hovering the name puts it into a sprint. */
-@media (hover: hover) and (pointer: fine) {
-  .hero-name[data-intro='done']:hover .char-in {
-    animation-duration: 1.5s;
-    animation-timing-function: cubic-bezier(0.3, 0.9, 0.3, 1);
-  }
-}
-
-/* A single specular sweep that crosses the name once it has landed — the beat
-   that makes the reveal feel finished rather than merely over. */
-.hero-name { position: relative; perspective: 900px; }
-.hero-name[data-intro='run']::before {
+.name-runner::before {
   content: '';
   position: absolute;
-  inset: -10% -20%;
-  pointer-events: none;
-  background: linear-gradient(
-    100deg,
-    transparent 42%,
-    color-mix(in oklch, var(--accent-bright) 55%, transparent) 50%,
-    transparent 58%
-  );
-  transform: translateX(-100%);
-  animation: nameSweep 1.1s var(--ease-cinema) forwards;
-  animation-delay: 0.55s;
-  mix-blend-mode: plus-lighter;
+  z-index: -1;
+  left: 0.035em;
+  right: 0.06em;
+  bottom: -0.14em;
+  height: 0.032em;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--accent), var(--violet), transparent);
+  opacity: 0.72;
 }
-@keyframes nameSweep {
-  to { transform: translateX(100%); }
+.name-runner::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  width: 0.09em;
+  aspect-ratio: 1;
+  left: 0;
+  bottom: -0.17em;
+  border-radius: 50%;
+  background: var(--accent-bright);
+  box-shadow: 0 0 0.1em var(--accent);
+  animation: runnerPace 2.8s linear infinite;
+}
+.name-runner__glyph {
+  display: inline-block;
+  color: var(--ink);
+  transform-origin: 50% 100%;
+  will-change: transform;
+}
+.name-runner__glyph .kinetic-char { color: inherit; }
+.hero-name[data-intro='pending'] .name-runner__glyph { opacity: 0; }
+.hero-name[data-intro='run'] .name-runner__glyph {
+  animation: runnerArrival 0.95s cubic-bezier(0.18, 0.9, 0.24, 1) backwards;
+  animation-delay: calc(0.08s + var(--i) * 0.065s);
+}
+.hero-name[data-intro='done'] .name-runner__glyph {
+  animation: runnerStride 2.8s cubic-bezier(0.32, 0.82, 0.35, 1) infinite;
+  animation-delay: calc(var(--i) * -0.13s);
+}
+.name-runner[data-anim-paused='true'] .name-runner__glyph { animation-play-state: paused; }
+@keyframes runnerArrival {
+  0% { opacity: 0; transform: translate3d(-0.32em, 0.07em, 0) rotate(7deg) scale(1.12, 0.84); }
+  38% { opacity: 1; transform: translate3d(-0.07em, 0.06em, 0) rotate(5deg) scale(1.1, 0.88); }
+  62% { transform: translate3d(0.025em, -0.14em, 0) rotate(-6deg) scale(0.92, 1.1); }
+  82% { transform: translate3d(0.015em, 0.025em, 0) rotate(1.5deg) scale(1.03, 0.98); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes runnerStride {
+  0%, 58%, 100% { transform: none; }
+  66% { transform: translate3d(-0.035em, -0.14em, 0) rotate(-6deg) scale(0.92, 1.1); }
+  75% { transform: translate3d(0.045em, 0.065em, 0) rotate(5deg) scale(1.12, 0.86); }
+  84% { transform: translate3d(0.02em, -0.045em, 0) rotate(-2deg) scale(0.97, 1.04); }
+  92% { transform: translate3d(0, 0.012em, 0) scale(1.02, 0.98); }
+}
+@keyframes runnerPace {
+  from { left: 0.035em; }
+  to { left: calc(100% - 0.13em); }
+}
+@media (hover: hover) and (pointer: fine) {
+  .name-runner:hover .name-runner__glyph,
+  .name-runner:hover::after { animation-duration: 1.55s; }
 }
 
 .word-rotator__word {
@@ -3925,7 +3806,8 @@ html[data-recruiter] .section-rhythm {
 
 @media (prefers-reduced-motion: reduce) {
   .hero-rise,
-  .hero-name[data-intro='done'] .char-in,
+  .name-runner::after,
+  .hero-name[data-intro='done'] .name-runner__glyph,
   .word-rotator__word { animation: none; opacity: 1; transform: none; }
   .hero-copy, .hero-back, .hero-forge-slot, .hero-scroll-hint {
     transform: none;
@@ -4270,7 +4152,6 @@ html[data-recruiter] body { padding-bottom: 84px; }
 
 /* A visible, structural difference — not just "some decorations left". */
 html[data-recruiter] .hero-name { --fs-hero: clamp(2.4rem, 6vw, 4.5rem); }
-html[data-recruiter] .hero-name-ghost { display: none; }
 html[data-recruiter] #hero .hero-copy { transform: none !important; opacity: 1 !important; }
 html[data-recruiter] .mesh-gradient-a,
 html[data-recruiter] .mesh-gradient-b { background-image: none; }

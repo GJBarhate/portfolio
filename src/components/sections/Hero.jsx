@@ -13,8 +13,6 @@ import { onScrollFrame } from '../../lib/scrollState.js'
 import { useSound } from '../../contexts/SoundContext.jsx'
 
 const HeroForgeObject = lazy(() => import('../ui/HeroForgeObject.jsx'))
-const TextParticleExplosion = lazy(() => import('../ui/TextParticleExplosion.jsx'))
-
 const NAME_CHARS = [...'Gaurav Barhate'].map(c => c === ' ' ? '\u00A0' : c)
 
 const INTRO_MS = 200 + NAME_CHARS.length * 40 + 620
@@ -231,24 +229,17 @@ export default function Hero({ introDone = true }) {
    * 42 KB motion chunk sat in the critical path (§8.3). It is now ONE number,
    * `--hero-p`, written on the section from the shared scroll frame; every
    * layer derives its own transform from it in CSS, on the compositor. The
-   * progress is quantised before it reaches React so the particle overlay is
-   * not re-rendered 120 times a second.
+   * The CSS transition stays on the compositor; React is not involved in the
+   * per-frame scroll path.
    */
-  const [scrollPct, setScrollPct] = useState(0)
   useEffect(() => {
     const el = sectionRef.current
     if (!el) return
-    let lastQuantised = -1
     return onScrollFrame(({ y, vh }) => {
       // Equivalent to offset: ['start start', 'end start'] on a 100vh hero.
       const height = el.offsetHeight || vh
       const p = Math.min(1, Math.max(0, y / Math.max(height, 1)))
       el.style.setProperty('--hero-p', p.toFixed(4))
-      const q = Math.round(p * 50) / 50
-      if (q !== lastQuantised) {
-        lastQuantised = q
-        setScrollPct(q)
-      }
     })
   }, [])
 
@@ -291,29 +282,17 @@ export default function Hero({ introDone = true }) {
         </div>
 
         <div className="relative">
-          <Suspense fallback={null}>
-            <TextParticleExplosion scrollProgress={scrollPct} className="z-[15]" />
-          </Suspense>
-          <h1
-            aria-hidden="true"
-            className="font-display fs-hero hero-name-ghost"
-          >
-            Gaurav Barhate
-          </h1>
           {/* The staggered entrance is `animation-delay: calc(var(--i) * 40ms)`
               — a CSS stagger does exactly what staggerChildren did, without a
               variants tree resolving on the main thread during first paint. */}
           <h1
             ref={nameRef}
-            className="font-display fs-hero hero-name-iridescent hero-name-spark hero-name"
+            className="font-display fs-hero hero-name name-runner"
             data-intro={introPhase}
+            aria-label="Gaurav Barhate"
           >
             {NAME_CHARS.map((char, i) => (
-              // Two spans on purpose: the outer one owns the entrance, the
-              // inner one owns the pointer ripple. One element cannot carry
-              // both, because a filling animation would clobber the transform
-              // the rAF loop writes.
-              <span key={i} className="char-in" style={{ '--i': i }}>
+              <span key={i} className="name-runner__glyph" style={{ '--i': i }} aria-hidden="true">
                 <span className="kinetic-char">{char}</span>
               </span>
             ))}

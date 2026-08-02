@@ -216,13 +216,13 @@ export default function App() {
             '║  Stack: MERN · Socket.IO · Redis  ║',
             '║  WebRTC · Yjs CRDT · Gemini AI    ║',
             '╠══════════════════════════════════╣',
-            '║  📧 gauravbarhate55@gmail.com    ║',
+            '║  📧 gauravjbarhate554@gmail.com  ║',
             '║  📱 +91 93733 27427               ║',
             '╚══════════════════════════════════╝',
           ]
           console.log('%c' + art.join('\n'), 'color: var(--accent-bright); font-family: monospace; font-size: 11px; line-height: 1.5')
-          console.log('%c→ mailto:gauravbarhate55@gmail.com', 'color: var(--violet); font-size: 12px')
-          window.open('mailto:gauravbarhate55@gmail.com')
+          console.log('%c→ mailto:gauravjbarhate554@gmail.com', 'color: var(--violet); font-size: 12px')
+          window.open('mailto:gauravjbarhate554@gmail.com')
         },
         theme: (id) => {
           window.dispatchEvent(new CustomEvent('forge:set-theme', { detail: id }))

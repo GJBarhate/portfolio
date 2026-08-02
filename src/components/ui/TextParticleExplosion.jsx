@@ -19,7 +19,7 @@ export default function TextParticleExplosion({ scrollProgress, className = '' }
     let initX, initY
 
     const sampleText = () => {
-      const heroName = document.querySelector('.hero-name-iridescent')
+      const heroName = document.querySelector('.name-runner')
       if (!heroName) return false
       const rect = heroName.getBoundingClientRect()
       const scale = window.devicePixelRatio || 1
@@ -76,7 +76,7 @@ export default function TextParticleExplosion({ scrollProgress, className = '' }
     let sampled = sampleText()
 
     const ro = new ResizeObserver(() => { sampled = sampleText() || sampled })
-    ro.observe(document.querySelector('.hero-name-iridescent') || canvas)
+    ro.observe(document.querySelector('.name-runner') || canvas)
 
     // The accent colour is read on theme change only. Reading it inside the
     // draw loop forced a style recalculation on every single frame.
