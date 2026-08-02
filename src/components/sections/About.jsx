@@ -118,7 +118,7 @@ export default function About() {
         {/* The desk scene is the one place three.js is still worth loading in
             this section, so it is a deliberate opt-in: nothing is fetched
             until the chip is pressed. */}
-        <div className="about-scene rounded-3xl glass overflow-hidden relative min-h-[260px] flex items-center justify-center p-6">
+        <div className="about-scene rounded-3xl glass overflow-hidden relative min-h-[340px] flex items-center justify-center p-6">
           {sceneOn ? (
             <Suspense fallback={<div className="about-scene__skeleton" aria-hidden="true" />}>
               <ThreeDScene className="absolute inset-0" />

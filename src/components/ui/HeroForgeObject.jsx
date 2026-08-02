@@ -232,6 +232,10 @@ export default function HeroForgeObject({ className = '' }) {
     let time = 0
     const stop = onFrame((_, rawDt) => {
       if (!inView) return
+      // If the machine later struggles, stop DRAWING rather than unmounting.
+      // Tearing the GPU context down and rebuilding it is both more expensive
+      // and visible; skipping the render is neither.
+      if (getTier() < 2) return
       // Radians per *second*, so the object looks identical on 60 Hz and
       // 144 Hz displays. Clamped so a stalled tab cannot spin it wildly.
       const dt = Math.min(rawDt / 1000, 0.05)

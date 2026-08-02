@@ -8,7 +8,7 @@ import Picture from '../ui/Picture.jsx'
 import { PROJECTS } from '../../lib/content.js'
 import { useSpotlight } from '../../hooks/useSpotlight.js'
 import { useReducedMotion } from '../../lib/useReducedMotion.js'
-import { getTier } from '../../lib/raf.js'
+import { getTier, onFrame } from '../../lib/raf.js'
 
 // `import.meta.glob` matches the pattern against real filenames, so an inline
 // `?…` query inside the pattern matches nothing at all — that silently emptied
@@ -289,6 +289,92 @@ function DeckCard({ project, index, distortionAllowed, onOpen }) {
 
 const ProjectLightbox = lazy(() => import('../ui/ProjectLightbox.jsx'))
 
+/**
+ * Pointer-tracked 3-D tilt across the whole grid.
+ *
+ * ONE delegated listener and ONE rAF subscription for all five cards, not five
+ * of each: the hovered card is found by `closest()`, and its angles are
+ * written as CSS custom properties so the transform stays on the compositor.
+ * Damped (k = 14) so the card leans into the cursor instead of snapping to it.
+ */
+function useCardTilt(enabled) {
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const root = ref.current
+    if (!root || !enabled) return
+    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+    const MAX = 6
+    let card = null
+    let rect = null
+    const target = { x: 0, y: 0 }
+    const value = { x: 0, y: 0 }
+    let stop = null
+
+    const tick = (_t, dt) => {
+      const k = 1 - Math.exp(-(dt / 1000) * 14)
+      value.x += (target.x - value.x) * k
+      value.y += (target.y - value.y) * k
+      if (card) {
+        card.style.setProperty('--tilt-x', `${value.x.toFixed(2)}deg`)
+        card.style.setProperty('--tilt-y', `${value.y.toFixed(2)}deg`)
+      }
+      if (!card && Math.abs(value.x) < 0.02 && Math.abs(value.y) < 0.02) {
+        stop?.(); stop = null
+      }
+    }
+    const start = () => { if (!stop) stop = onFrame(tick) }
+
+    const onMove = (e) => {
+      const next = e.target.closest?.('.grid-card')
+      if (next !== card) {
+        card?.style.removeProperty('--tilt-x')
+        card?.style.removeProperty('--tilt-y')
+        card = next
+        rect = card?.getBoundingClientRect() || null
+      }
+      if (!card) { target.x = 0; target.y = 0; start(); return }
+      if (!rect) rect = card.getBoundingClientRect()
+      const px = (e.clientX - rect.left) / rect.width - 0.5
+      const py = (e.clientY - rect.top) / rect.height - 0.5
+      target.y = px * MAX * 2
+      target.x = -py * MAX * 2
+      card.style.setProperty('--glare-x', `${((px + 0.5) * 100).toFixed(1)}%`)
+      card.style.setProperty('--glare-y', `${((py + 0.5) * 100).toFixed(1)}%`)
+      start()
+    }
+    const onLeave = () => {
+      target.x = 0
+      target.y = 0
+      const leaving = card
+      card = null
+      // Let the damping run the card back to flat before releasing it.
+      setTimeout(() => {
+        leaving?.style.removeProperty('--tilt-x')
+        leaving?.style.removeProperty('--tilt-y')
+      }, 260)
+      start()
+    }
+    const invalidate = () => { rect = card?.getBoundingClientRect() || null }
+
+    root.addEventListener('pointermove', onMove, { passive: true })
+    root.addEventListener('pointerleave', onLeave, { passive: true })
+    window.addEventListener('scroll', invalidate, { passive: true })
+    window.addEventListener('resize', invalidate, { passive: true })
+    return () => {
+      stop?.()
+      root.removeEventListener('pointermove', onMove)
+      root.removeEventListener('pointerleave', onLeave)
+      window.removeEventListener('scroll', invalidate)
+      window.removeEventListener('resize', invalidate)
+    }
+  }, [enabled])
+
+  return ref
+}
+
 export default function Projects() {
   // Grid is the default. Cinema is scroll-jacking on the section recruiters
   // care most about, which is a real conversion risk — it stays as an opt-in
@@ -345,6 +431,7 @@ export default function Projects() {
   }
 
   const liveCount = useMemo(() => PROJECTS.filter((p) => p.live).length, [])
+  const gridRef = useCardTilt(viewMode === 'grid')
 
   return (
     <section
@@ -433,7 +520,7 @@ export default function Projects() {
             ))}
           </HorizontalScroll>
         ) : (
-          <div className="projects-grid grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div ref={gridRef} className="projects-grid grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {PROJECTS.map((p, i) => (
               <GridCard key={p.id} project={p} index={i} onOpen={setOpenProject} />
             ))}
@@ -473,6 +560,8 @@ function GridCard({ project, index, onOpen }) {
         onClick={() => onOpen?.(project)}
         aria-label={`Open the ${project.title} case study`}
       />
+
+      <span className="grid-card__glare" aria-hidden="true" />
 
       <DeviceFrame project={project} live={project.live}>
         {cover ? (

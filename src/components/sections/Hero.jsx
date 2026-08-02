@@ -17,10 +17,38 @@ const TextParticleExplosion = lazy(() => import('../ui/TextParticleExplosion.jsx
 
 const NAME_CHARS = [...'Gaurav Barhate'].map(c => c === ' ' ? '\u00A0' : c)
 
+const INTRO_MS = 200 + NAME_CHARS.length * 40 + 620
+
 export default function Hero({ introDone = true }) {
   const nameRef = useRef(null)
   const reducedMotion = useReducedMotion()
   const sound = useSound()
+
+  /*
+   * Name reveal phases: pending → run → done.
+   *
+   * The entrance animation exists only during `run`. The resting state carries
+   * no animation at all, so the name is plain visible text the moment the
+   * reveal is over.
+   *
+   * This matters more than it looks. The previous version left the animation
+   * applied forever with `fill-mode: both`, which means the letters' first
+   * keyframe (opacity 0) IS their resting style until the animation actually
+   * runs — so anything that stopped animations from running (the off-screen
+   * animation gate, recruiter mode's global pause, a paused compositor) left
+   * the hero name invisible with only its outlined ghost showing. Text must
+   * never depend on an animation to exist.
+   */
+  const [introPhase, setIntroPhase] = useState(() =>
+    introDone ? (reducedMotion ? 'done' : 'run') : 'pending'
+  )
+  useEffect(() => {
+    if (reducedMotion) { setIntroPhase('done'); return }
+    if (!introDone) { setIntroPhase('pending'); return }
+    setIntroPhase('run')
+    const t = setTimeout(() => setIntroPhase('done'), INTRO_MS)
+    return () => clearTimeout(t)
+  }, [introDone, reducedMotion])
 
   /*
    * Kinetic name (J6). The previous version called getBoundingClientRect() on
@@ -167,19 +195,33 @@ export default function Hero({ introDone = true }) {
   const sectionRef = useRef(null)
   const isMobile = useIsMobile()
 
-  // The forge gem is the site's ONE heavy 3-D moment, and it is the only thing
-  // left that puts `three` on the first-visit graph. Gating it on tier means a
-  // phone or a weak laptop downloads zero three bytes.
+  /*
+   * The forge gem is the site's ONE heavy 3-D moment, and the only thing left
+   * that puts `three` on the first-visit graph. Gating it on tier means a
+   * phone or a weak laptop downloads zero three bytes.
+   *
+   * The gate LATCHES. It used to re-evaluate on every tier change, so a
+   * momentary drop to tier 1 unmounted the gem — disposing its GPU context —
+   * and the recovery a few seconds later mounted it again from scratch. That
+   * is the "rotating thing comes and goes". Deciding once is also the honest
+   * reading of the rule: this is a capability question, not a per-frame one.
+   * If the machine later struggles, the scene's own loop stops drawing
+   * (cheaper than a remount) rather than the component disappearing.
+   */
   const [forgeAllowed, setForgeAllowed] = useState(false)
   useEffect(() => {
-    if (isMobile || reducedMotion) { setForgeAllowed(false); return }
-    const evaluate = () =>
-      setForgeAllowed(
-        getTier() >= 2 && window.matchMedia('(min-width: 768px)').matches
-      )
-    evaluate()
+    if (isMobile || reducedMotion) return
+    if (forgeAllowed) return
+    const evaluate = () => {
+      if (getTier() >= 2 && window.matchMedia('(min-width: 768px)').matches) {
+        setForgeAllowed(true)
+        return true
+      }
+      return false
+    }
+    if (evaluate()) return
     return onTierChange(evaluate)
-  }, [isMobile, reducedMotion])
+  }, [isMobile, reducedMotion, forgeAllowed])
 
   /*
    * Cinematic exit — the hero recedes into depth as the visitor scrolls: copy
@@ -263,8 +305,8 @@ export default function Hero({ introDone = true }) {
               variants tree resolving on the main thread during first paint. */}
           <h1
             ref={nameRef}
-            className="font-display fs-hero hero-name-iridescent hero-name-spark overflow-hidden hero-name"
-            data-intro={introDone ? 'done' : 'pending'}
+            className="font-display fs-hero hero-name-iridescent hero-name-spark hero-name"
+            data-intro={introPhase}
           >
             {NAME_CHARS.map((char, i) => (
               // Two spans on purpose: the outer one owns the entrance, the

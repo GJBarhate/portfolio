@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Color,
   Scene,
@@ -21,15 +21,19 @@ import { createAnchoredRenderer } from '../../lib/glStage.js'
 export default function ThreeDScene({ className = '' }) {
   const containerRef = useRef(null)
   const reduced = useReducedMotion()
+  // An empty container is a black box, and a black box after someone pressed
+  // a button reads as broken. The scene reports whether it actually came up so
+  // the caller can show something real instead.
+  const [status, setStatus] = useState('pending')
 
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
     const webgl = checkWebGL()
-    if (!webgl.supported) return
+    if (!webgl.supported) { setStatus('unsupported'); return }
     // Tier 1 machines get no WebGL at all.
-    if (getTier() < 2) return
+    if (getTier() < 2) { setStatus('unsupported'); return }
 
     const colors = getThemeColors()
     const accent = new Color(colors.accent)
@@ -154,6 +158,8 @@ export default function ThreeDScene({ className = '' }) {
     ro.observe(container)
     resize()
 
+    setStatus('live')
+
     let time = 0
     const stop = onFrame((_, dt) => {
       if (!inView) return
@@ -190,6 +196,25 @@ export default function ThreeDScene({ className = '' }) {
   }, [reduced])
 
   return (
-    <div ref={containerRef} className={'w-full h-full min-h-[300px] ' + className} aria-hidden="true" />
+    <>
+      <div
+        ref={containerRef}
+        className={'three-scene w-full h-full min-h-[260px] ' + className}
+        data-status={status}
+        aria-hidden="true"
+      />
+      {status === 'unsupported' && (
+        // A CSS desk: same subject, same palette, zero GPU. Better than an
+        // empty rectangle on a machine that cannot run the real one.
+        <div className="three-scene__fallback" aria-hidden="true">
+          <span className="three-scene__fallback-desk" />
+          <span className="three-scene__fallback-screen" />
+          <span className="three-scene__fallback-mug" />
+          <p className="three-scene__fallback-note font-mono">
+            3D SKIPPED — YOUR DEVICE IS BUSY
+          </p>
+        </div>
+      )}
+    </>
   )
 }

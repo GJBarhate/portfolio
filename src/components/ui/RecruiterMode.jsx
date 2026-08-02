@@ -50,17 +50,71 @@ export default function RecruiterMode() {
   }, [toggle])
 
   return (
-    <button
-      type="button"
-      onClick={toggle}
-      data-on={on}
-      data-cursor="view"
-      className="recruiter-chip"
-      aria-pressed={on}
-      title="Recruiter mode — outcome-first, no arcade chrome (⌘⇧R)"
-    >
-      <span className="recruiter-chip__dot" aria-hidden="true" />
-      {on ? 'RECRUITER ON' : 'RECRUITER'}
-    </button>
+    <>
+      <button
+        type="button"
+        onClick={toggle}
+        data-on={on}
+        data-cursor="view"
+        className="recruiter-chip"
+        aria-pressed={on}
+        title="Recruiter mode — outcome-first, no arcade chrome (⌘⇧R)"
+      >
+        <span className="recruiter-chip__dot" aria-hidden="true" />
+        <span className="recruiter-chip__label">{on ? 'RECRUITER ON' : 'RECRUITER'}</span>
+      </button>
+      {on && <RecruiterBar onExit={toggle} />}
+    </>
+  )
+}
+
+/**
+ * The visible half of the feature. Toggling a mode that only removes things is
+ * indistinguishable from nothing happening, which is precisely the complaint
+ * this answers: turning it on has to LOOK like a different site. So the mode
+ * also adds — a fixed summary rail with the four numbers a screener is
+ * actually checking, the résumé, and a direct email.
+ */
+function RecruiterBar({ onExit }) {
+  return (
+    <div className="recruiter-bar" role="region" aria-label="Recruiter summary">
+      <div className="recruiter-bar__inner">
+        <span className="recruiter-bar__badge font-mono">RECRUITER VIEW</span>
+
+        <dl className="recruiter-bar__stats">
+          {[
+            ['1972', 'LEETCODE PEAK'],
+            ['800+', 'PROBLEMS'],
+            ['5', 'APPS LIVE'],
+            ['2026', 'B.TECH CSE'],
+          ].map(([value, label]) => (
+            <div key={label} className="recruiter-bar__stat">
+              <dt className="recruiter-bar__stat-label font-mono">{label}</dt>
+              <dd className="recruiter-bar__stat-value font-display">{value}</dd>
+            </div>
+          ))}
+        </dl>
+
+        <div className="recruiter-bar__actions">
+          <a
+            className="recruiter-bar__cta recruiter-bar__cta--primary font-mono"
+            href="/Gaurav_Resume.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            RÉSUMÉ ↗
+          </a>
+          <a
+            className="recruiter-bar__cta font-mono"
+            href="mailto:gauravbarhate55@gmail.com?subject=Opportunity%20for%20Gaurav"
+          >
+            EMAIL
+          </a>
+          <button type="button" className="recruiter-bar__cta font-mono" onClick={onExit}>
+            EXIT
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
