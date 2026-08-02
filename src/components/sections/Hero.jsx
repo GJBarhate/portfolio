@@ -281,7 +281,7 @@ export default function Hero({ introDone = true }) {
           </span>
         </div>
 
-        <div className="relative">
+        <div className="hero-name-stage relative">
           {/* The staggered entrance is `animation-delay: calc(var(--i) * 40ms)`
               — a CSS stagger does exactly what staggerChildren did, without a
               variants tree resolving on the main thread during first paint. */}
@@ -297,6 +297,16 @@ export default function Hero({ introDone = true }) {
               </span>
             ))}
           </h1>
+          <div className="hero-run-lane" aria-hidden="true" data-loop="hero-run-lane">
+            <svg className="hero-runner" viewBox="0 0 90 54" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle className="hero-runner__head" cx="49" cy="10" r="5" />
+              <path className="hero-runner__body" d="M45 17L38 31L48 36" />
+              <path className="hero-runner__limb hero-runner__limb--arm-a" d="M43 20L28 25L18 20" />
+              <path className="hero-runner__limb hero-runner__limb--arm-b" d="M42 21L54 27L65 24" />
+              <path className="hero-runner__limb hero-runner__limb--leg-a" d="M47 35L34 45L21 45" />
+              <path className="hero-runner__limb hero-runner__limb--leg-b" d="M47 35L58 44L71 42" />
+            </svg>
+          </div>
         </div>
 
         <div className="overflow-hidden mt-3 h-[1.4em]">

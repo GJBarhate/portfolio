@@ -5,6 +5,14 @@ import react from '@vitejs/plugin-react'
 import { imagetools } from 'vite-imagetools'
 import { visualizer } from 'rollup-plugin-visualizer'
 import compression from 'vite-plugin-compression'
+import sharp from 'sharp'
+
+// `vite-imagetools` may schedule several WebP → AVIF/WebP conversions at
+// once. On constrained machines libvips then fails on a perfectly valid image
+// with an out-of-memory/header error. Keep the responsive-image pipeline, but
+// make its memory use predictable for local and CI builds.
+sharp.concurrency(1)
+sharp.cache({ memory: 32, files: 0, items: 16 })
 
 /**
  * Inlines src/styles/critical.css into <head> and makes the real stylesheet

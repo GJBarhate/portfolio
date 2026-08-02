@@ -3795,6 +3795,68 @@ html[data-recruiter] .section-rhythm {
   .name-runner:hover::after { animation-duration: 1.55s; }
 }
 
+/* Original SVG sprinter: it gives the heading a clear athletic cue while the
+   letters carry the subtler running wave. This is intentionally separate from
+   the reference campaign's mocap assets. */
+.hero-name-stage { padding-bottom: 1.9rem; }
+.hero-run-lane {
+  position: absolute;
+  left: 0;
+  bottom: 0.12rem;
+  width: min(100%, 46rem);
+  height: 1.45rem;
+  overflow: hidden;
+  opacity: 0.84;
+  pointer-events: none;
+}
+.hero-run-lane::before,
+.hero-run-lane::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, var(--accent), color-mix(in oklch, var(--violet) 65%, transparent), transparent);
+}
+.hero-run-lane::before { bottom: 3px; opacity: 0.72; }
+.hero-run-lane::after { bottom: 8px; opacity: 0.24; transform: scaleX(0.86); transform-origin: left; }
+.hero-runner {
+  position: absolute;
+  bottom: -0.32rem;
+  left: -3.2rem;
+  width: 3rem;
+  height: 1.85rem;
+  overflow: visible;
+  stroke: var(--accent-bright);
+  stroke-width: 3.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 0.42rem color-mix(in oklch, var(--accent) 62%, transparent));
+  animation: heroSprinter 4.8s cubic-bezier(0.3, 0.78, 0.35, 1) infinite;
+}
+.hero-runner__head { fill: var(--accent-bright); stroke: none; }
+.hero-runner__body { stroke: var(--ink); stroke-width: 3.7; }
+.hero-runner__limb { transform-box: fill-box; transform-origin: center; }
+.hero-runner__limb--arm-a,
+.hero-runner__limb--leg-b { animation: heroRunnerLimbA 0.34s ease-in-out infinite alternate; }
+.hero-runner__limb--arm-b,
+.hero-runner__limb--leg-a { animation: heroRunnerLimbB 0.34s ease-in-out infinite alternate; }
+@keyframes heroSprinter {
+  0% { transform: translate3d(0, 0, 0) scaleX(0.96); opacity: 0; }
+  8% { opacity: 1; }
+  42% { transform: translate3d(15rem, -0.18rem, 0) scaleX(1.04); }
+  78% { transform: translate3d(34rem, 0, 0) scaleX(0.96); opacity: 1; }
+  100% { transform: translate3d(48rem, -0.12rem, 0) scaleX(1.02); opacity: 0; }
+}
+@keyframes heroRunnerLimbA { to { transform: rotate(19deg); } }
+@keyframes heroRunnerLimbB { to { transform: rotate(-19deg); } }
+.hero-run-lane[data-anim-paused='true'] .hero-runner,
+.hero-run-lane[data-anim-paused='true'] .hero-runner__limb { animation-play-state: paused; }
+@media (max-width: 767px) {
+  .hero-name-stage { padding-bottom: 1.35rem; }
+  .hero-run-lane { width: min(100%, 28rem); transform: scale(0.8); transform-origin: left bottom; }
+}
+
 .word-rotator__word {
   display: inline-block;
   animation: wordIn 0.35s var(--ease-forge) both;
