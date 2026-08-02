@@ -90,7 +90,7 @@ function MobileLanes() {
           <button
             key={lane.label}
             onClick={() => setActiveLane(i)}
-            className="flex-1 py-2 rounded-full font-mono text-[10px] tracking-[0.2em] transition-all duration-300"
+            className="flex-1 py-2 rounded-full font-mono text-[10px] tracking-[0.2em] transition-all duration-fast"
             style={{
               border: `1px solid ${i === activeLane ? lane.color : 'var(--glass-border)'}`,
               color: i === activeLane ? lane.color : 'var(--ink-low)',

@@ -84,7 +84,7 @@ export default function MemoryMatch() {
             <button
               key={card.id}
               onClick={() => onFlip(card.id)}
-              className="w-16 h-16 rounded-xl transition-all duration-300"
+              className="w-16 h-16 rounded-xl transition-all duration-fast"
               style={{
                 background: isFlipped ? 'var(--surface-2)' : 'var(--surface-1)',
                 border: `1px solid ${isFlipped ? 'var(--accent-dim)' : 'var(--glass-border)'}`,

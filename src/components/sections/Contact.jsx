@@ -5,8 +5,10 @@ import Reveal from '../ui/Reveal.jsx'
 import MagneticButton from '../ui/MagneticButton.jsx'
 import MagneticTilt from '../ui/MagneticTilt.jsx'
 import { SOCIALS } from '../../lib/content.js'
+import { useSound } from '../../contexts/SoundContext.jsx'
 import { useSpotlight } from '../../hooks/useSpotlight.js'
 import { EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, EMAILJS_PUBLIC_KEY } from '../../lib/emailConfig.js'
+import SplitText from '../ui/SplitText.jsx'
 // Spark moved to footer wordmark per plan §3.3
 // AVIF-first, two widths. These previews render at ~420px wide but shipped at
 // up to 1919px; resume-preview alone was 286 KB.
@@ -65,7 +67,7 @@ function PlatformCard({ platform, index }) {
       >
         {/* Rotating gradient ring border â€” revealed on hover */}
         <span
-          className="absolute -inset-[40%] opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-[spin_4s_linear_infinite]"
+          className="absolute -inset-[40%] opacity-0 group-hover:opacity-100 transition-opacity duration-base animate-[spin_4s_linear_infinite]"
           style={{
             background: `conic-gradient(from 0deg, ${platform.color}, transparent 30%, transparent 70%, ${platform.color})`,
           }}
@@ -82,12 +84,12 @@ function PlatformCard({ platform, index }) {
               picture={platform.shot}
               alt={`${platform.label} preview`}
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 420px"
-              className="w-full h-full object-cover object-top transition-transform duration-[600ms] ease-[cubic-bezier(0.16,1,0.3,1)] scale-105 group-hover:scale-[1.12]"
+              className="w-full h-full object-cover object-top transition-transform duration-cinema ease-[cubic-bezier(0.16,1,0.3,1)] scale-105 group-hover:scale-[1.12]"
               style={{ filter: 'saturate(0.9)' }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[var(--surface-0)] via-[var(--surface-0)]/30 to-transparent opacity-95" />
             <div
-              className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 mix-blend-overlay"
+              className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-base mix-blend-overlay"
               style={{ background: `linear-gradient(140deg, ${platform.color}60, transparent 65%)` }}
             />
             <span
@@ -100,7 +102,7 @@ function PlatformCard({ platform, index }) {
             >
               {platform.tag}
             </span>
-            <span className="absolute bottom-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-sm transition-transform duration-300 group-hover:scale-110 group-hover:rotate-45" style={{ background: 'rgba(0,0,0,0.45)', border: `1px solid ${platform.color}60`, color: platform.color }}>
+            <span className="absolute bottom-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-sm transition-transform duration-fast group-hover:scale-110 group-hover:rotate-45" style={{ background: 'rgba(0,0,0,0.45)', border: `1px solid ${platform.color}60`, color: platform.color }}>
               ↗
             </span>
           </div>
@@ -111,7 +113,7 @@ function PlatformCard({ platform, index }) {
           </div>
 
           <div
-            className="absolute bottom-0 left-0 right-0 h-[2px] scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left"
+            className="absolute bottom-0 left-0 right-0 h-[2px] scale-x-0 group-hover:scale-x-100 transition-transform duration-base origin-left"
             style={{ background: platform.color, boxShadow: `0 0 12px ${platform.color}` }}
           />
         </div>
@@ -151,7 +153,8 @@ export default function Contact() {
         </Reveal>
         <Reveal delay={0.1}>
           <h2 className="font-display text-[clamp(2.5rem,8vw,6rem)] leading-[0.95] mb-12 max-w-4xl">
-            Get in <span className="text-gradient">touch.</span>
+            <SplitText>Get in </SplitText>
+            <SplitText className="text-gradient" delay={0.1}>touch.</SplitText>
           </h2>
         </Reveal>
 
@@ -166,6 +169,7 @@ export default function Contact() {
           <Reveal delay={0.15}>
             <div className="flex flex-col gap-6">
               <ContactLink label="Email" value={SOCIALS.email} href={`mailto:${SOCIALS.email}`} />
+              <CopyEmail />
               <ContactLink label="Phone" value={SOCIALS.phone} href={`tel:${SOCIALS.phone.replace(/\s/g, '')}`} />
             </div>
           </Reveal>
@@ -189,9 +193,9 @@ export default function Contact() {
                     value={values[f.name]}
                     onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
                     placeholder=" "
-                    className="w-full bg-transparent border-b border-[var(--glass-border)] py-3 outline-none focus:border-[var(--accent)] transition-colors duration-300 peer disabled:opacity-50"
+                    className="w-full bg-transparent border-b border-[var(--glass-border)] py-3 outline-none focus:border-[var(--accent)] transition-colors duration-fast peer disabled:opacity-50"
                   />
-                  <label className="absolute left-0 top-3 text-[var(--ink-low)] text-sm pointer-events-none transition-all duration-300 peer-focus:-translate-y-5 peer-focus:text-xs peer-focus:text-[var(--accent-bright)] peer-[&:not(:placeholder-shown)]:-translate-y-5 peer-[&:not(:placeholder-shown)]:text-xs">
+                  <label className="absolute left-0 top-3 text-[var(--ink-low)] text-sm pointer-events-none transition-all duration-fast peer-focus:-translate-y-5 peer-focus:text-xs peer-focus:text-[var(--accent-bright)] peer-[&:not(:placeholder-shown)]:-translate-y-5 peer-[&:not(:placeholder-shown)]:text-xs">
                     {f.label}
                   </label>
                 </div>
@@ -205,9 +209,9 @@ export default function Contact() {
                   value={values.from_message}
                   onChange={(e) => setValues((v) => ({ ...v, from_message: e.target.value }))}
                   placeholder=" "
-                  className="w-full bg-transparent border-b border-[var(--glass-border)] py-3 outline-none focus:border-[var(--accent)] transition-colors duration-300 resize-none peer disabled:opacity-50"
+                  className="w-full bg-transparent border-b border-[var(--glass-border)] py-3 outline-none focus:border-[var(--accent)] transition-colors duration-fast resize-none peer disabled:opacity-50"
                 />
-                <label className="absolute left-0 top-3 text-[var(--ink-low)] text-sm pointer-events-none transition-all duration-300 peer-focus:-translate-y-5 peer-focus:text-xs peer-focus:text-[var(--accent-bright)] peer-[&:not(:placeholder-shown)]:-translate-y-5 peer-[&:not(:placeholder-shown)]:text-xs">
+                <label className="absolute left-0 top-3 text-[var(--ink-low)] text-sm pointer-events-none transition-all duration-fast peer-focus:-translate-y-5 peer-focus:text-xs peer-focus:text-[var(--accent-bright)] peer-[&:not(:placeholder-shown)]:-translate-y-5 peer-[&:not(:placeholder-shown)]:text-xs">
                   Message
                 </label>
               </div>
@@ -218,7 +222,7 @@ export default function Contact() {
                   type="submit"
                   data-cursor="send"
                   disabled={status === 'sending'}
-                  className="w-full px-7 py-4 rounded-full bg-[var(--accent)] text-[var(--surface-0)] font-medium shadow-[0_0_32px_color-mix(in_oklch,var(--accent)_40%,transparent)] hover:shadow-[0_0_56px_color-mix(in_oklch,var(--accent)_50%,transparent)] transition-shadow duration-500 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="w-full px-7 py-4 rounded-full bg-[var(--accent)] text-[var(--surface-0)] font-medium shadow-[0_0_32px_color-mix(in_oklch,var(--accent)_40%,transparent)] hover:shadow-[0_0_56px_color-mix(in_oklch,var(--accent)_50%,transparent)] transition-shadow duration-base disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {status === 'sending' && (
                     <span className="w-4 h-4 rounded-full border-2 border-[var(--surface-0)]/30 border-t-[var(--surface-0)] animate-spin" aria-hidden="true" />
@@ -264,6 +268,53 @@ export default function Contact() {
   )
 }
 
+/**
+ * W5 — one-click copy. A `mailto:` link opens whatever the OS thinks the mail
+ * client is, which for a recruiter on a work machine is often nothing at all;
+ * the address on the clipboard always works.
+ */
+function CopyEmail() {
+  const [copied, setCopied] = useState(false)
+  const sound = useSound()
+
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(SOCIALS.email)
+    } catch {
+      // Clipboard API needs a secure context; fall back to a selection copy.
+      const ta = document.createElement('textarea')
+      ta.value = SOCIALS.email
+      ta.setAttribute('readonly', '')
+      ta.style.position = 'fixed'
+      ta.style.opacity = '0'
+      document.body.appendChild(ta)
+      ta.select()
+      try { document.execCommand('copy') } catch { /* nothing else to try */ }
+      document.body.removeChild(ta)
+    }
+    sound?.play('click')
+    setCopied(true)
+    window.dispatchEvent(new CustomEvent('forge:unlock', { detail: 'reached-out' }))
+    setTimeout(() => setCopied(false), 1800)
+  }
+
+  return (
+    <div className="copy-email">
+      <button
+        type="button"
+        onClick={copy}
+        data-cursor="view"
+        className="project-btn project-btn--ghost px-4 py-2 rounded-full text-[11px] font-mono"
+      >
+        COPY EMAIL
+      </button>
+      <span className="copy-email__flash" data-on={copied} role="status" aria-live="polite">
+        {copied ? 'COPIED ✓' : ''}
+      </span>
+    </div>
+  )
+}
+
 function ContactLink({ label, value, href }) {
   const external = typeof href === 'string' && !href.startsWith('mailto:') && !href.startsWith('tel:')
   return (
@@ -272,11 +323,11 @@ function ContactLink({ label, value, href }) {
       target={external ? '_blank' : undefined}
       rel={external ? 'noopener noreferrer' : undefined}
       data-cursor="view"
-      className="group flex items-center justify-between border-b border-[var(--glass-border)] pb-4 hover:border-[var(--accent-dim)] transition-colors duration-300"
+      className="group flex items-center justify-between border-b border-[var(--glass-border)] pb-4 hover:border-[var(--accent-dim)] transition-colors duration-fast"
     >
       <span className="font-mono text-xs tracking-widest text-[var(--ink-low)]">{label}</span>
       <motion.span
-        className="font-display text-lg md:text-xl text-[var(--ink-mid)] group-hover:text-[var(--accent-bright)] transition-colors duration-300"
+        className="font-display text-lg md:text-xl text-[var(--ink-mid)] group-hover:text-[var(--accent-bright)] transition-colors duration-fast"
         whileHover={{ x: 6 }}
       >
         {value}

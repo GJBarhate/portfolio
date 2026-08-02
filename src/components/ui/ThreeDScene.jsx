@@ -14,6 +14,7 @@ import {
 } from 'three'
 import { useReducedMotion } from '../../lib/useReducedMotion.js'
 import { checkWebGL, getThemeColors } from '../../lib/threeUtils.js'
+import { onPalette } from '../../lib/palette.js'
 import { onFrame, getTier } from '../../lib/raf.js'
 import { createAnchoredRenderer } from '../../lib/glStage.js'
 
@@ -130,13 +131,13 @@ export default function ThreeDScene({ className = '' }) {
     mug.castShadow = true
     scene.add(mug)
 
-    const observer = new MutationObserver(() => {
-      const c = getThemeColors()
-      screenMat.emissive.set(c.accent)
-      bookMat2.emissive.set(c.violet)
-      bookMat.emissive.set(c.warm)
+    // Lerped by lib/palette.js across the 650 ms sweep, so the desk's emissive
+    // colours travel with the expanding circle instead of snapping (§6.1).
+    const stopPalette = onPalette((p) => {
+      screenMat.emissive.set(p.accent)
+      bookMat2.emissive.set(p.violet)
+      bookMat.emissive.set(p.warm)
     })
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
 
     let inView = false
     const ivObserver = new IntersectionObserver(([e]) => { inView = e.isIntersecting }, { threshold: 0 })
@@ -174,7 +175,7 @@ export default function ThreeDScene({ className = '' }) {
       ivObserver.disconnect()
       ro.disconnect()
       disposeRenderer()
-      observer.disconnect()
+      stopPalette()
       scene.traverse((obj) => {
         if (obj.isMesh) {
           obj.geometry?.dispose()

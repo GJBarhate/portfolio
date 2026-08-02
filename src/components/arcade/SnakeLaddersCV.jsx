@@ -91,7 +91,7 @@ export default function SnakeLaddersCV() {
           return (
             <div
               key={cellNum}
-              className="relative w-10 h-10 rounded-lg flex items-center justify-center text-[10px] font-mono transition-all duration-300"
+              className="relative w-10 h-10 rounded-lg flex items-center justify-center text-[10px] font-mono transition-all duration-fast"
               style={{
                 background: isCurrent ? 'var(--accent)' : isSnake ? 'color-mix(in oklch, var(--warm) 20%, var(--surface-2))' : isLadder ? 'color-mix(in oklch, var(--accent) 20%, var(--surface-2))' : 'var(--surface-1)',
                 border: `1px solid ${isCurrent ? 'var(--accent-bright)' : isSnake ? 'var(--warm-dim)' : isLadder ? 'var(--accent-dim)' : 'var(--glass-border)'}`,

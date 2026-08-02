@@ -27,8 +27,11 @@ const Footer = lazy(() => import('./components/sections/Footer.jsx'))
 // ── Ambient / HUD chrome: nothing here is visible at first paint, so all of
 //    it is deferred to the first idle callback. ──────────────────────────────
 const TickerMarquee = lazy(() => import('./components/ui/TickerMarquee.jsx'))
-const AmbientParticles = lazy(() => import('./components/ui/AmbientParticles.jsx'))
-const ParticleUniverse = lazy(() => import('./components/ui/ParticleUniverse.jsx'))
+// §14 — ONE background engine. This replaces three overlapping ambient layers
+// (`AmbientParticles`, `ParticleUniverse`, `AmbientField`), each of which held
+// its own canvas, its own theme handling and its own idea of "calm". One
+// fullscreen quad, one shader, character shifting per section.
+const BackgroundEngine = lazy(() => import('./components/ui/BackgroundEngine.jsx'))
 const NowStatus = lazy(() => import('./components/ui/NowStatus.jsx'))
 const XPBar = lazy(() => import('./components/ui/XPBar.jsx'))
 const LevelRibbon = lazy(() => import('./components/ui/LevelRibbon.jsx'))
@@ -44,7 +47,6 @@ const ExitIntent = lazy(() => import('./components/ui/ExitIntent.jsx'))
 //    actually does the thing. ──────────────────────────────────────────────
 const CustomCursor = lazy(() => import('./components/ui/CustomCursor.jsx'))
 const CommandPalette = lazy(() => import('./components/ui/CommandPalette.jsx'))
-const MiniGame = lazy(() => import('./components/ui/MiniGame.jsx'))
 const ArcadeHub = lazy(() => import('./components/arcade/ArcadeHub.jsx'))
 
 function SectionSkeleton() {
@@ -97,8 +99,8 @@ function useHeavyAmbientAllowed(idle) {
 }
 
 export default function App() {
-  const [gameOpen, setGameOpen] = useState(false)
   const [arcadeOpen, setArcadeOpen] = useState(false)
+  const [arcadeGame, setArcadeGame] = useState(null)
   const [paletteMounted, setPaletteMounted] = useState(false)
   const [pointerSeen, setPointerSeen] = useState(false)
   // Cinematic entry runs once per session; Hero delays its type reveal until
@@ -111,19 +113,22 @@ export default function App() {
 
   const openGame = useCallback(() => {
     window.dispatchEvent(new CustomEvent('forge:unlock', { detail: 'secret-found' }))
-    setGameOpen(true)
+    setArcadeGame('snake')
+    setArcadeOpen(true)
   }, [])
 
-  const openArcade = useCallback(() => setArcadeOpen(true), [])
+  const openArcade = useCallback(() => {
+    setArcadeGame(null)
+    setArcadeOpen(true)
+  }, [])
 
   useKonamiCode(openGame)
 
   // Listen for arcade open from navbar
   useEffect(() => {
-    const handler = () => setArcadeOpen(true)
-    window.addEventListener('forge:open-arcade', handler)
-    return () => window.removeEventListener('forge:open-arcade', handler)
-  }, [])
+    window.addEventListener('forge:open-arcade', openArcade)
+    return () => window.removeEventListener('forge:open-arcade', openArcade)
+  }, [openArcade])
 
   // The palette's own ⌘K listener cannot run before its chunk exists, so a
   // tiny listener here summons it and hands over the open state.
@@ -150,13 +155,14 @@ export default function App() {
     return () => window.removeEventListener('pointermove', onPointer)
   }, [pointerSeen])
 
-  // Warm the first two below-fold section chunks once the hero is settled, so
-  // the first scroll never lands on a Suspense skeleton.
-  useEffect(() => {
-    if (!idle) return
-    import('./components/sections/About.jsx')
-    import('./components/sections/Projects.jsx')
-  }, [idle])
+  // The idle warm of About/Projects that used to live here is gone. It was
+  // always duplicative — these are `lazy()` children of a Suspense boundary
+  // that mounts at first render, so React already requests their chunks then;
+  // the warm just re-requested them at idle. What it *did* do, back when those
+  // files statically imported three, was guarantee 131 KB reached every
+  // visitor. Both chunks are now three-free (§8.2), and the genuinely heavy
+  // islands — the hover distortion and the About desk scene — warm on intent
+  // inside their own components (Research #17) rather than on a timer.
 
   // Pause every looping CSS animation that scrolls out of view.
   useEffect(() => {
@@ -260,21 +266,19 @@ export default function App() {
               {paletteMounted && (
                 <CommandPalette onPlayGame={openGame} onOpenArcade={openArcade} defaultOpen />
               )}
-              {gameOpen && (
-                <MiniGame
-                  open={gameOpen}
-                  onClose={() => setGameOpen(false)}
-                  onHighScore={() => window.dispatchEvent(new CustomEvent('forge:unlock', { detail: 'high-scorer' }))}
+              {arcadeOpen && (
+                <ArcadeHub
+                  open={arcadeOpen}
+                  initialGame={arcadeGame}
+                  onClose={() => setArcadeOpen(false)}
                 />
               )}
-              {arcadeOpen && <ArcadeHub open={arcadeOpen} onClose={() => setArcadeOpen(false)} />}
             </Suspense>
 
             <Suspense fallback={null}>
               {idle && (
                 <>
-                  {heavyAmbient && <ParticleUniverse />}
-                  <AmbientParticles />
+                  {heavyAmbient && <BackgroundEngine />}
                   <XPBar />
                   <LevelMap />
                   <AchievementToast />

@@ -24,7 +24,7 @@ export default function MagneticButton({ children, className = '', strength = 0.
       ref={ref}
       onMouseMove={onMouseMove}
       onMouseLeave={onMouseLeave}
-      className={`inline-block transition-transform duration-300 [transition-timing-function:var(--ease-out-expo)] ${className}`}
+      className={`inline-block transition-transform duration-fast [transition-timing-function:var(--ease-out-expo)] ${className}`}
       {...props}
     >
       {children}

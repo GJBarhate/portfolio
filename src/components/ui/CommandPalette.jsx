@@ -135,7 +135,7 @@ export default function CommandPalette({ onPlayGame, onOpenArcade, defaultOpen =
                   key={action.id}
                   onClick={() => execute(action)}
                   onMouseEnter={() => setSelected(i)}
-                  className={`w-full flex items-center gap-3 px-5 py-2.5 text-left text-sm transition-colors duration-150 ${
+                  className={`w-full flex items-center gap-3 px-5 py-2.5 text-left text-sm transition-colors duration-fast ${
                     i === selected ? 'bg-[var(--surface-2)] text-[var(--ink)]' : 'text-[var(--ink-mid)]'
                   }`}
                 >

@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
-import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
+import { useEffect, useRef } from 'react'
 import AvatarScrub from './AvatarScrub.jsx'
+import { onFrame } from '../../lib/raf.js'
 
 // Three tags and six particles, down from five and twelve: the ornament has
 // to scale with the smaller frame or it reads as clutter around it.
@@ -9,36 +9,74 @@ const PARTICLE_COUNT = 6
 
 export default function AvatarShowcase({ sectionId = 'about' }) {
   const containerRef = useRef(null)
-  const [hovering, setHovering] = useState(false)
 
-  const mouseX = useMotionValue(0.5)
-  const mouseY = useMotionValue(0.5)
-
-  const rotateX = useSpring(useTransform(mouseY, [0, 1], [12, -12]), { stiffness: 150, damping: 20 })
-  const rotateY = useSpring(useTransform(mouseX, [0, 1], [-12, 12]), { stiffness: 150, damping: 20 })
-
-  const glowX = useTransform(mouseX, [0, 1], ['-20%', '120%'])
-  const glowY = useTransform(mouseY, [0, 1], ['-20%', '120%'])
-
+  /*
+   * J2 — this used to bind a raw `mousemove` driving two Framer springs and
+   * two transforms, running whether or not the section was anywhere near the
+   * viewport, and reading layout inside every event. It is now: one damped
+   * lerp on the shared ticker, gated by an IntersectionObserver, writing CSS
+   * custom properties that the card and the specular highlight consume.
+   */
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
+    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return
+
+    const target = { x: 0.5, y: 0.5 }
+    const value = { x: 0.5, y: 0.5 }
+    let rect = null
+    let inView = false
+    let stop = null
+
     const onMove = (e) => {
-      const rect = el.getBoundingClientRect()
-      mouseX.set((e.clientX - rect.left) / rect.width)
-      mouseY.set((e.clientY - rect.top) / rect.height)
+      if (!rect) rect = el.getBoundingClientRect()
+      target.x = (e.clientX - rect.left) / rect.width
+      target.y = (e.clientY - rect.top) / rect.height
     }
-    el.addEventListener('mousemove', onMove)
-    return () => el.removeEventListener('mousemove', onMove)
-  }, [mouseX, mouseY])
+    const onEnter = () => { rect = el.getBoundingClientRect(); el.dataset.hovering = 'true' }
+    const onLeave = () => {
+      el.dataset.hovering = 'false'
+      target.x = 0.5
+      target.y = 0.5
+    }
+    const invalidate = () => { rect = null }
+
+    const tick = (_t, dt) => {
+      const k = 1 - Math.exp(-(dt / 1000) * 9)
+      value.x += (target.x - value.x) * k
+      value.y += (target.y - value.y) * k
+      el.style.setProperty('--av-rx', `${((0.5 - value.y) * 24).toFixed(2)}deg`)
+      el.style.setProperty('--av-ry', `${((value.x - 0.5) * 24).toFixed(2)}deg`)
+      el.style.setProperty('--av-gx', `${(-20 + value.x * 140).toFixed(1)}%`)
+      el.style.setProperty('--av-gy', `${(-20 + value.y * 140).toFixed(1)}%`)
+    }
+
+    const io = new IntersectionObserver(([e]) => {
+      inView = e.isIntersecting
+      if (inView && !stop) stop = onFrame(tick)
+      else if (!inView && stop) { stop(); stop = null }
+    }, { rootMargin: '10% 0px' })
+    io.observe(el)
+
+    el.addEventListener('pointermove', onMove, { passive: true })
+    el.addEventListener('pointerenter', onEnter)
+    el.addEventListener('pointerleave', onLeave)
+    window.addEventListener('scroll', invalidate, { passive: true })
+    window.addEventListener('resize', invalidate, { passive: true })
+
+    return () => {
+      io.disconnect()
+      stop?.()
+      el.removeEventListener('pointermove', onMove)
+      el.removeEventListener('pointerenter', onEnter)
+      el.removeEventListener('pointerleave', onLeave)
+      window.removeEventListener('scroll', invalidate)
+      window.removeEventListener('resize', invalidate)
+    }
+  }, [])
 
   return (
-    <div
-      ref={containerRef}
-      className="avatar-showcase"
-      onMouseEnter={() => setHovering(true)}
-      onMouseLeave={() => setHovering(false)}
-    >
+    <div ref={containerRef} className="avatar-showcase" data-hovering="false">
       {/* Outer glow pulse */}
       <div className="avatar-showcase__glow" />
 
@@ -62,23 +100,12 @@ export default function AvatarShowcase({ sectionId = 'about' }) {
       ))}
 
       {/* 3D tilting card */}
-      <motion.div
-        className="avatar-showcase__card"
-        style={{
-          rotateX,
-          rotateY,
-          transformPerspective: 800,
-          transformStyle: 'preserve-3d',
-        }}
-      >
+      <div className="avatar-showcase__card">
         {/* Holographic scan line */}
         <div className="avatar-showcase__scan" />
 
         {/* Specular highlight following mouse */}
-        <motion.div
-          className="avatar-showcase__specular"
-          style={{ left: glowX, top: glowY }}
-        />
+        <div className="avatar-showcase__specular" />
 
         {/* Corner accents */}
         <span className="avatar-showcase__corner avatar-showcase__corner--tl" />
@@ -94,7 +121,7 @@ export default function AvatarShowcase({ sectionId = 'about' }) {
           <span className="avatar-showcase__status-dot" />
           <span>AVAILABLE</span>
         </div>
-      </motion.div>
+      </div>
 
       {/* Particle dots */}
       {Array.from({ length: PARTICLE_COUNT }).map((_, i) => (

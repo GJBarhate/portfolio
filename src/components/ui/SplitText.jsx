@@ -1,52 +1,72 @@
-import { motion } from 'framer-motion'
+import { useEffect, useRef, useState } from 'react'
 import { useReducedMotion } from '../../lib/useReducedMotion.js'
 
-const charVariants = {
-  hidden: { opacity: 0, y: 20, rotateX: -40 },
-  visible: { opacity: 1, y: 0, rotateX: 0 },
-}
-
-const EASE = [0.16, 1, 0.3, 1]
-
+/**
+ * Word-level reveal behind clip-path masks (§4 headline rule).
+ *
+ * Two changes from the character-level Framer version: it splits on WORDS, not
+ * characters — a 60-character headline was 60 motion components and 60 DOM
+ * nodes for an effect nobody reads letter by letter — and the animation is
+ * CSS, triggered once by an IntersectionObserver at 30% in-view. Stagger is
+ * `animation-delay`, so the whole reveal is compositor work.
+ *
+ * Reduced motion gets the text, instantly, with no wrapper spans at all.
+ */
 export default function SplitText({
   children,
   className = '',
-  as = 'span',
-  stagger = 0.02,
+  as: Tag = 'span',
+  stagger = 45,
   delay = 0,
   once = true,
 }) {
   const reduced = useReducedMotion()
+  const ref = useRef(null)
+  const [shown, setShown] = useState(false)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el || reduced) return
+    const io = new IntersectionObserver(
+      ([e]) => {
+        if (e.isIntersecting) {
+          setShown(true)
+          if (once) io.disconnect()
+        } else if (!once) {
+          setShown(false)
+        }
+      },
+      { threshold: 0.3 }
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [reduced, once])
 
   if (reduced || typeof children !== 'string') {
-    const Tag = as
     return <Tag className={className}>{children}</Tag>
   }
 
-  const chars = [...children].map((c) => (c === ' ' ? ' ' : c))
+  // Spaces stay as their own tokens so wrapping and word-spacing behave
+  // exactly as they would in plain text.
+  const tokens = children.split(/(\s+)/)
+  let wordIndex = 0
 
   return (
-    <motion.span
-      className={className}
-      style={{ display: 'inline-block', perspective: '600px' }}
-      initial="hidden"
-      whileInView="visible"
-      viewport={{ once, margin: '-10% 0px -10% 0px' }}
-      variants={{
-        hidden: {},
-        visible: { transition: { staggerChildren: stagger, delayChildren: delay } },
-      }}
+    <Tag
+      ref={ref}
+      className={`split-text ${className}`.trim()}
+      data-split={shown ? 'in' : 'out'}
+      style={{ '--split-stagger': `${stagger}ms`, '--split-delay': `${delay}s` }}
     >
-      {chars.map((char, i) => (
-        <motion.span
-          key={i}
-          variants={charVariants}
-          transition={{ duration: 0.6, ease: EASE }}
-          style={{ display: 'inline-block', transformOrigin: 'bottom center' }}
-        >
-          {char}
-        </motion.span>
-      ))}
-    </motion.span>
+      {tokens.map((token, i) => {
+        if (!token.trim()) return <span key={i}>{token}</span>
+        const idx = wordIndex++
+        return (
+          <span key={i} className="split-word" style={{ '--i': idx }}>
+            <span className="split-word__inner">{token}</span>
+          </span>
+        )
+      })}
+    </Tag>
   )
 }

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
-import { motion, AnimatePresence } from 'framer-motion'
 import { useTheme } from '../../contexts/ThemeContext.jsx'
 import { useSound } from '../../contexts/SoundContext.jsx'
 
@@ -19,8 +18,11 @@ const TEXTURES = {
   },
   paper: {
     track: 'linear-gradient(155deg, #fff8ec, #ffe9c2 55%, #f3d59a)',
-    knob: 'radial-gradient(circle at 32% 28%, #ffffff, #d9eff1 40%, #7fc4c8 80%, #3f9296)',
-    glow: '#fff4d6',
+    // §6.4 — a near-white knob on a cream track lands nowhere near APCA Lc 45;
+    // the outer ring is darkened (#7fc4c8 → #5eb3b8) so the knob has an edge
+    // you can actually see. The other two knobs sit on dark tracks and pass.
+    knob: 'radial-gradient(circle at 32% 28%, #ffffff, #cfe9ec 38%, #5eb3b8 78%, #2f7f84)',
+    glow: '#1f7d86',
     label: 'PAPER',
   },
 }
@@ -91,15 +93,14 @@ export default function ThemeToggle() {
 
   return (
     <div ref={rootRef} className="relative flex items-center gap-2">
-      <motion.button
+      <button
         onClick={() => setOpen((v) => !v)}
         data-cursor="view"
         aria-label={`Theme: ${tex.label} — open theme atelier`}
         aria-expanded={open}
         aria-haspopup="menu"
         title={`Theme: ${tex.label} — choose from all themes`}
-        whileTap={{ scale: 0.92 }}
-        className="relative flex items-center rounded-full transition-shadow duration-500 shadow-[inset_0_1px_2px_rgba(255,255,255,0.15),inset_0_-2px_4px_rgba(0,0,0,0.32),0_2px_6px_rgba(0,0,0,0.45)]"
+        className="theme-toggle spring-press relative flex items-center rounded-full"
         style={{ width: TRACK_W, height: TRACK_H, padding: PAD, background: tex.track }}
       >
         {/* Position pips */}
@@ -107,7 +108,7 @@ export default function ThemeToggle() {
           {ORDER.map((id) => (
             <span
               key={id}
-              className="w-1 h-1 rounded-full transition-opacity duration-300"
+              className="w-1 h-1 rounded-full transition-opacity duration-fast"
               style={{ background: 'rgba(255,255,255,0.55)', opacity: id === theme ? 0 : 0.7 }}
             />
           ))}
@@ -121,29 +122,27 @@ export default function ThemeToggle() {
             background: tex.knob,
             boxShadow: `0 1px 3px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.45)`,
             transform: `translateX(${idx * STEP}px)`,
-            transition: 'transform 0.45s var(--ease-anticipate), background 0.35s var(--ease-forge)',
+            // §6.3 — 450ms was slower than every other control on the page.
+            transition: 'transform var(--dur-base) var(--ease-anticipate), background var(--dur-fast) var(--ease-forge)',
           }}
         >
-          <motion.span
-            className="relative z-10 w-1.5 h-1.5 rounded-full"
+          {/* J3 — was a Framer `repeat: Infinity` loop running forever in the
+              navbar, i.e. permanently outside the animation gate. As CSS with
+              data-loop it parks the moment it scrolls out of view. */}
+          <span
+            className="theme-toggle__pulse relative z-10 w-1.5 h-1.5 rounded-full"
+            data-loop="knob-pulse"
             style={{ background: tex.glow, boxShadow: `0 0 6px 1px ${tex.glow}` }}
-            animate={{ opacity: [0.7, 1, 0.7] }}
-            transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
           />
         </span>
-      </motion.button>
+      </button>
 
       {/* ═══ Theme Atelier ═══ */}
-      <AnimatePresence>
-        {open && (
-          <motion.div
+      {open && (
+          <div
             role="menu"
             aria-label="Theme atelier"
-            initial={{ opacity: 0, y: -8, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.97 }}
-            transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-            className="atelier-panel"
+            className="atelier-panel atelier-panel--in"
           >
             <p className="font-mono text-[9px] tracking-[0.3em] text-[var(--ink-low)] px-3 pt-2 pb-2">
               THEME ATELIER
@@ -189,9 +188,8 @@ export default function ThemeToggle() {
                 </span>
               </button>
             ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+      )}
     </div>
   )
 }

@@ -136,27 +136,10 @@ export function getRenderer() {
   return renderer
 }
 
-// ── Overlay renderer ───────────────────────────────────────────────────────
-// The scissor stage draws into a single fixed layer BEHIND page content, which
-// is right for ambient scenes but wrong for an effect that must sit on top of
-// a specific element (the project-card hover distortion). Those share one
-// module-level renderer whose canvas is moved to whichever element is active —
-// only one card can be hovered at a time, so one context is genuinely enough.
-let overlay = null
-
-/**
- * The single overlay renderer + canvas, created on first use.
- * @returns {{renderer: object, canvas: HTMLCanvasElement}}
- */
-export function getOverlayRenderer() {
-  if (overlay) return overlay
-  const el = document.createElement('canvas')
-  el.setAttribute('aria-hidden', 'true')
-  const r = new WebGLRenderer({ canvas: el, alpha: true, antialias: false })
-  r.setPixelRatio(Math.min(window.devicePixelRatio, getTier() >= 3 ? 1.75 : 1.25))
-  overlay = { renderer: r, canvas: el }
-  return overlay
-}
+// The project-card hover distortion used to take an overlay renderer from
+// here. It is now one fullscreen quad on raw WebGL (`lib/rawGL.js`, ~3 KB) —
+// a scene graph was never needed for a 2-D shader, and importing three for it
+// put 131 KB on the Projects path.
 
 /**
  * A renderer whose canvas lives INSIDE `element`.

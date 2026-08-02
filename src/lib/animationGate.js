@@ -1,16 +1,26 @@
 /**
  * Pauses off-screen infinite CSS animations.
  *
- * One IntersectionObserver watches every element known to carry a looping
- * animation and flips `data-anim-paused`, which the stylesheet turns into
- * `animation-play-state: paused`. An animation that nobody can see should not
- * be costing frames.
+ * One IntersectionObserver watches every element carrying a looping animation
+ * and flips `data-anim-paused`, which the stylesheet turns into
+ * `animation-play-state: paused`. An animation nobody can see should not be
+ * costing frames.
+ *
+ * J5 — this used to walk a hand-maintained selector list "kept in sync with
+ * index.css". It never was: any new loop silently escaped the gate, and any
+ * renamed class silently stopped being gated, with nothing to fail. The
+ * contract is now an attribute the loop declares for itself — `data-loop` on
+ * the element (or `.loop` as a convenience class) — so opting in is local to
+ * wherever the animation is written.
  *
  * A MutationObserver picks up elements added later by lazily-mounted sections.
  */
 
-// Kept in sync with the infinite-animation selectors in index.css.
-const SELECTOR = [
+const SELECTOR = '[data-loop], .loop'
+
+/* The classes that predate the attribute convention. New loops must NOT be
+   added here — put `data-loop` on the element instead. */
+const LEGACY_SELECTOR = [
   '.avatar-showcase__glow',
   '.avatar-showcase__orbit--1',
   '.avatar-showcase__orbit--2',
@@ -39,6 +49,8 @@ const SELECTOR = [
   '.text-gradient--sweep',
 ].join(',')
 
+const ALL = `${SELECTOR},${LEGACY_SELECTOR}`
+
 let io = null
 let mo = null
 // Rebuilt on every start: a WeakSet cannot be cleared, so reusing one across
@@ -54,7 +66,7 @@ function observe(el) {
 
 function scan(root = document) {
   if (!root.querySelectorAll) return
-  root.querySelectorAll(SELECTOR).forEach(observe)
+  root.querySelectorAll(ALL).forEach(observe)
 }
 
 export function startAnimationGate() {
@@ -78,7 +90,7 @@ export function startAnimationGate() {
     for (const r of records) {
       for (const node of r.addedNodes) {
         if (node.nodeType !== 1) continue
-        if (node.matches?.(SELECTOR)) observe(node)
+        if (node.matches?.(ALL)) observe(node)
         scan(node)
       }
     }

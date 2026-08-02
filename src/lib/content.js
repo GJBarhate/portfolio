@@ -1,3 +1,5 @@
+import LIVE_STATUS from './liveStatus.json'
+
 export const SOCIALS = {
   github: 'https://github.com/GJBarhate',
   leetcode: 'https://leetcode.com/u/chgyCygKwQ/',
@@ -5,6 +7,18 @@ export const SOCIALS = {
   linkedin: 'https://www.linkedin.com/in/gaurav-barhate-056175271/',
   email: 'gauravbarhate55@gmail.com',
   phone: '+91 93733 27427',
+}
+
+/*
+ * W4 — the `now` line. Kept as data, not markup, because the whole point is
+ * that it stays current: one edit here updates the status pill, and a stale
+ * date is worse than no date at all.
+ */
+export const NOW = {
+  availability: 'OPEN TO WORK',
+  availableFrom: 'Immediately',
+  focus: 'Real-time systems & AI pipelines',
+  editor: 'VS Code · Vim keys · Vite',
 }
 
 export const STATS = [
@@ -52,7 +66,7 @@ export const SKILLS = [
   },
 ]
 
-export const PROJECTS = [
+const PROJECT_DEFS = [
   {
     id: 'peercode',
     title: 'PeerCode',
@@ -63,6 +77,18 @@ export const PROJECTS = [
     outcome:
       'Two people run a full mock interview — synced editor, live video and AI feedback — without leaving the tab.',
     accent: '#8b5cf6',
+    architecture: ['React + Monaco', 'Socket.IO', 'Yjs CRDT', 'Judge0 / Gemini'],
+    metrics: [
+      { value: '<80ms', label: 'EDITOR SYNC' },
+      { value: '2-peer', label: 'WEBRTC ROOMS' },
+      { value: '9', label: 'SERVICES WIRED' },
+    ],
+    imageAlts: {
+      'peercode-landing.webp': 'PeerCode landing page introducing peer-to-peer mock coding interviews',
+      'peercode-dashboard.webp': 'PeerCode dashboard listing past practice sessions and match history',
+      'peercode-editor.webp': 'PeerCode interview room: Monaco editor synced between two users beside a live WebRTC video call',
+      'peercode-leaderboard.webp': 'PeerCode leaderboard ranking users by rating after practice matches',
+    },
     images: [
       'peercode-landing.webp',
       'peercode-dashboard.webp',
@@ -82,6 +108,17 @@ export const PROJECTS = [
     outcome:
       'Failed webhook deliveries retry automatically and surface in a live console before they reach production.',
     accent: '#22d3ee',
+    architecture: ['Webhook in', 'API-key gate', 'Retry queue', 'Live console'],
+    metrics: [
+      { value: '5×', label: 'RETRY BACKOFF' },
+      { value: 'per-project', label: 'API KEYS' },
+      { value: 'realtime', label: 'EVENT CONSOLE' },
+    ],
+    imageAlts: {
+      'flowshield-dashboard.webp': 'FlowShield dashboard showing webhook delivery success and failure analytics',
+      'flowshield-projects.webp': 'FlowShield project list, each with its own API key and event volume',
+      'flowshield-detail.webp': 'FlowShield event detail view with the request payload and its retry attempts',
+    },
     images: ['flowshield-dashboard.webp', 'flowshield-projects.webp', 'flowshield-detail.webp'],
     live: 'https://flowshield-delta.vercel.app/login',
     repo: 'https://github.com/GJBarhate/flowshield',
@@ -96,6 +133,17 @@ export const PROJECTS = [
     outcome:
       'Turns a spoken answer into scored, written feedback in one pass, so practice does not need a second person.',
     accent: '#34d399',
+    architecture: ['Web Speech API', 'Transcript review', 'Gemini prompt', 'Scored answer'],
+    metrics: [
+      { value: '1 pass', label: 'SPEECH → FEEDBACK' },
+      { value: 'in-browser', label: 'TRANSCRIPTION' },
+      { value: 'JWT', label: 'AUTH + HISTORY' },
+    ],
+    imageAlts: {
+      'voiceans-landing.webp': 'VoiceAns landing page with the microphone prompt for asking a question aloud',
+      'voiceans-question.webp': 'VoiceAns showing a transcribed question above Gemini’s structured bullet-point answer',
+      'voiceans-history.webp': 'VoiceAns chat history listing previously asked interview questions',
+    },
     images: ['voiceans-landing.webp', 'voiceans-question.webp', 'voiceans-history.webp'],
     live: 'https://voice-ans-frontend.vercel.app/',
     repo: 'https://github.com/GJBarhate/voice-ans',
@@ -110,6 +158,18 @@ export const PROJECTS = [
     outcome:
       'Search, cart and checkout run end to end on live payments, not a demo stub.',
     accent: '#f59e0b',
+    architecture: ['Catalog + search', 'Cart / sizes', 'Checkout', 'Orders + admin'],
+    metrics: [
+      { value: 'end-to-end', label: 'CHECKOUT FLOW' },
+      { value: 'role-based', label: 'ADMIN PANEL' },
+      { value: 'AI', label: 'SHOPPING ASSISTANT' },
+    ],
+    imageAlts: {
+      'onecart-home.webp': 'OneCart storefront home page with featured product collections',
+      'onecart-collections.webp': 'OneCart collections page with category filters, search and sorting',
+      'onecart-cart.webp': 'OneCart shopping cart with size selection and order total',
+      'onecart-orders.webp': 'OneCart orders page tracking the status of past purchases',
+    },
     images: ['onecart-home.webp', 'onecart-collections.webp', 'onecart-cart.webp', 'onecart-orders.webp'],
     live: 'https://ai-powered-ecommerce-platform-frontendone.onrender.com/',
     repo: 'https://github.com/GJBarhate/ai-powered-ecommerce-platform',
@@ -124,11 +184,32 @@ export const PROJECTS = [
     outcome:
       'Instructors publish a course and enrol paying students without touching the database.',
     accent: '#f472b6',
+    architecture: ['Google OAuth', 'Role router', 'Course catalog', 'Lecture player'],
+    metrics: [
+      { value: '2 roles', label: 'STUDENT / EDUCATOR' },
+      { value: 'AI', label: 'COURSE SEARCH' },
+      { value: 'OAuth + JWT', label: 'SIGN-IN' },
+    ],
+    imageAlts: {
+      'lms-landing.webp': 'Virtual Courses landing page introducing the learning management system',
+      'lms-courses.webp': 'Virtual Courses catalog spanning web development, AI/ML and data science tracks',
+      'lms-signup.webp': 'Virtual Courses sign-up screen offering email and Google sign-in with a role choice',
+    },
     images: ['lms-landing.webp', 'lms-courses.webp', 'lms-signup.webp'],
     live: 'https://learning-management-system-frontend-tx7b.onrender.com/signup',
     repo: 'https://github.com/GJBarhate/learning-management-system',
   },
 ]
+
+/*
+ * W2 — live status pings. `npm run check:live` pings every deployed app and
+ * writes liveStatus.json; the badge on each card is therefore a build-time
+ * fact, not a runtime fetch. Zero requests on the visitor's machine.
+ */
+export const PROJECTS = PROJECT_DEFS.map((p) => ({
+  ...p,
+  status: LIVE_STATUS[p.id] || 'unknown',
+}))
 
 export const TIMELINE = [
   {

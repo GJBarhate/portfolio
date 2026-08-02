@@ -11,7 +11,9 @@
     <meta property="og:title" content="Gaurav Barhate — Full-Stack Developer & Competitive Programmer" />
     <meta property="og:description" content="Portfolio of Gaurav Barhate — B.Tech CSE graduate, full-stack developer, and competitive programmer." />
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://gauravbarhate.dev/" />
     <meta property="og:image" content="/og-image.png" />
+    <link rel="canonical" href="https://gauravbarhate.dev/" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Gaurav Barhate — Full-Stack Developer & Competitive Programmer" />
     <meta name="twitter:description" content="LeetCode Knight (1972). Full-stack developer. 5+ apps live in production." />
@@ -30,8 +32,15 @@
           var theme = map[saved] || saved || 'eclipse';
           if (theme !== saved) { try { localStorage.setItem('forge-theme', theme); } catch (e) {} }
           document.documentElement.dataset.theme = theme;
+          // §6.5 — scrollbars and form controls follow the POLARITY, and they
+          // flash the wrong one for a frame if this waits for React.
+          document.documentElement.style.colorScheme = theme === 'paper' ? 'light' : 'dark';
+          if (sessionStorage.getItem('forge-recruiter') === '1') {
+            document.documentElement.setAttribute('data-recruiter', '');
+          }
         } catch (e) {
           document.documentElement.dataset.theme = 'eclipse';
+          document.documentElement.style.colorScheme = 'dark';
         }
       })();
     </script>
@@ -60,6 +69,91 @@
         "https://leetcode.com/u/chgyCygKwQ/",
         "https://www.codechef.com/users/gaurav_jb",
         "https://www.linkedin.com/in/gaurav-barhate-056175271/"
+      ]
+    }
+    </script>
+
+    <!-- §10 — an ItemList of SoftwareApplication entries, so the five live
+         apps can surface as rich results in their own right rather than only
+         as a line inside the Person entity. -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "ItemList",
+      "name": "Projects by Gaurav Barhate",
+      "itemListOrder": "https://schema.org/ItemListOrderAscending",
+      "numberOfItems": 5,
+      "itemListElement": [
+        {
+          "@type": "ListItem",
+          "position": 1,
+          "item": {
+            "@type": "SoftwareApplication",
+            "name": "PeerCode",
+            "url": "https://peercode-iota.vercel.app/",
+            "applicationCategory": "DeveloperApplication",
+            "operatingSystem": "Web",
+            "description": "Real-time coding interview platform with WebRTC video, a Yjs CRDT-synced editor, Judge0 execution and Gemini-driven AI mock interviews.",
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+            "author": { "@type": "Person", "name": "Gaurav Barhate" }
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 2,
+          "item": {
+            "@type": "SoftwareApplication",
+            "name": "FlowShield",
+            "url": "https://flowshield-delta.vercel.app/login",
+            "applicationCategory": "DeveloperApplication",
+            "operatingSystem": "Web",
+            "description": "Webhook monitoring and reliability tool with per-project API keys, automatic delivery retries and a real-time debugging console.",
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+            "author": { "@type": "Person", "name": "Gaurav Barhate" }
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 3,
+          "item": {
+            "@type": "SoftwareApplication",
+            "name": "VoiceAns",
+            "url": "https://voice-ans-frontend.vercel.app/",
+            "applicationCategory": "EducationalApplication",
+            "operatingSystem": "Web",
+            "description": "AI voice interview coach: in-browser speech transcription answered by Google Gemini as structured, interview-ready feedback.",
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+            "author": { "@type": "Person", "name": "Gaurav Barhate" }
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 4,
+          "item": {
+            "@type": "SoftwareApplication",
+            "name": "OneCart",
+            "url": "https://ai-powered-ecommerce-platform-frontendone.onrender.com/",
+            "applicationCategory": "BusinessApplication",
+            "operatingSystem": "Web",
+            "description": "Full-stack e-commerce platform with search, cart, checkout, order tracking, an admin panel and an integrated AI shopping assistant.",
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+            "author": { "@type": "Person", "name": "Gaurav Barhate" }
+          }
+        },
+        {
+          "@type": "ListItem",
+          "position": 5,
+          "item": {
+            "@type": "SoftwareApplication",
+            "name": "Virtual Courses",
+            "url": "https://learning-management-system-frontend-tx7b.onrender.com/signup",
+            "applicationCategory": "EducationalApplication",
+            "operatingSystem": "Web",
+            "description": "Learning management system with separate student and educator roles, Google OAuth sign-in, AI course search and structured lectures.",
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+            "author": { "@type": "Person", "name": "Gaurav Barhate" }
+          }
+        }
       ]
     }
     </script>

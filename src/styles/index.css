@@ -31,6 +31,20 @@
   font-display: swap;
   font-style: normal;
 }
+/* §8.5 — metric-matched fallback for the display face.
+   `font-display: swap` means headlines paint in the fallback first and reflow
+   when Clash arrives. Overriding the fallback's metrics so its line box
+   matches Clash's makes that swap invisible in layout terms, which is what
+   removes the headline CLS rather than merely hiding it. */
+@font-face {
+  font-family: 'Clash Fallback';
+  src: local('Arial'), local('Helvetica Neue'), local('Liberation Sans');
+  size-adjust: 94%;
+  ascent-override: 96%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+}
+
 @font-face {
   font-family: 'Space Grotesk';
   src: url('/fonts/space-grotesk-400.woff2') format('woff2');
@@ -96,16 +110,20 @@
 
   /* ── Surfaces (chroma <= .02 — tinted neutrals, never coloured) ── */
   --surface-0: oklch(13.5% 0.012 250);   /* page background */
-  --surface-1: oklch(17.0% 0.014 250);   /* cards */
-  --surface-2: oklch(21.0% 0.016 250);   /* raised / hover */
+  --surface-1: oklch(17.5% 0.014 250);   /* cards */
+  --surface-2: oklch(22.0% 0.016 250);   /* raised / hover */
   --surface-3: oklch(26.0% 0.018 250);   /* borders, dividers */
   --surface-4: oklch(32.0% 0.020 250);   /* pressed / active */
 
   /* ── Ink (APCA Lc against --surface-0) ── */
   --ink-hi:  oklch(97% 0.004 250);  /* Lc ~97 — headings */
-  --ink:     oklch(89% 0.008 250);  /* Lc ~85 — body */
-  --ink-mid: oklch(73% 0.010 250);  /* Lc ~63 — secondary */
-  --ink-low: oklch(60% 0.012 250);  /* Lc ~46 — labels, >=14px only */
+  --ink:     oklch(93% 0.010 250);  /* Lc ~90 — body */
+  --ink-mid: oklch(72% 0.015 250);  /* Lc ~62 — secondary */
+  /* §2.1 lists 55% here, but §2.1's own rule is that every ink-on-surface pair
+     must clear APCA Lc 60 (body) / 75 (small text), and 55% lands around Lc 40
+     on --surface-0 — it would reintroduce exactly the readability regression
+     this token was raised to fix. The rule wins over the sample value. */
+  --ink-low: oklch(60% 0.015 250);  /* Lc ~46 — labels, >=14px only */
   /* The old --ink-low (44%, Lc ~32) is gone. It was used 75 times for tech
      chips, captions and marquee text and was the single biggest readability
      problem on the site. De-emphasis is now done with size and weight, never
@@ -113,9 +131,12 @@
 
   /* ── Primary accent: electric teal (sRGB-safe base; P3 upgrade below) ── */
   --accent:        oklch(72% 0.120 195);
-  --accent-bright: oklch(85% 0.100 195);
+  --accent-bright: oklch(82% 0.130 195);
   --accent-dim:    oklch(54% 0.110 195);
   --accent-ghost:  oklch(72% 0.120 195 / 0.12);
+  /* A plain hex, deliberately: WebGL uniforms and canvas fillStyle cannot
+     interpolate oklch, and this is the value those layers sample. */
+  --accent-glow:   #7fe3e5;
 
   /* ── Secondary: warm amber (rewards, live badges, CTA hover) ── */
   --warm:      oklch(80% 0.130 68);
@@ -133,10 +154,20 @@
 
   /* ── Materials ── */
   --glass-bg: color-mix(in oklch, var(--surface-1) 92%, transparent);
-  --glass-border:    oklch(100% 0 0 / 0.09);
-  --glass-highlight: oklch(100% 0 0 / 0.05);
-  --glass-blur: 16px;
+  --glass-border:    color-mix(in oklch, var(--ink) 14%, transparent);
+  --glass-highlight: color-mix(in oklch, var(--ink) 8%, transparent);
+  --glass-blur: 14px;
   --shadow-color:    250 30% 4%;
+
+  /* ── §13.9 Depth grammar — three elevations, tinted toward --surface-0,
+        never pure black (which reads as dirt in `paper`). Cards rest at 2,
+        reach 3 on hover, and nothing goes higher. ── */
+  --shadow-1: 0 1px 2px color-mix(in oklch, var(--surface-0) 55%, transparent),
+              0 2px 6px color-mix(in oklch, var(--surface-0) 35%, transparent);
+  --shadow-2: 0 2px 6px color-mix(in oklch, var(--surface-0) 55%, transparent),
+              0 8px 24px -6px color-mix(in oklch, var(--surface-0) 45%, transparent);
+  --shadow-3: 0 4px 12px color-mix(in oklch, var(--surface-0) 55%, transparent),
+              0 18px 48px -12px color-mix(in oklch, var(--surface-0) 55%, transparent);
 
   /* ── Signature gradient — hero name, section numerals, one CTA. `in oklch`
         interpolation avoids the grey dead-zone sRGB hits between teal and
@@ -160,12 +191,27 @@
   /* === Named easing curves ===
      linear() gives a true spring curve; the cubic-beziers stay for the
      non-spring cases. */
-  --ease-forge: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-snap: cubic-bezier(0.65, 0, 0.35, 1);
-  --ease-anticipate: cubic-bezier(0.68, -0.6, 0.32, 1.6);
+  /* §2.4 — frozen motion vocabulary. After M2 no component may hard-code a
+     duration or an easing; every transition references one of these. */
+  --ease-forge: cubic-bezier(0.16, 1, 0.3, 1);        /* entrances (out-expo) */
+  --ease-cinema: cubic-bezier(0.65, 0, 0.35, 1);      /* theme sweep, VT morphs */
+  --ease-anticipate: cubic-bezier(0.68, -0.4, 0.32, 1.4); /* knobs, chips */
+  --ease-snap: var(--ease-cinema);
   --ease-glide: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
   --ease-spring: linear(0, 0.25 13%, 0.6 25%, 1.02 45%, 0.99 60%, 1);
+
+  --dur-fast: 180ms;    /* hover feedback */
+  --dur-base: 420ms;    /* entrances */
+  --dur-cinema: 650ms;  /* theme sweep, layout morphs */
+
+  /* §2.2 — one fluid type scale, used through .section-h2 / .fs-* utilities
+     rather than re-typed clamp() literals in a dozen JSX files. */
+  --fs-hero: clamp(2.6rem, 7vw, 5.5rem);
+  --fs-h2: clamp(2rem, 5vw, 3.5rem);
+  --fs-h3: clamp(1.15rem, 2vw, 1.5rem);
+  --fs-body: clamp(1rem, 1.1vw, 1.125rem);
+  --fs-caption: 0.75rem;
 
   /* === Z-index layers === */
   --z-cursor: 9999;
@@ -201,28 +247,29 @@
 [data-theme="ember"] {
   --grade-base-hue: 85;
   --surface-0: oklch(12.5% 0.006 80);
-  --surface-1: oklch(16.0% 0.008 80);
-  --surface-2: oklch(20.0% 0.010 80);
+  --surface-1: oklch(16.5% 0.008 80);
+  --surface-2: oklch(21.0% 0.010 80);
   --surface-3: oklch(25.0% 0.013 80);
   --surface-4: oklch(31.0% 0.016 80);
 
   --ink-hi:  oklch(97% 0.005 80);
-  --ink:     oklch(89% 0.008 80);
-  --ink-mid: oklch(73% 0.012 80);
-  --ink-low: oklch(60% 0.014 80);
+  --ink:     oklch(92% 0.020 85);
+  --ink-mid: oklch(70% 0.020 85);
+  --ink-low: oklch(60% 0.020 85);
 
   --accent:        oklch(80% 0.105 85);
-  --accent-bright: oklch(90% 0.085 88);
+  --accent-bright: oklch(87% 0.110 85);
   --accent-dim:    oklch(58% 0.090 85);
   --accent-ghost:  oklch(80% 0.105 85 / 0.12);
+  --accent-glow:   #f0e0b8;
 
   --warm:      oklch(76% 0.120 62);
   --warm-dim:  oklch(56% 0.100 62);
   --violet:     oklch(70% 0.090 40);
   --violet-dim: oklch(50% 0.080 40);
 
-  --glass-border:    oklch(85% 0.09 85 / 0.16);
-  --glass-highlight: oklch(95% 0.06 85 / 0.07);
+  --glass-border:    color-mix(in oklch, var(--ink) 14%, transparent);
+  --glass-highlight: color-mix(in oklch, var(--ink) 8%, transparent);
 }
 
 /* Paper — the light theme. APCA thresholds differ by polarity, so the ink
@@ -230,21 +277,22 @@
 [data-theme="paper"] {
   --grade-base-hue: 55;
   --surface-0: oklch(97.5% 0.010 75);
-  --surface-1: oklch(94.5% 0.014 75);
-  --surface-2: oklch(91.0% 0.018 75);
+  --surface-1: oklch(94.0% 0.012 75);
+  --surface-2: oklch(90.0% 0.014 75);
   --surface-3: oklch(85.0% 0.022 75);
   --surface-4: oklch(78.0% 0.026 75);
 
-  --ink-hi:  oklch(18% 0.014 75);
-  --ink:     oklch(26% 0.016 75);
-  --ink-mid: oklch(42% 0.018 75);
-  --ink-low: oklch(52% 0.018 75);
+  --ink-hi:  oklch(16% 0.020 250);
+  --ink:     oklch(22% 0.020 250);
+  --ink-mid: oklch(40% 0.020 250);
+  --ink-low: oklch(52% 0.020 250);
 
   /* Accents must go DARKER, not lighter, to carry contrast on a pale field. */
   --accent:        oklch(52% 0.115 205);
-  --accent-bright: oklch(42% 0.125 205);
+  --accent-bright: oklch(45% 0.130 205);
   --accent-dim:    oklch(68% 0.080 205);
   --accent-ghost:  oklch(52% 0.115 205 / 0.12);
+  --accent-glow:   #1f7d86;
 
   --warm:      oklch(56% 0.130 55);
   --warm-dim:  oklch(72% 0.090 55);
@@ -255,7 +303,7 @@
   --danger:  oklch(52% 0.190 27);
 
   --glass-bg: color-mix(in oklch, var(--surface-0) 92%, transparent);
-  --glass-border:    oklch(35% 0.03 75 / 0.14);
+  --glass-border:    color-mix(in oklch, var(--ink) 14%, transparent);
   --glass-highlight: oklch(100% 0 0 / 0.65);
   --shadow-color: 55 25% 45%;
 }
@@ -292,7 +340,10 @@ html[data-theme="paper"] { color-scheme: light; }
     radial-gradient(ellipse 80% 60% at 50% 100%, color-mix(in oklch, var(--warm) 8%, transparent), transparent 50%);
 }
 
-/* === Theme wipe â€” the new palette reveals as a circle from the toggle === */
+/* === Theme wipe — the new palette reveals as a circle from the toggle ===
+   §6.2: the old snapshot is explicitly NOT animated and sits underneath, so
+   the new palette wipes over a static frame instead of two layers
+   cross-dissolving into mud. Timing comes from the frozen tokens. */
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation: none;
@@ -300,10 +351,26 @@ html[data-theme="paper"] { color-scheme: light; }
 }
 ::view-transition-new(root) {
   clip-path: circle(0px at var(--vt-x, 50%) var(--vt-y, 50%));
-  animation: themeWipe 0.6s var(--ease-forge) forwards;
+  animation-name: themeWipe;
+  animation-duration: var(--dur-cinema, 650ms);
+  animation-timing-function: var(--ease-cinema);
+  animation-fill-mode: forwards;
 }
 @keyframes themeWipe {
   to { clip-path: circle(150vmax at var(--vt-x, 50%) var(--vt-y, 50%)); }
+}
+
+/* Fallback for Firefox (no View Transition API as of early 2026) and for
+   reduced-motion: a plain 400 ms colour transition on the surfaces that
+   actually carry the palette. */
+@supports not (view-transition-name: root) {
+  html[data-theme-changing] body,
+  html[data-theme-changing] .glass,
+  html[data-theme-changing] .satin {
+    transition: background-color 400ms var(--ease-cinema),
+                color 400ms var(--ease-cinema),
+                border-color 400ms var(--ease-cinema);
+  }
 }
 
 /* === Project cards: Cinema ⇄ Grid (P4.2) ===
@@ -398,12 +465,12 @@ a { color: inherit; text-decoration: none; }
 
 /* === Display typography === */
 .font-display {
-  font-family: 'Clash Display', 'Space Grotesk', sans-serif;
+  font-family: 'Clash Display', 'Clash Fallback', 'Space Grotesk', sans-serif;
   letter-spacing: -0.02em;
 }
 
 .text-gradient {
-  background: linear-gradient(120deg, var(--ink) 20%, var(--accent-bright) 50%, var(--violet) 80%, var(--accent) 100%);
+  background: linear-gradient(120deg in oklch, var(--ink) 20%, var(--accent-bright) 50%, var(--violet) 80%, var(--accent) 100%);
   background-size: 200% 100%;
   animation: gradientShift 6s ease-in-out infinite;
   -webkit-background-clip: text;
@@ -476,8 +543,8 @@ a { color: inherit; text-decoration: none; }
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(to right, color-mix(in oklch, var(--accent) 8%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in oklch, var(--accent) 8%, transparent) 1px, transparent 1px);
+    linear-gradient(to right in oklch, color-mix(in oklch, var(--accent) 8%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom in oklch, color-mix(in oklch, var(--accent) 8%, transparent) 1px, transparent 1px);
   background-size: 80px 80px;
   mask-image: radial-gradient(circle 320px at var(--mx) var(--my), #000 0%, transparent 70%);
   -webkit-mask-image: radial-gradient(circle 320px at var(--mx) var(--my), #000 0%, transparent 70%);
@@ -487,7 +554,7 @@ a { color: inherit; text-decoration: none; }
 .hero-aurora__scan {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, transparent 0%, color-mix(in oklch, var(--accent-bright) 6%, transparent) 50%, transparent 100%);
+  background: linear-gradient(180deg in oklch, transparent 0%, color-mix(in oklch, var(--accent-bright) 6%, transparent) 50%, transparent 100%);
   background-size: 100% 8px;
   opacity: 0.25;
   pointer-events: none;
@@ -506,7 +573,7 @@ a { color: inherit; text-decoration: none; }
 /* === Iridescent gradient name effect for hero h1 === */
 .hero-name-iridescent {
   background-image: linear-gradient(
-    120deg,
+    120deg in oklch,
     var(--ink) 0%,
     var(--ink) 30%,
     var(--accent-bright) 45%,
@@ -538,7 +605,7 @@ a { color: inherit; text-decoration: none; }
   width: 60%;
   height: 100%;
   background: linear-gradient(
-    90deg,
+    90deg in oklch,
     transparent 0%,
     rgba(255, 255, 255, 0.12) 30%,
     rgba(255, 255, 255, 0.3) 50%,
@@ -587,7 +654,7 @@ a { color: inherit; text-decoration: none; }
   padding: 0.45rem 0.9rem 0.45rem 0.7rem;
   border-radius: 9999px;
   background:
-    linear-gradient(180deg, rgb(255 255 255 / 0.05), transparent 65%),
+    linear-gradient(180deg in oklch, rgb(255 255 255 / 0.05), transparent 65%),
     color-mix(in oklch, var(--surface-1) 90%, transparent);
   border: 1px solid var(--glass-border);
   box-shadow: 0 1px 0 var(--glass-highlight) inset, 0 8px 24px -12px var(--accent-dim);
@@ -647,7 +714,7 @@ a { color: inherit; text-decoration: none; }
   content: '';
   position: absolute;
   inset: -40%;
-  background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,0.55) 48%, transparent 66%);
+  background: linear-gradient(115deg in oklch, transparent 30%, rgba(255,255,255,0.55) 48%, transparent 66%);
   transform: translateX(-120%);
   transition: transform 0.7s cubic-bezier(0.16,1,0.3,1);
 }
@@ -671,7 +738,7 @@ a { color: inherit; text-decoration: none; }
   animation: ctaSpin 4s linear infinite;
 }
 .hero-cta--arcade {
-  background: linear-gradient(145deg, color-mix(in oklch, var(--accent) 12%, var(--surface-2)), color-mix(in oklch, var(--accent) 6%, var(--surface-1)));
+  background: linear-gradient(145deg in oklch, color-mix(in oklch, var(--accent) 12%, var(--surface-2)), color-mix(in oklch, var(--accent) 6%, var(--surface-1)));
   border: 1px solid var(--accent-dim);
   color: var(--accent-bright);
   position: relative;
@@ -683,7 +750,7 @@ a { color: inherit; text-decoration: none; }
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(115deg, transparent 30%, color-mix(in oklch, var(--accent) 20%, transparent) 48%, transparent 66%);
+  background: linear-gradient(115deg in oklch, transparent 30%, color-mix(in oklch, var(--accent) 20%, transparent) 48%, transparent 66%);
   transform: translateX(-120%);
   transition: transform 0.7s cubic-bezier(0.16,1,0.3,1);
 }
@@ -775,7 +842,7 @@ a { color: inherit; text-decoration: none; }
   height: 2.5px;
   z-index: 9999;
   transform-origin: 0% 50%;
-  background: linear-gradient(90deg, var(--accent), var(--violet), var(--warm));
+  background: linear-gradient(90deg in oklch, var(--accent), var(--violet), var(--warm));
   box-shadow: 0 0 12px var(--accent-dim);
 }
 
@@ -918,7 +985,7 @@ a { color: inherit; text-decoration: none; }
    Elements that genuinely float over moving content opt in with .glass--live. */
 .glass {
   background:
-    linear-gradient(180deg, rgb(255 255 255 / 0.04), transparent 60%),
+    linear-gradient(180deg in oklch, rgb(255 255 255 / 0.04), transparent 60%),
     color-mix(in oklch, var(--surface-1) 92%, transparent);
   border: 1px solid var(--glass-border);
   box-shadow:
@@ -937,13 +1004,7 @@ a { color: inherit; text-decoration: none; }
 .elev-3 { box-shadow: 0 3px 6px rgba(0,0,0,0.45), 0 28px 64px -24px rgba(0,0,0,0.55); }
 
 /* Recessed well â€” inputs, code panes, game screens */
-.well {
-  background: color-mix(in oklch, var(--surface-0) 75%, transparent);
-  box-shadow:
-    inset 0 2px 6px rgba(0, 0, 0, 0.45),
-    inset 0 1px 2px rgba(0, 0, 0, 0.55),
-    0 1px 0 var(--glass-highlight);
-}
+
 
 /* Satin finish â€” diagonal low-opacity sheen (reads strongest on Obsidian) */
 .satin { position: relative; }
@@ -952,7 +1013,7 @@ a { color: inherit; text-decoration: none; }
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(125deg, var(--glass-highlight) 0%, transparent 30%, transparent 65%, var(--glass-highlight) 100%);
+  background: linear-gradient(125deg in oklch, var(--glass-highlight) 0%, transparent 30%, transparent 65%, var(--glass-highlight) 100%);
   opacity: 0.7;
   pointer-events: none;
   z-index: 1;
@@ -991,7 +1052,7 @@ a { color: inherit; text-decoration: none; }
   left: -100%;
   width: 60%;
   height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+  background: linear-gradient(90deg in oklch, transparent, rgba(255,255,255,0.04), transparent);
   transform: skewX(-15deg);
   transition: left 0.6s var(--ease-forge);
   pointer-events: none;
@@ -1021,7 +1082,7 @@ a { color: inherit; text-decoration: none; }
   position: absolute;
   top: -0.15em;
   right: -0.05em;
-  font-family: 'Clash Display', sans-serif;
+  font-family: 'Clash Display', 'Clash Fallback', sans-serif;
   font-size: clamp(3.5rem, 20vw, 18rem);
   font-weight: 700;
   color: transparent;
@@ -1039,7 +1100,7 @@ a { color: inherit; text-decoration: none; }
 [data-theme="ember"] .ghost-numeral {
   -webkit-text-stroke: 0.5px color-mix(in oklch, var(--accent-bright) 55%, transparent);
   background-image: linear-gradient(
-    135deg,
+    135deg in oklch,
     color-mix(in oklch, var(--accent-bright) 90%, white) 0%,
     var(--accent-bright) 35%,
     color-mix(in oklch, var(--accent-bright) 55%, black) 65%,
@@ -1076,11 +1137,19 @@ a { color: inherit; text-decoration: none; }
   position: relative;
   /* Was width:100% / max-width:280px, which the orbit rings then extended to
      roughly 360px of visual footprint. */
-  width: clamp(150px, 18vw, 210px);
+  /* §5 R1 — sized off the COLUMN (cqw), not the viewport. The ornament rings
+     extend the visual footprint by ~26% on every side, so a viewport-sized
+     avatar in a narrow column is exactly how the rings ended up overlapping
+     the manifesto text between 768 and 1024px. */
+  width: clamp(150px, 72cqw, 210px);
   max-width: 210px;
   margin: 0 auto;
   perspective: 900px;
   z-index: 1;
+}
+/* No container to measure (the fallback path) — keep the old viewport sizing. */
+@supports not (width: 1cqw) {
+  .avatar-showcase { width: clamp(150px, 18vw, 210px); }
 }
 
 /* Outer ambient glow */
@@ -1173,6 +1242,12 @@ a { color: inherit; text-decoration: none; }
   z-index: 2;
   border-radius: 16px;
   overflow: hidden;
+  /* J2 — the tilt is written as --av-rx/--av-ry from the shared ticker, not
+     by a pair of Framer springs bound to a raw mousemove. */
+  transform: perspective(800px)
+             rotateX(var(--av-rx, 0deg))
+             rotateY(var(--av-ry, 0deg));
+  transform-style: preserve-3d;
   border: 1px solid var(--glass-border);
   box-shadow:
     0 0 40px color-mix(in oklch, var(--accent) 15%, transparent),
@@ -1195,7 +1270,7 @@ a { color: inherit; text-decoration: none; }
   z-index: 10;
   pointer-events: none;
   background: linear-gradient(
-    180deg,
+    180deg in oklch,
     transparent 0%,
     transparent 40%,
     color-mix(in oklch, var(--accent-bright) 12%, transparent) 50%,
@@ -1214,6 +1289,8 @@ a { color: inherit; text-decoration: none; }
 /* Specular highlight following mouse */
 .avatar-showcase__specular {
   position: absolute;
+  left: var(--av-gx, 50%);
+  top: var(--av-gy, 50%);
   width: 120px;
   height: 120px;
   border-radius: 50%;
@@ -1342,32 +1419,9 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* === Section divider â€” glowing line between sections === */
-.section-divider {
-  position: relative;
-  height: 1px;
-  margin: 0 auto;
-  width: 100%;
-  max-width: 90%;
-  overflow: visible;
-}
-.section-divider::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent, var(--accent), var(--violet), transparent);
-  opacity: 0.5;
-}
-.section-divider::after {
-  content: '';
-  position: absolute;
-  top: -3px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 50%;
-  height: 7px;
-  background: linear-gradient(90deg, transparent, var(--accent-dim), transparent);
-  filter: blur(4px);
-}
+
+
+
 
 /* === Level badge â€” game HUD-style section label === */
 .level-badge {
@@ -1401,8 +1455,8 @@ a { color: inherit; text-decoration: none; }
 
 /* === Marquee edge fade === */
 .marquee-mask {
-  mask-image: linear-gradient(90deg, transparent, white 10%, white 90%, transparent);
-  -webkit-mask-image: linear-gradient(90deg, transparent, white 10%, white 90%, transparent);
+  mask-image: linear-gradient(90deg in oklch, transparent, white 10%, white 90%, transparent);
+  -webkit-mask-image: linear-gradient(90deg in oklch, transparent, white 10%, white 90%, transparent);
 }
 
 /* === Hover states with intent === */
@@ -1525,7 +1579,7 @@ section:not(#hero) {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Clash Display', sans-serif;
+  font-family: 'Clash Display', 'Clash Fallback', sans-serif;
   font-size: 22px;
   letter-spacing: 0.08em;
   color: var(--accent-bright);
@@ -1540,7 +1594,7 @@ section:not(#hero) {
 }
 .preloader__bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent), var(--violet));
+  background: linear-gradient(90deg in oklch, var(--accent), var(--violet));
   box-shadow: 0 0 8px var(--accent);
   transform-origin: 0 50%;
 }
@@ -1548,13 +1602,22 @@ section:not(#hero) {
   position: fixed;
   right: clamp(20px, 6vw, 80px);
   bottom: clamp(16px, 5vh, 60px);
-  font-family: 'Clash Display', sans-serif;
+  font-family: 'Clash Display', 'Clash Fallback', sans-serif;
   font-size: clamp(3rem, 10vw, 7rem);
   font-weight: 600;
   line-height: 1;
   color: transparent;
   -webkit-text-stroke: 1px color-mix(in oklch, var(--accent) 55%, transparent);
   font-variant-numeric: tabular-nums;
+}
+/* Was a Framer `repeat: Infinity` loop, i.e. a JS animation running during the
+   one window where the main thread is most contended. */
+.preloader__press {
+  animation: preloader-blink 1.6s ease-in-out infinite;
+}
+@keyframes preloader-blink {
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
 }
 
 /* === Theme Atelier â€” the theme selector panel === */
@@ -1606,14 +1669,46 @@ section:not(#hero) {
 }
 
 @layer utilities {
-  .container-px { @apply px-6 md:px-12 lg:px-20; }
-  /* One rhythm for every section â€” repetition reads as intent */
+  /* §2.3 — one container, one gutter formula. */
+  .container-px { padding-inline: clamp(20px, 4vw, 48px); }
+  /* One rhythm for every section — repetition reads as intent */
   .section-rhythm {
-    padding-top: clamp(56px, 7vh, 88px);
-    padding-bottom: clamp(56px, 7vh, 88px);
+    padding-top: clamp(64px, 9vh, 96px);
+    padding-bottom: clamp(64px, 9vh, 96px);
+  }
+  @media (min-width: 768px) {
+    .section-rhythm {
+      padding-top: clamp(96px, 12vh, 160px);
+      padding-bottom: clamp(96px, 12vh, 160px);
+    }
   }
   /* One content shell for every section */
   .section-shell { @apply mx-auto w-full max-w-[1200px]; }
+}
+
+/* === §8.3 content-visibility — skip rendering for below-fold sections =====
+   The single biggest scroll-cost lever available here: the browser stops
+   doing layout, paint and style for a section until it is near the viewport.
+   `contain-intrinsic-size` supplies a placeholder height so the scrollbar
+   does not lurch as sections are realised.
+
+   §15.4 exclusion: a `position: sticky` child cannot pin inside a
+   content-visibility container, so #projects opts out while the CINEMA deck
+   is mounted (the view toggle writes data-view-mode). */
+#about,
+#stats,
+#skills,
+#projects,
+#timeline,
+#how-i-build,
+#contact,
+footer {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 800px;
+}
+#projects[data-view-mode='deck'] {
+  content-visibility: visible;
+  contain-intrinsic-size: none;
 }
 
 /* === Spacing audit: 8pt grid utilities === */
@@ -1723,18 +1818,8 @@ section:not(#hero) {
   0%, 100% { font-weight: 400; font-stretch: 100%; }
   50% { font-weight: 700; font-stretch: 120%; }
 }
-.font-morph-hover {
-  transition: font-weight 0.4s var(--ease-forge), font-stretch 0.4s var(--ease-forge),
-              letter-spacing 0.4s var(--ease-forge), color 0.4s var(--ease-forge),
-              scale 0.4s var(--ease-forge);
-}
-.font-morph-hover:hover {
-  font-weight: 700;
-  font-stretch: 120%;
-  letter-spacing: -0.02em;
-  scale: 1.02;
-  color: var(--accent-bright);
-}
+
+
 
 /* === SVG self-draw animation === */
 @keyframes dashDraw {
@@ -1742,22 +1827,9 @@ section:not(#hero) {
 }
 
 /* === Curtain page transition === */
-.curtain-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 9995;
-  pointer-events: none;
-}
-.curtain-panel {
-  position: absolute;
-  inset: 0;
-  background: var(--surface-0);
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
-  transition: clip-path 0.8s var(--ease-forge);
-}
-.curtain-panel--lift {
-  clip-path: polygon(0 0, 100% 0, 100% 0, 0 0);
-}
+
+
+
 
 
 /* === Navbar arcade button — visible, inviting, retro-lit === */
@@ -1777,12 +1849,12 @@ section:not(#hero) {
 }
 .arcade-nav-btn {
   border: 1px solid var(--accent-dim);
-  background: linear-gradient(145deg, color-mix(in oklch, var(--accent) 8%, var(--surface-2)), color-mix(in oklch, var(--accent) 4%, var(--surface-1)));
+  background: linear-gradient(145deg in oklch, color-mix(in oklch, var(--accent) 8%, var(--surface-2)), color-mix(in oklch, var(--accent) 4%, var(--surface-1)));
   animation: arcadePulse 3s ease-in-out infinite;
   transition: all 0.3s var(--ease-forge);
 }
 .arcade-nav-btn:hover {
-  background: linear-gradient(145deg, color-mix(in oklch, var(--accent) 18%, var(--surface-2)), color-mix(in oklch, var(--accent) 10%, var(--surface-1)));
+  background: linear-gradient(145deg in oklch, color-mix(in oklch, var(--accent) 18%, var(--surface-2)), color-mix(in oklch, var(--accent) 10%, var(--surface-1)));
   border-color: var(--accent-bright);
   animation: arcadePulse 1.5s ease-in-out infinite;
   transform: scale(1.04);
@@ -1837,20 +1909,17 @@ section:not(#hero) {
 .text-caption { font-size: clamp(0.75rem, 0.8vw, 0.875rem); }
 .text-body { font-size: clamp(0.875rem, 1vw, 1rem); line-height: 1.6; }
 .text-body-lg { font-size: clamp(1rem, 1.2vw, 1.125rem); line-height: 1.6; }
-.text-h3 { font-size: clamp(1.25rem, 1.8vw, 1.75rem); font-family: 'Clash Display', sans-serif; letter-spacing: -0.02em; }
-.text-h2 { font-size: clamp(1.75rem, 2.8vw, 2.75rem); font-family: 'Clash Display', sans-serif; letter-spacing: -0.02em; line-height: 1.1; }
-.text-h1 { font-size: clamp(2.25rem, 4vw, 4rem); font-family: 'Clash Display', sans-serif; letter-spacing: -0.03em; line-height: 1.05; }
-.text-display { font-size: clamp(3rem, 6vw, 6rem); font-family: 'Clash Display', sans-serif; letter-spacing: -0.03em; line-height: 1; }
+.text-h3 { font-size: clamp(1.25rem, 1.8vw, 1.75rem); font-family: 'Clash Display', 'Clash Fallback', sans-serif; letter-spacing: -0.02em; }
+.text-h2 { font-size: clamp(1.75rem, 2.8vw, 2.75rem); font-family: 'Clash Display', 'Clash Fallback', sans-serif; letter-spacing: -0.02em; line-height: 1.1; }
+.text-h1 { font-size: clamp(2.25rem, 4vw, 4rem); font-family: 'Clash Display', 'Clash Fallback', sans-serif; letter-spacing: -0.03em; line-height: 1.05; }
+.text-display { font-size: clamp(3rem, 6vw, 6rem); font-family: 'Clash Display', 'Clash Fallback', sans-serif; letter-spacing: -0.03em; line-height: 1; }
 
 .shadow-e1 { box-shadow: 0 1px 2px rgba(0,0,0,0.35), 0 6px 16px -8px rgba(0,0,0,0.35); }
 .shadow-e2 { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 14px 34px -14px rgba(0,0,0,0.45); }
 .shadow-e3 { box-shadow: 0 3px 6px rgba(0,0,0,0.45), 0 28px 64px -24px rgba(0,0,0,0.55); }
 .shadow-e4 { box-shadow: 0 4px 12px rgba(0,0,0,0.5), 0 48px 100px -36px rgba(0,0,0,0.65); }
 
-.well-deep {
-  background: color-mix(in oklch, var(--surface-0) 65%, transparent);
-  box-shadow: inset 0 3px 10px rgba(0,0,0,0.55), inset 0 1px 3px rgba(0,0,0,0.5), 0 1px 0 var(--glass-highlight);
-}
+
 
 .glow-outer { box-shadow: 0 0 20px color-mix(in oklch, var(--accent) 25%, transparent); }
 .glow-outer--accent { box-shadow: 0 0 28px color-mix(in oklch, var(--accent, var(--accent)) 30%, transparent); }
@@ -1858,13 +1927,9 @@ section:not(#hero) {
 .glow-inner { box-shadow: inset 0 0 24px color-mix(in oklch, var(--accent) 12%, transparent); }
 .glow-inner--active { box-shadow: inset 0 0 32px color-mix(in oklch, var(--accent) 20%, transparent); }
 
-.bevel {
-  box-shadow: inset 0 1px 0 0 var(--glass-highlight), inset 0 -1px 0 0 rgba(0,0,0,0.35);
-}
 
-.satin--warm::before {
-  background: linear-gradient(125deg, rgba(255,226,170,0.12) 0%, transparent 30%, transparent 65%, rgba(255,226,170,0.08) 100%);
-}
+
+
 
 .color-overlay { position: relative; }
 .color-overlay::after {
@@ -1893,17 +1958,8 @@ section:not(#hero) {
   .text-gradient--sweep { animation: none; background: none; color: inherit; }
 }
 
-.border-gradient {
-  position: relative; isolation: isolate;
-}
-.border-gradient::before {
-  content: ''; position: absolute; inset: 0; border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(135deg, var(--accent-dim), var(--violet-dim), var(--warm-dim));
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor; mask-composite: exclude;
-  pointer-events: none;
-}
+
+
 
 /* === Scroll-driven reveal (native CSS) === */
 @keyframes revealUp {
@@ -1962,26 +2018,9 @@ section:not(#hero) {
 }
 
 /* === Liquid-glass v2 â€” layered blur, refraction edge, hairlines === */
-.liquid-glass {
-  position: relative;
-  background:
-    linear-gradient(180deg, rgb(255 255 255 / 0.05), transparent 55%),
-    color-mix(in oklch, var(--surface-1) 90%, transparent);
-  border: 1px solid rgba(255,255,255,0.06);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.3), 0 12px 32px -12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08);
-}
-.liquid-glass::before {
-  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
-  background: linear-gradient(160deg, rgba(255,255,255,0.04) 0%, transparent 50%, rgba(0,0,0,0.06) 100%);
-  z-index: 1;
-}
-.liquid-glass::after {
-  content: ''; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none;
-  border: 1px solid rgba(255,255,255,0.03);
-  mask: linear-gradient(160deg, #000 30%, transparent 70%);
-  -webkit-mask: linear-gradient(160deg, #000 30%, transparent 70%);
-  z-index: 2;
-}
+
+
+
 
 /* === Slow luxury button fill (600ms) === */
 .btn-luxury {
@@ -2021,7 +2060,7 @@ section:not(#hero) {
 
 /* === Curtain page transition - strong lift with gradient === */
 .curtain--strong {
-  background: linear-gradient(180deg, var(--surface-0) 0%, var(--surface-1) 50%, var(--surface-0) 100%);
+  background: linear-gradient(180deg in oklch, var(--surface-0) 0%, var(--surface-1) 50%, var(--surface-0) 100%);
   clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
   transition: clip-path 0.9s var(--ease-forge);
 }
@@ -2037,25 +2076,21 @@ section:not(#hero) {
 }
 
 /* === §4.5 Kinetic typography — variable-weight hover ripple === */
+/* --kx/--ky are written straight onto the nodes from the shared rAF loop, so
+   the pointer path never re-renders React and never reads layout. --ksy is the
+   proximity swell, kept in the same transform so the two cannot clobber each
+   other the way separate `transform` declarations used to. */
 .kinetic-char {
   display: inline-block;
   transform-origin: left;
+  transform: translate(var(--kx, 0px), var(--ky, 0px)) scaleY(var(--ksy, 1));
   transition: font-weight 0.35s var(--ease-forge),
               transform 0.35s var(--ease-forge);
   cursor: default;
 }
-.kinetic-char[data-proximity="0"] {
-  font-weight: 700;
-  transform: scaleY(1.04);
-}
-.kinetic-char[data-proximity="1"] {
-  font-weight: 600;
-  transform: scaleY(1.02);
-}
-.kinetic-char[data-proximity="2"] {
-  font-weight: 500;
-  transform: scaleY(1.01);
-}
+.kinetic-char[data-proximity="0"] { font-weight: 700; --ksy: 1.04; }
+.kinetic-char[data-proximity="1"] { font-weight: 600; --ksy: 1.02; }
+.kinetic-char[data-proximity="2"] { font-weight: 500; --ksy: 1.01; }
 @media (prefers-reduced-motion: reduce) {
   .kinetic-char { transition: none; }
 }
@@ -2085,7 +2120,7 @@ section:not(#hero) {
   mix-blend-mode: screen;
 }
 .chromatic-hover::before {
-  background: linear-gradient(135deg,
+  background: linear-gradient(135deg in oklch,
     rgba(255, 0, 0, 0.06) 0%,
     transparent 40%,
     transparent 60%,
@@ -2093,7 +2128,7 @@ section:not(#hero) {
   );
 }
 .chromatic-hover::after {
-  background: linear-gradient(45deg,
+  background: linear-gradient(45deg in oklch,
     transparent 30%,
     rgba(0, 255, 200, 0.04) 50%,
     transparent 70%
@@ -2276,9 +2311,7 @@ body { font-size: max(11px, 1rem); }
 .avatar-track {
   --track-fill: 0%;
 }
-.avatar-track__line {
-  transition: height 0.3s var(--ease-forge);
-}
+
 .avatar-track__avatar {
   width: 20px;
   height: 20px;
@@ -2288,11 +2321,7 @@ body { font-size: max(11px, 1rem); }
 .avatar-track__node {
   transition: all 0.4s var(--ease-forge);
 }
-.avatar-track__node--passed {
-  background: var(--accent-reward);
-  border-color: var(--accent-reward);
-  box-shadow: 0 0 8px var(--accent-reward);
-}
+
 .avatar-track__node--active {
   background: var(--accent);
   border-color: var(--accent);
@@ -2323,7 +2352,7 @@ body { font-size: max(11px, 1rem); }
   }
   .avatar-track--mobile .avatar-track__fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--accent), var(--accent-reward));
+    background: linear-gradient(90deg in oklch, var(--accent), var(--accent-reward));
     box-shadow: 0 0 8px var(--accent);
     transition: width 0.4s var(--ease-forge);
   }
@@ -2357,7 +2386,7 @@ body { font-size: max(11px, 1rem); }
   animation: ribbonSlide 2s var(--ease-forge) forwards;
 }
 .level-ribbon__num {
-  font-family: 'Clash Display', sans-serif;
+  font-family: 'Clash Display', 'Clash Fallback', sans-serif;
   font-size: 18px;
   font-weight: 700;
   color: var(--accent-reward);
@@ -2405,7 +2434,7 @@ body { font-size: max(11px, 1rem); }
   width: 90vw;
 }
 .run-complete__title {
-  font-family: 'Clash Display', sans-serif;
+  font-family: 'Clash Display', 'Clash Fallback', sans-serif;
   font-size: clamp(2rem, 5vw, 3rem);
   color: var(--accent-reward);
   margin-bottom: 8px;
@@ -2425,7 +2454,7 @@ body { font-size: max(11px, 1rem); }
   margin-bottom: 32px;
 }
 .run-complete__stat-value {
-  font-family: 'Clash Display', sans-serif;
+  font-family: 'Clash Display', 'Clash Fallback', sans-serif;
   font-size: 28px;
   font-weight: 700;
   color: var(--accent-bright);
@@ -2452,8 +2481,8 @@ body { font-size: max(11px, 1rem); }
   z-index: -1;
   backdrop-filter: blur(14px) saturate(130%);
   -webkit-backdrop-filter: blur(14px) saturate(130%);
-  mask: linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,1) 60%);
-  -webkit-mask: linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,1) 60%);
+  mask: linear-gradient(to bottom in oklch, rgba(0,0,0,0.35) 0%, rgba(0,0,0,1) 60%);
+  -webkit-mask: linear-gradient(to bottom in oklch, rgba(0,0,0,0.35) 0%, rgba(0,0,0,1) 60%);
 }
 
 /* === E11 Text scramble decode on headings === */
@@ -2477,7 +2506,7 @@ body { font-size: max(11px, 1rem); }
   pointer-events: none;
   z-index: 0;
   background: linear-gradient(
-    180deg,
+    180deg in oklch,
     color-mix(in oklch, oklch(50% 0.02 var(--grade-base-hue)) 4%, transparent) 0%,
     transparent 30%,
     transparent 70%,
@@ -2524,7 +2553,7 @@ body { font-size: max(11px, 1rem); }
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,0.06) 45%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.06) 55%, transparent 70%);
+  background: linear-gradient(110deg in oklch, transparent 30%, rgba(255,255,255,0.06) 45%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.06) 55%, transparent 70%);
   pointer-events: none;
   z-index: 20;
   border-radius: inherit;
@@ -2562,10 +2591,7 @@ body { font-size: max(11px, 1rem); }
 }
 
 /* === E20 Magnetic section headers — h2 lean toward cursor === */
-.magnetic-heading {
-  display: inline-block;
-  transition: transform 0.3s var(--ease-forge);
-}
+
 
 /* === E18 CRT power-on flicker for RunComplete === */
 @keyframes crtFlicker {
@@ -2627,7 +2653,7 @@ body { font-size: max(11px, 1rem); }
   z-index: 99997;
   pointer-events: none;
   background: repeating-linear-gradient(
-    0deg,
+    0deg in oklch,
     transparent 0px,
     rgba(0,255,65,0.012) 1px,
     transparent 2px,
@@ -2842,24 +2868,8 @@ body { font-size: max(11px, 1rem); }
 }
 
 /* SATIN — cards and panels. The default material for almost everything. */
-.satin-panel {
-  position: relative;
-  background:
-    linear-gradient(180deg, rgb(255 255 255 / 0.045), transparent 60%),
-    var(--surface-1);
-  border: 1px solid var(--glass-border);
-  border-radius: inherit;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.05),
-    0 1px 2px hsl(var(--shadow-color) / 0.4),
-    0 6px 12px -6px hsl(var(--shadow-color) / 0.45),
-    0 24px 48px -24px hsl(var(--shadow-color) / 0.6);
-}
-.satin-panel:hover {
-  background:
-    linear-gradient(180deg, rgb(255 255 255 / 0.06), transparent 60%),
-    color-mix(in oklch, var(--surface-1) 88%, var(--accent) 12%);
-}
+
+
 
 /* CHROME — reserved for ONE hero element and the primary CTA. If it appears
    more than twice on a page it has stopped being special. */
@@ -2963,3 +2973,1031 @@ html {
 /* ── Spring easing on the interactions that should feel physical ──────── */
 .spring-press { transition: transform 0.45s var(--ease-spring); }
 .spring-press:active { transform: scale(0.97); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   §14 — BACKGROUND ENGINE
+   One canvas behind everything. Tier 1 / mobile / reduced-motion never mount
+   it; they get the static gradient composition below, which is the same
+   design language at the device's honest budget (§14.4).
+   ══════════════════════════════════════════════════════════════════════════ */
+.bg-engine {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.85;
+}
+[data-theme='paper'] .bg-engine { opacity: 0.55; }
+
+/* The "PNG export" of the shader — every visitor sees this composition, and
+   on a weak machine it is the whole background. */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 10%, color-mix(in oklch, var(--accent) 12%, transparent), transparent 62%),
+    radial-gradient(ellipse 70% 70% at 85% 75%, color-mix(in oklch, var(--violet) 10%, transparent), transparent 60%),
+    var(--surface-0);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   §2.2 — type scale utilities. Section headings stop re-typing clamp().
+   ══════════════════════════════════════════════════════════════════════════ */
+.section-h2 {
+  font-size: var(--fs-h2);
+  line-height: 1.15;
+  text-wrap: balance;
+}
+.fs-hero    { font-size: var(--fs-hero); line-height: 1.05; }
+.fs-h3      { font-size: var(--fs-h3); }
+.fs-body    { font-size: var(--fs-body); line-height: 1.65; }
+.fs-caption { font-size: var(--fs-caption); }
+
+/* §13.7 — digits stop jittering mid-count. */
+.count-up, .stat-value, [data-tabular] { font-variant-numeric: tabular-nums; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   §13.1 — registered gradient angle. Animating the gradient ITSELF beats
+   sliding a background-position, and `@property` is what makes an <angle>
+   interpolable at all. Where it is unsupported the gradient is simply static,
+   which is a perfectly good resting state.
+   ══════════════════════════════════════════════════════════════════════════ */
+@property --grad-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 140deg;
+}
+
+/* §13.2 — conic border-glow. One element, masked to the border, no stacked
+   box-shadows. Runs only on hover/focus and carries data-loop so the gate can
+   park it. */
+.border-glow {
+  position: relative;
+  isolation: isolate;
+}
+.border-glow::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--grad-angle),
+    transparent 0 70%,
+    var(--card-accent, var(--accent)) 85%,
+    transparent 100%
+  );
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  -webkit-mask-composite: xor;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-forge);
+  pointer-events: none;
+}
+.border-glow:hover::before,
+.border-glow:focus-within::before {
+  opacity: 1;
+  animation: grad-spin var(--dur-cinema) linear infinite;
+}
+@keyframes grad-spin {
+  to { --grad-angle: 500deg; }
+}
+
+/* §13.4 — Glass 2.0. The blur lives on `.glass--live` only: backdrop-filter is
+   the most expensive paint on a low-end GPU, so the cap is 6 simultaneously
+   visible blurred surfaces per viewport. Grain is ONE page-wide overlay
+   (.film-grain), never per card. */
+.glass--live {
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
+}
+:where([data-gfx-tier='1']) .glass--live {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: var(--surface-1);
+}
+
+/* §13.8 — selection as brand. */
+::selection {
+  background: color-mix(in oklch, var(--accent) 30%, transparent);
+  color: var(--ink-hi);
+}
+html {
+  /* Kills the layout shift when a modal toggles overflow. */
+  scrollbar-gutter: stable;
+  /* §15.1 — no rubber-band double-scroll. */
+  overscroll-behavior: none;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   ABOUT — §5 R1/R3 and the click-gated 3-D island
+   ══════════════════════════════════════════════════════════════════════════ */
+/* Orbit ornaments scale with the COLUMN, not the viewport, so a ring can no
+   longer reach past its own column into the manifesto text. */
+.about-avatar-col { container-type: inline-size; }
+
+.about-scene {
+  border-color: var(--glass-border);
+}
+.about-scene__chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 26px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklch, var(--accent) 35%, transparent);
+  background: color-mix(in oklch, var(--accent) 7%, var(--surface-1));
+  color: var(--ink);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease-anticipate),
+              box-shadow var(--dur-fast) var(--ease-forge),
+              border-color var(--dur-fast) var(--ease-forge);
+}
+.about-scene__chip:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  box-shadow: var(--shadow-2);
+}
+.about-scene__chip-icon { font-size: 18px; color: var(--accent-bright); }
+.about-scene__chip-hint {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  color: var(--ink-low);
+}
+.about-scene__skeleton {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(140deg in oklch, var(--surface-2), var(--surface-1));
+}
+
+/* §5 J1 — one duration, always. Hover changes the WAAPI playback rate, which
+   is a thing you can actually ramp; `animation-duration` is not. */
+.marquee-track {
+  animation: marquee 24s linear infinite;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   PROJECTS — §3, §5 R2/R4
+   ══════════════════════════════════════════════════════════════════════════ */
+.projects-section { position: relative; }
+
+/* §3.6 — one composited layer washed in the hovered card's accent. */
+.projects-wash {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    ellipse 70% 50% at 50% 40%,
+    color-mix(in oklch, var(--wash-accent, var(--accent)) 6%, transparent),
+    transparent 70%
+  );
+  transition: opacity var(--dur-base) var(--ease-forge),
+              background var(--dur-base) var(--ease-forge);
+}
+@media (hover: hover) and (pointer: fine) {
+  .projects-section:has(.grid-card:hover) .projects-wash,
+  .projects-section:has(.deck-card:hover) .projects-wash { opacity: 1; }
+}
+
+/* R2 — two deliberate rows instead of one wrapping flex line. */
+.projects-controls { display: flex; flex-direction: column; gap: 14px; }
+.projects-controls__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.projects-controls__caption {
+  font-size: 10px;
+  letter-spacing: 0.25em;
+  color: var(--ink-mid);
+}
+/* The five index chips scroll rather than wrap into a ragged cluster. */
+.projects-controls__chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding-bottom: 2px;
+  mask-image: linear-gradient(90deg in oklch, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+  -webkit-mask-image: linear-gradient(90deg in oklch, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%);
+  overscroll-behavior-x: contain;
+}
+.projects-controls__chips::-webkit-scrollbar { display: none; }
+.projects-controls__chips > * { flex: 0 0 auto; }
+
+/* §6.4 / L3 — an inactive option must read as an option, not as disabled. */
+.view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: var(--surface-1);
+}
+.view-toggle__btn {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  color: var(--ink-mid);
+  box-shadow: inset 0 0 0 1px transparent;
+  transition: color var(--dur-fast) var(--ease-forge),
+              background-color var(--dur-fast) var(--ease-forge),
+              box-shadow var(--dur-fast) var(--ease-forge);
+}
+.view-toggle__btn:hover {
+  color: var(--ink);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--glass-border);
+}
+.view-toggle__btn[data-active='true'] {
+  background: var(--accent);
+  color: var(--surface-0);
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--accent) 60%, var(--ink));
+}
+
+/* R4 — 480px min-width left a blank gutter at 768px. */
+.deck-slot { width: min(560px, 88vw); }
+@media (min-width: 768px) {
+  .deck-slot { width: min(560px, 46vw); min-width: 420px; }
+}
+.deck-card { contain: layout paint; }
+
+/* §15.3 touch mode — the browser's own scroller, snap included. */
+.deck-snap-scroller {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.deck-snap-scroller::-webkit-scrollbar { display: none; }
+.deck-snap-scroller > * { scroll-snap-align: center; }
+
+.deck-rail__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--surface-3);
+  transition: width var(--dur-fast) var(--ease-forge),
+              background-color var(--dur-fast) var(--ease-forge),
+              box-shadow var(--dur-fast) var(--ease-forge);
+}
+.deck-rail__dot[data-active='true'] {
+  width: 24px;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+}
+
+.deck-shot-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--ink) 40%, transparent);
+  transition: width var(--dur-fast) var(--ease-forge),
+              background-color var(--dur-fast) var(--ease-forge);
+}
+.deck-shot-dot[data-active='true'] {
+  width: 16px;
+  background: var(--card-accent, var(--accent));
+  box-shadow: 0 0 6px var(--card-accent, var(--accent));
+}
+
+/* ── §3.3 device frame — pure CSS browser chrome ────────────────────────── */
+.device-frame {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface-2);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-1);
+}
+.device-frame__bar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 10px;
+  background: color-mix(in oklch, var(--surface-2) 80%, var(--surface-0));
+  border-bottom: 1px solid var(--glass-border);
+}
+.device-frame__dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+.device-frame__dot--r { background: oklch(65% 0.17 25); }
+.device-frame__dot--y { background: oklch(78% 0.14 85); }
+.device-frame__dot--g { background: oklch(72% 0.16 145); }
+.device-frame__url {
+  margin-left: 8px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  color: var(--ink-low);
+}
+.device-frame__screen {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  /* LQIP stand-in: the card's own accent, so the box is never a grey hole
+     while the AVIF streams in. */
+  background: color-mix(in oklch, var(--card-accent, var(--accent)) 12%, var(--surface-1));
+}
+
+/* ── §3.3 grid card v2 ──────────────────────────────────────────────────── */
+.grid-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+  padding: 10px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-2);
+  transition: transform var(--dur-fast) var(--ease-forge),
+              box-shadow var(--dur-fast) var(--ease-forge),
+              border-color var(--dur-fast) var(--ease-forge);
+}
+@media (hover: hover) and (pointer: fine) {
+  .grid-card:hover,
+  .grid-card:focus-within {
+    transform: translateY(-4px);
+    border-color: color-mix(in oklch, var(--card-accent) 45%, transparent);
+    box-shadow: var(--shadow-3), 0 12px 40px -12px var(--card-accent);
+  }
+  .grid-card:hover .grid-card__img { transform: scale(1.04); }
+}
+/* The whole card is the click target for the case study, but the real links
+   inside it must still win. */
+.grid-card__hit {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.grid-card__img,
+.grid-card picture {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.grid-card__img {
+  object-fit: cover;
+  object-position: top;
+  transition: transform var(--dur-base) var(--ease-forge);
+}
+.grid-card__fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: 'Clash Display', 'Clash Fallback', sans-serif;
+  font-size: 1.4rem;
+  color: var(--ink-mid);
+}
+.grid-card__body { padding: 14px 8px 8px; display: flex; flex-direction: column; gap: 8px; }
+.grid-card__meta { display: flex; align-items: center; gap: 8px; }
+.grid-card__index {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--card-accent);
+}
+.grid-card__tagline {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--ink-mid);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+.grid-card__title { font-size: var(--fs-h3); line-height: 1.2; }
+.grid-card__outcome {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-mid);
+  border-left: 2px solid var(--card-accent);
+  padding-left: 10px;
+}
+.grid-card__chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.grid-card__chip {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  color: var(--ink-mid);
+}
+.grid-card__chip--more { border-color: transparent; }
+.grid-card__links { position: relative; z-index: 2; display: flex; gap: 12px; margin-top: 2px; }
+.grid-card__link {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--ink-mid);
+  transition: color var(--dur-fast) var(--ease-forge);
+}
+.grid-card__link:hover { color: var(--card-accent); }
+
+/* Mobile: chips scroll inline rather than stacking into a bare list. */
+@media (max-width: 640px) {
+  .grid-card__chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .grid-card__chips::-webkit-scrollbar { display: none; }
+}
+
+/* §13.5 — focus the hovered card by dimming its siblings. Zero JS. */
+@media (hover: hover) and (pointer: fine) {
+  .projects-grid:has(.grid-card:hover) .grid-card:not(:hover) {
+    opacity: 0.55;
+    scale: 0.985;
+    transition: opacity var(--dur-fast) var(--ease-forge),
+                scale var(--dur-fast) var(--ease-forge);
+  }
+}
+
+/* ── W2 live ping ───────────────────────────────────────────────────────── */
+.live-ping {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--success);
+}
+.live-ping[data-degraded='true'] { color: var(--warm); }
+.live-ping__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 6px currentColor;
+  animation: live-pulse 2s ease-in-out infinite;
+}
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.8); }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   W3 — case-study lightbox
+   ══════════════════════════════════════════════════════════════════════════ */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-cmdpal);
+  display: grid;
+  place-items: center;
+  padding: clamp(12px, 4vw, 40px);
+  background: color-mix(in oklch, var(--surface-0) 82%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: lightboxIn var(--dur-base) var(--ease-forge);
+}
+@keyframes lightboxIn { from { opacity: 0; } to { opacity: 1; } }
+.lightbox__panel {
+  width: min(880px, 100%);
+  max-height: 92vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 22px;
+  padding: clamp(16px, 3vw, 28px);
+  background: var(--surface-1);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-3);
+  animation: lightboxPanelIn var(--dur-base) var(--ease-forge);
+}
+@keyframes lightboxPanelIn {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to   { opacity: 1; transform: none; }
+}
+.lightbox__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.lightbox__tagline { font-size: 10px; letter-spacing: 0.24em; color: var(--card-accent); }
+.lightbox__title { font-size: var(--fs-h3); margin-top: 4px; }
+.lightbox__close {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--ink-mid);
+  transition: color var(--dur-fast) var(--ease-forge), border-color var(--dur-fast) var(--ease-forge);
+}
+.lightbox__close:hover { color: var(--ink); border-color: var(--card-accent); }
+.lightbox__stage {
+  position: relative;
+  margin-top: 16px;
+  aspect-ratio: 16 / 10;
+  border-radius: 14px;
+  overflow: hidden;
+  background: color-mix(in oklch, var(--card-accent) 12%, var(--surface-2));
+}
+.lightbox__stage picture,
+.lightbox__img { position: absolute; inset: 0; width: 100%; height: 100%; }
+.lightbox__img { object-fit: cover; object-position: top; }
+.lightbox__fallback { position: absolute; inset: 0; display: grid; place-items: center; }
+.lightbox__nav {
+  position: absolute;
+  top: 50%;
+  translate: 0 -50%;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--ink);
+  background: color-mix(in oklch, var(--surface-0) 60%, transparent);
+  border: 1px solid var(--glass-border);
+  transition: background-color var(--dur-fast) var(--ease-forge);
+}
+.lightbox__nav:hover { background: color-mix(in oklch, var(--surface-0) 85%, transparent); }
+.lightbox__nav--prev { left: 10px; }
+.lightbox__nav--next { right: 10px; }
+.lightbox__dots { display: flex; justify-content: center; gap: 6px; margin-top: 12px; }
+.lightbox__dot {
+  width: 7px; height: 7px; border-radius: 999px;
+  background: var(--surface-3);
+  transition: width var(--dur-fast) var(--ease-forge), background-color var(--dur-fast) var(--ease-forge);
+}
+.lightbox__dot[data-active='true'] { width: 20px; background: var(--card-accent); }
+.lightbox__metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+  padding: 0;
+  list-style: none;
+}
+.lightbox__metric {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: color-mix(in oklch, var(--card-accent) 8%, var(--surface-2));
+  border: 1px solid color-mix(in oklch, var(--card-accent) 24%, transparent);
+}
+.lightbox__metric-value { display: block; font-size: 1.25rem; color: var(--ink-hi); }
+.lightbox__metric-label { display: block; font-size: 9px; letter-spacing: 0.2em; color: var(--ink-mid); margin-top: 3px; }
+.lightbox__arch { margin: 20px 0 0; }
+.lightbox__arch-cap { font-size: 9px; letter-spacing: 0.28em; color: var(--ink-low); margin-bottom: 8px; }
+.lightbox__arch-svg { width: 100%; height: auto; overflow: visible; }
+.lightbox__arch-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  fill: var(--ink);
+}
+.lightbox__desc { margin-top: 18px; color: var(--ink-mid); font-size: 14px; line-height: 1.65; }
+.lightbox__actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   §13.6 — scroll-linked ambience, off the main thread.
+   ══════════════════════════════════════════════════════════════════════════ */
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .ghost-numeral {
+      animation: ghost-drift linear both;
+      animation-timeline: view();
+      animation-range: cover 0% cover 100%;
+    }
+    @keyframes ghost-drift {
+      from { transform: translateY(6%); }
+      to   { transform: translateY(-6%); }
+    }
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   W1 — RECRUITER MODE
+   Everything decorative folds away; the outcome-first content stays. This is
+   the only "feature" on the list that makes the page do LESS work.
+   ══════════════════════════════════════════════════════════════════════════ */
+html[data-recruiter] .bg-engine,
+html[data-recruiter] .film-grain,
+html[data-recruiter] .grade-wash,
+html[data-recruiter] .ghost-numeral,
+html[data-recruiter] .arcade-hero-hint,
+html[data-recruiter] .hero-cta--arcade,
+html[data-recruiter] .spark-collectible,
+html[data-recruiter] .marquee-mask,
+html[data-recruiter] .about-scene,
+html[data-recruiter] .xp-bar,
+html[data-recruiter] .level-ribbon,
+html[data-recruiter] .arcade-fab {
+  display: none !important;
+}
+html[data-recruiter] *,
+html[data-recruiter] *::before,
+html[data-recruiter] *::after {
+  animation-play-state: paused !important;
+}
+html[data-recruiter] #hero { height: auto; min-height: 72vh; padding-block: 12vh; }
+html[data-recruiter] .section-rhythm {
+  padding-top: clamp(48px, 6vh, 72px);
+  padding-bottom: clamp(48px, 6vh, 72px);
+}
+.recruiter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: var(--surface-1);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  color: var(--ink-mid);
+  transition: color var(--dur-fast) var(--ease-forge),
+              border-color var(--dur-fast) var(--ease-forge),
+              background-color var(--dur-fast) var(--ease-forge);
+}
+.recruiter-chip:hover { color: var(--ink); border-color: var(--accent-dim); }
+.recruiter-chip[data-on='true'] {
+  background: var(--accent);
+  color: var(--surface-0);
+  border-color: var(--accent);
+}
+.recruiter-chip__dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: currentColor;
+}
+
+/* W6 — the arcade is a differentiator only if it is discoverable. */
+.secret-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  color: var(--ink-low);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px dashed var(--glass-border);
+  border-radius: 999px;
+  padding: 6px 14px;
+  background: none;
+  cursor: pointer;
+  transition: color var(--dur-fast) var(--ease-forge), border-color var(--dur-fast) var(--ease-forge);
+}
+.secret-hint:hover { color: var(--accent-bright); border-color: var(--accent-dim); }
+
+/* W5 — copy-to-clipboard confirmation. */
+.copy-email {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.copy-email__flash {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--success);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-forge);
+}
+.copy-email__flash[data-on='true'] { opacity: 1; }
+
+/* ── Reduced motion is absolute for everything added above. ─────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track,
+  .live-ping__dot,
+  .border-glow::before,
+  .lightbox,
+  .lightbox__panel { animation: none !important; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   §8.3 — THE HERO, OFF FRAMER-MOTION
+
+   The cinematic exit was six `useTransform` chains. That single design choice
+   is why the 42 KB motion chunk had to download, parse and execute before the
+   first viewport could animate at all. It is now one number — `--hero-p`,
+   written on #hero once per frame from the shared scroll read — and every
+   layer derives its own compositor transform from it here.
+   ══════════════════════════════════════════════════════════════════════════ */
+.hero-copy {
+  transform: translate3d(0, calc(var(--hero-p, 0) * -120px), 0)
+             scale(calc(1 - var(--hero-p, 0) * 0.06));
+  opacity: clamp(0, calc(1 - var(--hero-p, 0) / 0.65), 1);
+  will-change: transform, opacity;
+}
+.hero-back {
+  transform: translate3d(0, calc(var(--hero-p, 0) * 90px), 0);
+  opacity: clamp(0.25, calc(1 - var(--hero-p, 0) * 0.834), 1);
+  will-change: transform, opacity;
+}
+.hero-forge-slot {
+  opacity: clamp(0.25, calc(1 - var(--hero-p, 0) * 0.834), 1);
+}
+.hero-scroll-hint {
+  opacity: clamp(0, calc(1 - var(--hero-p, 0) / 0.15), 1);
+}
+
+/* Entrance ladder — `delay` on a CSS animation is the same stagger the
+   variants tree was computing in JS. */
+.hero-rise {
+  animation: heroRise 0.8s var(--ease-forge) var(--rise-delay, 0s) both;
+}
+@keyframes heroRise {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.char-in { display: inline-block; }
+.hero-name[data-intro='pending'] .char-in { opacity: 0; }
+.hero-name[data-intro='done'] .char-in {
+  animation: charIn 0.6s var(--ease-forge) both;
+  animation-delay: calc(0.2s + var(--i) * 0.04s);
+}
+@keyframes charIn {
+  from { opacity: 0; transform: translateX(-6px) scaleX(0); transform-origin: left; }
+  to   { opacity: 1; transform: none; }
+}
+
+.word-rotator__word {
+  display: inline-block;
+  animation: wordIn 0.35s var(--ease-forge) both;
+}
+@keyframes wordIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-rise,
+  .hero-name[data-intro='done'] .char-in,
+  .word-rotator__word { animation: none; opacity: 1; transform: none; }
+  .hero-copy, .hero-back, .hero-forge-slot, .hero-scroll-hint {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* ── MagneticTilt, without a spring engine per button ──────────────────── */
+.magnetic-tilt {
+  position: relative;
+  display: inline-block;
+  perspective: 800px;
+  transform-style: preserve-3d;
+  transform:
+    translate3d(var(--tilt-tx, 0px), var(--tilt-ty, 0px), 0)
+    rotateX(var(--tilt-rx, 0deg))
+    rotateY(var(--tilt-ry, 0deg));
+}
+.magnetic-tilt__sheen {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-forge);
+  background: radial-gradient(
+    circle at var(--sheen-x, 50%) var(--sheen-y, 50%),
+    rgb(255 255 255 / 0.15) 0%,
+    transparent 60%
+  );
+}
+.magnetic-tilt[data-tilting='true'] .magnetic-tilt__sheen { opacity: 1; }
+
+/* ── Navbar: burger + drawer, no motion components ────────────────────── */
+.nav-burger__bar {
+  height: 1px;
+  width: 100%;
+  background: var(--ink);
+  transition: transform var(--dur-fast) var(--ease-forge),
+              opacity var(--dur-fast) var(--ease-forge);
+}
+.nav-burger[data-open='true'] .nav-burger__bar:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+.nav-burger[data-open='true'] .nav-burger__bar:nth-child(2) { opacity: 0; }
+.nav-burger[data-open='true'] .nav-burger__bar:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+
+/* `height: auto` is not animatable; `grid-template-rows: 0fr → 1fr` is. */
+.nav-drawer {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  background: var(--surface-0);
+  border-bottom: 1px solid var(--glass-border);
+  transition: grid-template-rows var(--dur-base) var(--ease-forge),
+              opacity var(--dur-base) var(--ease-forge);
+}
+.nav-drawer[data-open='true'] { grid-template-rows: 1fr; opacity: 1; }
+.nav-drawer__inner { overflow: hidden; min-height: 0; }
+.nav-drawer__link {
+  transform: translateX(-20px);
+  transition: transform var(--dur-base) var(--ease-forge);
+  transition-delay: calc(var(--i) * 40ms);
+}
+.nav-drawer[data-open='true'] .nav-drawer__link { transform: none; }
+
+/* ── §6.3 knob pulse: CSS, gated, no Framer loop in the navbar ─────────── */
+.theme-toggle { transition: box-shadow var(--dur-cinema) var(--ease-forge); }
+.theme-toggle__pulse { animation: knob-pulse 2.2s ease-in-out infinite; }
+@keyframes knob-pulse {
+  0%, 100% { opacity: 0.7; }
+  50%      { opacity: 1; }
+}
+
+.atelier-panel--in { animation: atelierIn 0.28s var(--ease-forge) both; }
+@keyframes atelierIn {
+  from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+.toast-rise { animation: toastRise 0.4s var(--ease-forge) both; }
+@keyframes toastRise {
+  from { opacity: 0; transform: translate(-50%, 40px) scale(0.9); }
+  to   { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-drawer, .nav-drawer__link, .theme-toggle__pulse,
+  .atelier-panel--in, .toast-rise { animation: none; transition: none; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   §4 HEADLINE RULE — word reveals behind clip-path masks
+   45 ms stagger, --dur-base, --ease-forge, once, at 30% in-view. Character
+   splitting was 60 nodes and 60 motion components per headline for an effect
+   nobody reads letter by letter.
+   ══════════════════════════════════════════════════════════════════════════ */
+.split-text { display: inline; }
+.split-word { display: inline-block; overflow: hidden; vertical-align: bottom; }
+.split-word__inner {
+  display: inline-block;
+  clip-path: inset(0 0 110% 0);
+  transform: translateY(0.32em);
+  opacity: 0;
+  will-change: transform, clip-path;
+}
+.split-text[data-split='in'] .split-word__inner {
+  animation: splitWordIn var(--dur-base) var(--ease-forge) both;
+  animation-delay: calc(var(--split-delay, 0s) + var(--i) * var(--split-stagger, 45ms));
+}
+@keyframes splitWordIn {
+  from { clip-path: inset(0 0 110% 0); transform: translateY(0.32em); opacity: 0; }
+  to   { clip-path: inset(0 0 -12% 0);  transform: none;               opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .split-word__inner {
+    animation: none !important;
+    clip-path: none;
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   §4 TIMELINE — the line draws itself, the nodes light up
+   Previously two framer-motion `useTransform` chains reading scroll progress
+   in React. Where the browser has scroll-driven animations these run on the
+   compositor; where it does not, they play once on entry, which is a fine
+   degradation for a decorative stroke.
+   ══════════════════════════════════════════════════════════════════════════ */
+.timeline-track__fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  transform-origin: 0 0;
+  background: linear-gradient(
+    to bottom in oklch,
+    var(--accent),
+    var(--violet),
+    var(--accent)
+  );
+  box-shadow: 0 0 12px var(--accent), 0 0 4px var(--violet);
+  scale: 1 0;
+}
+.timeline-track__line {
+  stroke-dashoffset: 800;
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .timeline-track__fill {
+      animation: timelineFill linear both;
+      animation-timeline: view();
+      animation-range: entry 20% cover 60%;
+    }
+    .timeline-track__line {
+      animation: timelineDraw linear both;
+      animation-timeline: view();
+      animation-range: entry 20% cover 60%;
+    }
+  }
+}
+@supports not (animation-timeline: view()) {
+  .timeline-track__fill { animation: timelineFill 1.4s var(--ease-cinema) both; }
+  .timeline-track__line { animation: timelineDraw 1.4s var(--ease-cinema) both; }
+}
+@keyframes timelineFill { from { scale: 1 0; } to { scale: 1 1; } }
+@keyframes timelineDraw { from { stroke-dashoffset: 800; } to { stroke-dashoffset: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .timeline-track__fill { animation: none; scale: 1 1; }
+  .timeline-track__line { animation: none; stroke-dashoffset: 0; }
+}
+
+.timeline-node {
+  position: absolute;
+  left: -6px;
+  top: 6px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--node-accent, var(--accent));
+  box-shadow: 0 0 12px var(--node-accent, var(--accent)),
+              0 0 4px var(--node-accent, var(--accent));
+  animation: nodePop 0.5s var(--ease-anticipate) both;
+}
+.timeline-node__ping {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--node-accent, var(--accent));
+  animation: nodePing 2s ease-out infinite;
+}
+@keyframes nodePop {
+  from { transform: scale(0); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+@keyframes nodePing {
+  from { transform: scale(1);   opacity: 0.5; }
+  to   { transform: scale(2.2); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .timeline-node { animation: none; }
+  .timeline-node__ping { animation: none; opacity: 0; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   W4 — now / uses status pill
+   ══════════════════════════════════════════════════════════════════════════ */
+.now-status {
+  transition: border-radius var(--dur-fast) var(--ease-forge),
+              padding var(--dur-fast) var(--ease-forge);
+}
+.now-status[data-open='true'] { border-radius: 16px; }
+.now-status__detail { color: var(--ink-low); animation: heroRise 0.24s var(--ease-forge) both; }
+.now-status__ping { animation: nowPing 2s cubic-bezier(0, 0, 0.2, 1) infinite; }
+@keyframes nowPing {
+  75%, 100% { transform: scale(2); opacity: 0; }
+}
+
+/* Avatar hover state, previously a React `hovering` flag that only ever fed a
+   box-shadow. */
+.avatar-showcase[data-hovering='true'] .avatar-showcase__card {
+  box-shadow:
+    0 0 60px color-mix(in oklch, var(--accent) 25%, transparent),
+    0 25px 80px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 color-mix(in oklch, white 8%, transparent);
+}
+
+.footer-top { transition: transform var(--dur-fast) var(--ease-forge), color var(--dur-fast) var(--ease-forge); }
+.footer-top:hover { transform: translateY(-3px); }
+
+/* §15.2 — anchor integrity. Every section is a scroll target for the navbar,
+   the command palette and a bare #hash from the address bar; without this the
+   fixed navbar covers the heading the visitor just asked for. */
+#hero, #about, #stats, #skills, #projects, #timeline, #how, #how-i-build, #contact {
+  scroll-margin-top: 96px;
+}

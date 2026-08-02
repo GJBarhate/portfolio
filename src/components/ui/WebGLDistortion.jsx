@@ -1,63 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
-import {
-  Scene,
-  OrthographicCamera,
-  TextureLoader,
-  LinearFilter,
-  PlaneGeometry,
-  ShaderMaterial,
-  Mesh,
-  Vector2,
-} from 'three'
 import { useReducedMotion } from '../../lib/useReducedMotion.js'
-import { checkWebGL } from '../../lib/threeUtils.js'
-import { onFrame } from '../../lib/raf.js'
-import { getOverlayRenderer } from '../../lib/glStage.js'
+import { onFrame, getTier } from '../../lib/raf.js'
+import { getDistortionGL, createTexture } from '../../lib/rawGL.js'
 import Picture from './Picture.jsx'
 
-const vertexShader = `
-  varying vec2 vUv;
-  void main() {
-    vUv = uv;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }
-`
-
-const fragmentShader = `
-  uniform sampler2D uTexture;
-  uniform float uProgress;
-  uniform vec2 uMouse;
-  uniform vec2 uResolution;
-  varying vec2 vUv;
-
-  void main() {
-    vec2 uv = vUv;
-    vec2 res = uResolution;
-    float aspect = res.x / res.y;
-    vec2 centered = uv * 2.0 - 1.0;
-    centered.x *= aspect;
-    vec2 mouse = uMouse * 2.0 - 1.0;
-    mouse.x *= aspect;
-    float dist = distance(centered, mouse);
-    float influence = smoothstep(0.6, 0.0, dist) * uProgress;
-    vec2 offset = (centered - mouse) * influence * 0.08;
-    vec2 distorted = uv + offset;
-    float r = texture2D(uTexture, distorted + vec2(influence * 0.02, 0.0)).r;
-    float g = texture2D(uTexture, distorted).g;
-    float b = texture2D(uTexture, distorted - vec2(influence * 0.02, 0.0)).b;
-    gl_FragColor = vec4(r, g, b, 1.0);
-  }
-`
-
-// Hover does not exist on touch, so the whole effect — renderer, shader,
-// texture upload — is skipped there and the plain <img> is all that ships.
+// Hover does not exist on touch, so the whole effect — context, shader,
+// texture upload — is skipped there and the plain <picture> is all that ships.
 function canHover() {
   if (typeof window === 'undefined') return false
   return window.matchMedia('(hover: hover) and (pointer: fine)').matches
 }
 
+/** Frame-rate independent damping (plan Research #19): k ≈ 8. */
+function damp(current, target, dt, k = 8) {
+  return current + (target - current) * (1 - Math.exp(-(dt / 1000) * k))
+}
+
 export default function WebGLDistortion({ picture, src, alt = '', className = '', sizes, ...props }) {
-  const canvasRef = useRef(null)
+  const slotRef = useRef(null)
   const wrapperRef = useRef(null)
   const reduced = useReducedMotion()
   const [hoverCapable, setHoverCapable] = useState(false)
@@ -74,90 +34,81 @@ export default function WebGLDistortion({ picture, src, alt = '', className = ''
   }, [])
 
   useEffect(() => {
-    if (reduced || !hoverCapable) return
-    const slot = canvasRef.current
+    if (reduced || !hoverCapable || !textureSrc) return
+    const slot = slotRef.current
     if (!slot) return
 
-    // Scene resources are created on the first pointerenter, never on mount,
-    // and the RENDERER is a single module-level singleton shared by every
-    // card — only one can be hovered at a time, so one context is enough.
-    // This is where five of the original nine WebGL contexts came from.
-    let gl = null
+    let texture = null
+    let imageAspect = 16 / 10
     let stopFrame = null
     let progress = 0
-    let targetProgress = 0
+    let target = 0
     let hovering = false
     let disposed = false
-    const pendingMouse = new Vector2(0.5, 0.5)
+    let ready = false
+    const mouse = { x: 0.5, y: 0.5 }
+    const smooth = { x: 0.5, y: 0.5 }
 
-    const sizeToCanvas = () => {
-      if (!gl) return
-      const rect = slot.getBoundingClientRect()
-      if (!rect.width || !rect.height) return
-      gl.renderer.setSize(rect.width, rect.height, false)
-      gl.material.uniforms.uResolution.value.set(rect.width, rect.height)
-    }
+    const ctx = getDistortionGL()
 
-    // Move the one shared canvas into this card, and take it back out again
-    // when the effect has faded.
     const attach = () => {
-      const { canvas } = getOverlayRenderer()
-      canvas.className = 'absolute inset-0 w-full h-full transition-opacity duration-500'
-      canvas.style.opacity = '1'
-      if (canvas.parentNode !== slot) slot.appendChild(canvas)
+      if (ctx.canvas.parentNode !== slot) {
+        ctx.canvas.className = 'absolute inset-0 w-full h-full'
+        slot.appendChild(ctx.canvas)
+      }
     }
     const detach = () => {
-      const { canvas } = getOverlayRenderer()
-      if (canvas.parentNode === slot) {
-        canvas.style.opacity = '0'
-        slot.removeChild(canvas)
-      }
+      if (ctx.canvas.parentNode === slot) slot.removeChild(ctx.canvas)
     }
 
     const init = () => {
-      if (gl || disposed) return
-      if (!checkWebGL().supported) return
-
-      const { renderer } = getOverlayRenderer()
-
-      const scene = new Scene()
-      const camera = new OrthographicCamera(-1, 1, 1, -1, 0.1, 10)
-      camera.position.z = 1
-
-      const texture = new TextureLoader().load(textureSrc, () => {
-        // First frame can only be meaningful once the texture has decoded.
-        if (!disposed) start()
-      })
-      texture.minFilter = LinearFilter
-      texture.magFilter = LinearFilter
-
-      const geometry = new PlaneGeometry(2, 2)
-      const material = new ShaderMaterial({
-        vertexShader,
-        fragmentShader,
-        uniforms: {
-          uTexture: { value: texture },
-          uProgress: { value: 0 },
-          uMouse: { value: pendingMouse.clone() },
-          uResolution: { value: new Vector2(1, 1) },
-        },
-      })
-      const mesh = new Mesh(geometry, material)
-      scene.add(mesh)
-
-      gl = { renderer, scene, camera, texture, geometry, material, mesh }
-      sizeToCanvas()
+      if (ready || disposed || !ctx.gl) return
+      ready = true
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      img.decoding = 'async'
+      img.src = textureSrc
+      const upload = () => {
+        if (disposed) return
+        imageAspect = (img.naturalWidth || 16) / (img.naturalHeight || 10)
+        texture = createTexture(img)
+        start()
+      }
+      if (img.complete && img.naturalWidth) upload()
+      else img.addEventListener('load', upload, { once: true })
     }
 
-    // The loop runs only while the effect is settling or the pointer is inside.
-    // Once progress decays to ~0 it unsubscribes and the canvas costs nothing.
-    const loop = () => {
-      if (disposed || !gl) { stopFrame?.(); stopFrame = null; return }
-      progress += (targetProgress - progress) * (hovering ? 0.08 : 0.06)
-      gl.material.uniforms.uProgress.value = progress
-      gl.material.uniforms.uMouse.value.copy(pendingMouse)
-      gl.renderer.render(gl.scene, gl.camera)
-      if (!hovering && progress <= 0.001) {
+    const draw = (_t, dt) => {
+      const { gl, uniforms } = ctx
+      if (disposed || !gl || !texture) { stopFrame?.(); stopFrame = null; return }
+
+      progress = damp(progress, target, dt, hovering ? 9 : 7)
+      smooth.x = damp(smooth.x, mouse.x, dt, 10)
+      smooth.y = damp(smooth.y, mouse.y, dt, 10)
+
+      const rect = slot.getBoundingClientRect()
+      if (rect.width < 1 || rect.height < 1) return
+      const dpr = Math.min(window.devicePixelRatio || 1, getTier() >= 3 ? 1.75 : 1.25)
+      const w = Math.round(rect.width * dpr)
+      const h = Math.round(rect.height * dpr)
+      if (ctx.canvas.width !== w || ctx.canvas.height !== h) {
+        ctx.canvas.width = w
+        ctx.canvas.height = h
+      }
+      gl.viewport(0, 0, w, h)
+
+      gl.useProgram(ctx.program)
+      gl.activeTexture(gl.TEXTURE0)
+      gl.bindTexture(gl.TEXTURE_2D, texture)
+      gl.uniform1f(uniforms.uProgress, progress)
+      gl.uniform2f(uniforms.uMouse, smooth.x, smooth.y)
+      gl.uniform1f(uniforms.uImageAspect, imageAspect)
+      gl.uniform1f(uniforms.uBoxAspect, rect.width / rect.height)
+      gl.drawArrays(gl.TRIANGLES, 0, 3)
+
+      // Once the effect has decayed the loop unsubscribes and the canvas is
+      // taken back out of the DOM, so a resting grid costs exactly nothing.
+      if (!hovering && progress <= 0.002) {
         stopFrame?.()
         stopFrame = null
         progress = 0
@@ -166,40 +117,35 @@ export default function WebGLDistortion({ picture, src, alt = '', className = ''
     }
 
     const start = () => {
-      if (!stopFrame && !disposed && gl) stopFrame = onFrame(loop)
+      if (!stopFrame && !disposed && texture) stopFrame = onFrame(draw)
     }
 
+    const onMove = (e) => {
+      const rect = slot.getBoundingClientRect()
+      if (!rect.width || !rect.height) return
+      mouse.x = (e.clientX - rect.left) / rect.width
+      mouse.y = 1 - (e.clientY - rect.top) / rect.height
+    }
     const onEnter = (e) => {
       hovering = true
-      targetProgress = 1
-      init()
-      if (!gl) return
+      target = 1
       onMove(e)
+      smooth.x = mouse.x
+      smooth.y = mouse.y
+      init()
       attach()
-      sizeToCanvas()
       start()
     }
     const onLeave = () => {
       hovering = false
-      targetProgress = 0
+      target = 0
       start()
-    }
-    const onMove = (e) => {
-      const rect = slot.getBoundingClientRect()
-      if (!rect.width || !rect.height) return
-      pendingMouse.set(
-        (e.clientX - rect.left) / rect.width,
-        1 - (e.clientY - rect.top) / rect.height
-      )
     }
 
     const host = wrapperRef.current || slot
     host.addEventListener('pointerenter', onEnter)
     host.addEventListener('pointerleave', onLeave)
-    host.addEventListener('pointermove', onMove)
-
-    const ro = new ResizeObserver(() => sizeToCanvas())
-    ro.observe(slot)
+    host.addEventListener('pointermove', onMove, { passive: true })
 
     // The shared scheduler already skips every subscriber while the tab is
     // hidden, so no per-component visibility handling is needed here.
@@ -208,18 +154,11 @@ export default function WebGLDistortion({ picture, src, alt = '', className = ''
       disposed = true
       stopFrame?.()
       detach()
-      ro.disconnect()
       host.removeEventListener('pointerenter', onEnter)
       host.removeEventListener('pointerleave', onLeave)
       host.removeEventListener('pointermove', onMove)
-      if (gl) {
-        // The renderer is shared and outlives this component; only the
-        // per-card scene resources are disposed here.
-        gl.geometry.dispose()
-        gl.material.dispose()
-        gl.texture.dispose()
-        gl = null
-      }
+      if (texture && ctx.gl) ctx.gl.deleteTexture(texture)
+      texture = null
     }
   }, [reduced, textureSrc, hoverCapable])
 
@@ -247,7 +186,7 @@ export default function WebGLDistortion({ picture, src, alt = '', className = ''
       )}
       {!reduced && hoverCapable && (
         // A plain slot; the shared canvas is moved in and out of it on hover.
-        <div ref={canvasRef} className="absolute inset-0 w-full h-full" aria-hidden="true" />
+        <div ref={slotRef} className="absolute inset-0 w-full h-full" aria-hidden="true" />
       )}
     </div>
   )

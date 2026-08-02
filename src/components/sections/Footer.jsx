@@ -1,12 +1,22 @@
-import { useRef } from 'react'
-import { motion, useInView } from 'framer-motion'
+import { useEffect, useRef, useState } from 'react'
 import { Spark } from '../ui/SparkHunt.jsx'
+import { SOCIALS } from '../../lib/content.js'
 
 const NAME_LETTERS = [...'GAURAV BARHATE']
 
 function Signature() {
   const ref = useRef(null)
-  const inView = useInView(ref, { once: true, margin: '-10%' })
+  const [inView, setInView] = useState(false)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const io = new IntersectionObserver(([e]) => {
+      if (e.isIntersecting) { setInView(true); io.disconnect() }
+    }, { rootMargin: '-10%' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
 
   return (
     <svg
@@ -66,22 +76,52 @@ export default function Footer() {
         </div>
       </div>
 
+      {/* W6 — an easter egg nobody finds is effort spent on nothing. One mono
+          line turns hidden work into visible playfulness. */}
+      <div className="flex justify-center mb-8">
+        <button
+          type="button"
+          className="secret-hint"
+          data-cursor="crosshair"
+          onClick={() => window.dispatchEvent(new CustomEvent('forge:open-arcade'))}
+          title="Open the arcade"
+        >
+          <span aria-hidden="true">🎮</span>
+          PRESS ⌘K · ↑↑↓↓ FOR SECRETS
+        </button>
+      </div>
+
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-        <p className="font-mono text-xs text-[var(--ink-low)]">
-          &copy; {new Date().getFullYear()} Gaurav Barhate. All rights reserved.
-        </p>
+        <div className="flex flex-col items-center md:items-start gap-1">
+          <p className="font-mono text-xs text-[var(--ink-low)]">
+            &copy; {new Date().getFullYear()} Gaurav Barhate. All rights reserved.
+          </p>
+          {/* §10 trust signals — "built from scratch" and a freshness date are
+              both explicit recruiter screening heuristics. */}
+          <p className="font-mono text-[10px] text-[var(--ink-low)]">
+            Built from scratch — React 18, no template ·{' '}
+            <a
+              href={SOCIALS.github}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-[var(--accent-bright)]"
+            >
+              view source
+            </a>
+            {typeof __BUILD_DATE__ !== 'undefined' && <> · deployed {__BUILD_DATE__}</>}
+          </p>
+        </div>
         <div className="flex items-center gap-6">
           <span className="font-mono text-[10px] text-[var(--ink-low)]">
             press <kbd className="px-1.5 py-0.5 rounded border border-[var(--glass-border)] text-[var(--ink-mid)]">&#8984;K</kbd> for commands
           </span>
-          <motion.button
+          <button
             onClick={scrollTop}
             data-cursor="view"
-            whileHover={{ y: -3 }}
-            className="font-mono text-xs tracking-widest text-[var(--ink-mid)] hover:text-[var(--accent-bright)] flex items-center gap-2 transition-colors duration-300"
+            className="footer-top font-mono text-xs tracking-widest text-[var(--ink-mid)] hover:text-[var(--accent-bright)] flex items-center gap-2 transition-colors duration-fast"
           >
             BACK TO TOP &#8593;
-          </motion.button>
+          </button>
         </div>
       </div>
     </footer>

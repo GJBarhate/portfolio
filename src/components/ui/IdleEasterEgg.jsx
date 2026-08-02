@@ -20,7 +20,7 @@ export default function IdleEasterEgg() {
     window.addEventListener('mousemove', wake)
     window.addEventListener('keydown', wake)
     window.addEventListener('scroll', wake, { passive: true })
-    window.addEventListener('touchstart', wake)
+    window.addEventListener('touchstart', wake, { passive: true })
 
     return () => {
       clearTimeout(timerRef.current)

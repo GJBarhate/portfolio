@@ -187,7 +187,7 @@ export default function HeroForgeObject({ className = '' }) {
       targetTiltZ = nx * 0.5 * 0.6
       targetTiltX = -ny * 0.35
     }
-    if (!reduced) window.addEventListener('pointermove', onMove)
+    if (!reduced) window.addEventListener('pointermove', onMove, { passive: true })
 
     // Scroll-linked rotation makes the hero feel authored rather than
     // decorative — the object does something as the visitor moves down.

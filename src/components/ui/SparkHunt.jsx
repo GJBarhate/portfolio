@@ -1,5 +1,4 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
 import { useSound } from '../../contexts/SoundContext.jsx'
 
 const STORAGE_KEY = 'forge-sparks'
@@ -50,18 +49,13 @@ export function Spark({ id, className = '' }) {
   if (found) return null
 
   return (
-    <motion.button
+    <button
       onClick={() => collect(id)}
       className={`spark-collectible ${className}`}
-      initial={{ opacity: 0, scale: 0 }}
-      animate={{ opacity: 1, scale: 1 }}
-      whileHover={{ scale: 1.3 }}
-      whileTap={{ scale: 0.8 }}
-      transition={{ delay: 2, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
       aria-label="Collect hidden spark"
     >
       <span className="spark-glow" />
-    </motion.button>
+    </button>
   )
 }
 
@@ -91,14 +85,11 @@ export function SparkCompleteToast() {
     }
   }, [collected.length, total])
 
+  if (!show) return null
+
   return (
-    <AnimatePresence>
-      {show && (
-        <motion.div
-          initial={{ opacity: 0, y: 40, scale: 0.9 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: -20 }}
-          className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 glass sheen rounded-2xl px-6 py-4 border border-[var(--accent-dim)] text-center"
+        <div
+          className="toast-rise fixed bottom-8 left-1/2 -translate-x-1/2 z-50 glass sheen rounded-2xl px-6 py-4 border border-[var(--accent-dim)] text-center"
         >
           <p className="font-mono text-[9px] tracking-[0.3em] text-[var(--warm)] mb-1">
             ALL SPARKS COLLECTED
@@ -113,8 +104,6 @@ export function SparkCompleteToast() {
           >
             DISMISS
           </button>
-        </motion.div>
-      )}
-    </AnimatePresence>
+        </div>
   )
 }

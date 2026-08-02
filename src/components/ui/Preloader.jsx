@@ -1,18 +1,29 @@
-import { useReducedMotion } from '../../lib/useReducedMotion.js'
-import { motion, useMotionValue, useTransform, animate } from 'framer-motion'
 import { useEffect, useRef, useState } from 'react'
+import { useReducedMotion } from '../../lib/useReducedMotion.js'
+import { onFrame } from '../../lib/raf.js'
 
-const COUNT_DURATION = 1.6
-const LIFT_DURATION = 0.7
+// Curtain budget (J7): the cinematic entry is self-inflicted LCP delay, so the
+// whole thing is capped at 1.1 s and the count runs *while* hero fonts and the
+// poster stream in, not before them.
+const COUNT_DURATION = 700
+const LIFT_DURATION = 400
 
+/**
+ * First-visit curtain.
+ *
+ * Every animation here is CSS or WAAPI. It used to be five Framer components,
+ * which meant the 42 KB motion chunk had to parse and run during the single
+ * most main-thread-contended moment of the whole page load — to draw a
+ * progress bar over the content it was delaying.
+ */
 export default function Preloader({ onReveal }) {
   const reduced = useReducedMotion()
-  const [lift, setLift] = useState(false)
   const [gone, setGone] = useState(false)
+  const rootRef = useRef(null)
+  const innerRef = useRef(null)
+  const barRef = useRef(null)
+  const countRef = useRef(null)
   const revealedRef = useRef(false)
-  const count = useMotionValue(0)
-  const displayCount = useTransform(count, Math.round)
-  const barScale = useTransform(count, [0, 100], [0, 1])
   const onRevealRef = useRef(onReveal)
   onRevealRef.current = onReveal
 
@@ -30,86 +41,87 @@ export default function Preloader({ onReveal }) {
       return
     }
 
-    const controls = animate(count, 100, {
-      duration: COUNT_DURATION,
-      ease: [0.16, 1, 0.3, 1],
-      onComplete: () => {
-        setLift(true)
-        reveal()
-        setTimeout(() => setGone(true), LIFT_DURATION * 1000 + 50)
-      },
+    const root = rootRef.current
+    const bar = barRef.current
+    const countEl = countRef.current
+    const easing = 'cubic-bezier(0.16, 1, 0.3, 1)'
+
+    bar?.animate(
+      [{ transform: 'scaleX(0)' }, { transform: 'scaleX(1)' }],
+      { duration: COUNT_DURATION, easing, fill: 'forwards' }
+    )
+
+    // The counter is text, so it cannot be a compositor animation — but at
+    // ~42 frames total it does not need to be one either.
+    let elapsed = 0
+    const stopCount = onFrame((_t, dt) => {
+      elapsed += dt
+      const p = Math.min(1, elapsed / COUNT_DURATION)
+      // out-expo, matching the bar.
+      const eased = 1 - Math.pow(2, -10 * p)
+      if (countEl) countEl.textContent = String(Math.round(eased * 100))
+      if (p >= 1) stopCount()
     })
 
-    const failsafe = setTimeout(reveal, (COUNT_DURATION + LIFT_DURATION + 0.5) * 1000)
+    const lift = setTimeout(() => {
+      innerRef.current?.animate(
+        [{ opacity: 1, transform: 'scale(1)' }, { opacity: 0, transform: 'scale(0.97)' }],
+        { duration: 250, easing, fill: 'forwards' }
+      )
+      root?.animate(
+        [
+          { clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)' },
+          { clipPath: 'polygon(0 0, 100% 0, 100% 0, 0 0)' },
+        ],
+        { duration: LIFT_DURATION, easing, fill: 'forwards' }
+      )
+      reveal()
+      setTimeout(() => setGone(true), LIFT_DURATION + 50)
+    }, COUNT_DURATION)
+
+    // If anything above fails to fire, the page still gets revealed.
+    const failsafe = setTimeout(reveal, COUNT_DURATION + LIFT_DURATION + 500)
+
     return () => {
-      controls.stop()
+      stopCount()
+      clearTimeout(lift)
       clearTimeout(failsafe)
     }
-  }, [reduced, count])
+  }, [reduced])
 
   if (gone) return null
 
   return (
-    <motion.div
-      className="preloader"
-      aria-hidden="true"
-      initial={false}
-      animate={
-        lift
-          ? { clipPath: 'polygon(0 0, 100% 0, 100% 0, 0 0)' }
-          : { clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)' }
-      }
-      transition={{ duration: LIFT_DURATION, ease: [0.16, 1, 0.3, 1] }}
-    >
-      <motion.div
-        className="preloader__inner"
-        animate={lift ? { opacity: 0, scale: 0.97 } : { opacity: 1, scale: 1 }}
-        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-      >
+    <div ref={rootRef} className="preloader" aria-hidden="true">
+      <div ref={innerRef} className="preloader__inner">
         <div className="preloader__monogram" style={{ border: 'none', boxShadow: 'none' }}>
           <svg width="44" height="44" viewBox="0 0 60 48" aria-hidden="true">
-            <motion.path
+            <path
+              className="preloader__stroke"
               d="M18 8c-5.5 0-10 4.5-10 10s4.5 10 10 10 10-4.5 10-10-4.5-10-10-10zm0 16c-3.3 0-6-2.7-6-6s2.7-6 6-6 6 2.7 6 6-2.6 6-6 6zM42 8l14 20-14 20"
               fill="none"
               stroke="var(--accent-bright)"
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
-              initial={{ pathLength: 0 }}
-              animate={{ pathLength: 1 }}
-              transition={{ duration: COUNT_DURATION, ease: [0.16, 1, 0.3, 1] }}
             />
-            <circle
-              cx="18"
-              cy="18"
-              r="10"
-              fill="none"
-              stroke="var(--accent-dim)"
-              strokeWidth="1"
-              opacity="0.3"
-            />
+            <circle cx="18" cy="18" r="10" fill="none" stroke="var(--accent-dim)" strokeWidth="1" opacity="0.3" />
           </svg>
         </div>
         <div className="preloader__bar">
-          <motion.div
-            className="preloader__bar-fill"
-            style={{ scaleX: barScale, transformOrigin: 'left' }}
-          />
+          <div ref={barRef} className="preloader__bar-fill" style={{ transform: 'scaleX(0)' }} />
         </div>
         <p className="font-mono text-[9px] tracking-[0.35em] text-[var(--ink-low)]">
           FORGING INTERFACE
         </p>
-        <motion.p
-          className="font-mono text-[10px] tracking-[0.2em] mt-4"
+        <p
+          className="preloader__press font-mono text-[10px] tracking-[0.2em] mt-4"
           style={{ color: 'var(--accent-bright)' }}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: [0, 1, 0] }}
-          transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
         >
           PRESS START
-        </motion.p>
-      </motion.div>
-      <motion.div className="preloader__count">{displayCount}</motion.div>
-    </motion.div>
+        </p>
+      </div>
+      <div ref={countRef} className="preloader__count">0</div>
+    </div>
   )
 }

@@ -44,6 +44,13 @@ function inlineCriticalCss() {
 }
 
 export default defineConfig({
+  define: {
+    // §10 trust signal — a visible last-deployed date. Freshness is a real
+    // screening heuristic, and a build-time constant costs nothing at runtime.
+    __BUILD_DATE__: JSON.stringify(
+      new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+    ),
+  },
   plugins: [
     react(),
     imagetools(),

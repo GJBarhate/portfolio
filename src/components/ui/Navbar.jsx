@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
-import { motion, useScroll, useSpring, useTransform } from 'framer-motion'
+import { useEffect, useRef, useState } from 'react'
+import { onFrame } from '../../lib/raf.js'
 import { useSmoothScroll } from '../../contexts/SmoothScrollContext.jsx'
 import { useSound } from '../../contexts/SoundContext.jsx'
 import MagneticButton from './MagneticButton.jsx'
 import ThemeToggle from './ThemeToggle.jsx'
+import RecruiterMode from './RecruiterMode.jsx'
 import MorphLink from './MorphLink.jsx'
 import { SparkCounter } from './SparkHunt.jsx'
 
@@ -25,10 +26,22 @@ export default function Navbar() {
   const [active, setActive] = useState('')
   const scroll = useSmoothScroll()
   const sound = useSound()
-  // Motion values update the SVG directly — no React re-render per scroll frame
-  const { scrollYProgress } = useScroll()
-  const smoothProgress = useSpring(scrollYProgress, { stiffness: 240, damping: 36, mass: 0.3 })
-  const ringOffset = useTransform(smoothProgress, [0, 1], [RING_C, 0])
+  const ringRef = useRef(null)
+
+  // The progress ring is written straight onto the SVG attribute from the
+  // shared ticker — no React re-render per scroll frame, and no spring engine
+  // in the critical path to draw one circle (§8.3).
+  useEffect(() => {
+    const circle = ringRef.current
+    if (!circle) return
+    let value = 0
+    return onFrame((_t, dt) => {
+      const max = document.documentElement.scrollHeight - window.innerHeight
+      const target = max > 0 ? Math.min(1, Math.max(0, window.scrollY / max)) : 0
+      value += (target - value) * (1 - Math.exp(-(dt / 1000) * 10))
+      circle.style.strokeDashoffset = (RING_C * (1 - value)).toFixed(2)
+    })
+  }, [])
 
   useEffect(() => {
     const sections = LINKS.map((l) => document.getElementById(l.id)).filter(Boolean)
@@ -88,7 +101,7 @@ export default function Navbar() {
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('forge:open-arcade'))}
             data-cursor="view"
-            className="arcade-nav-btn group relative px-3 py-1.5 rounded-full font-mono text-[11px] tracking-wider flex items-center gap-1.5 transition-all duration-300"
+            className="arcade-nav-btn group relative px-3 py-1.5 rounded-full font-mono text-[11px] tracking-wider flex items-center gap-1.5 transition-all duration-fast"
           >
             <span className="relative z-10 flex items-center gap-1.5">
               <span className="arcade-nav-icon text-[13px]">🎮</span>
@@ -96,7 +109,7 @@ export default function Navbar() {
               <span className="arcade-nav-dot w-1 h-1 rounded-full bg-emerald-400 shadow-[0_0_6px_rgb(52,211,153)]" />
             </span>
           </button>
-          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 pointer-events-none">
+          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-fast pointer-events-none">
             <div className="bg-[var(--surface-1)] border border-[var(--accent-dim)] rounded-xl p-3 shadow-2xl min-w-[180px]">
               <p className="font-mono text-[8px] tracking-[0.25em] text-[var(--accent-bright)] mb-2 text-center">5 GAMES</p>
               <div className="space-y-1">
@@ -119,6 +132,7 @@ export default function Navbar() {
       </nav>
 
       <div className="flex items-center gap-4">
+        <RecruiterMode />
         <SparkCounter />
         <ThemeToggle />
 
@@ -126,14 +140,15 @@ export default function Navbar() {
           onClick={toggleMute}
           data-cursor="view"
           aria-label={sound?.muted ? 'Unmute sound' : 'Mute sound'}
-          className="w-8 h-8 rounded-full border border-[var(--glass-border)] bg-[var(--surface-2)] flex items-center justify-center hover:border-[var(--accent-dim)] transition-colors duration-300 font-mono text-[9px] text-[var(--ink-mid)]"
+          className="w-8 h-8 rounded-full border border-[var(--glass-border)] bg-[var(--surface-2)] flex items-center justify-center hover:border-[var(--accent-dim)] transition-colors duration-fast font-mono text-[9px] text-[var(--ink-mid)]"
         >
           {sound?.muted ? 'OFF' : 'ON'}
         </button>
 
         <svg width="40" height="40" className="hidden md:block">
           <circle cx="20" cy="20" r={RING_R} fill="none" stroke="var(--surface-3)" strokeWidth="2" />
-          <motion.circle
+          <circle
+            ref={ringRef}
             cx="20"
             cy="20"
             r={RING_R}
@@ -143,19 +158,21 @@ export default function Navbar() {
             strokeDasharray={RING_C}
             strokeLinecap="round"
             transform="rotate(-90 20 20)"
-            style={{ strokeDashoffset: ringOffset }}
+            style={{ strokeDashoffset: RING_C }}
           />
         </svg>
 
         <button
           data-cursor="menu"
           onClick={() => setOpen((v) => !v)}
-          className="md:hidden flex flex-col gap-1.5 w-7 h-7 justify-center"
+          className="nav-burger md:hidden flex flex-col gap-1.5 w-7 h-7 justify-center"
+          data-open={open}
           aria-label="Toggle menu"
+          aria-expanded={open}
         >
-          <motion.span animate={{ rotate: open ? 45 : 0, y: open ? 6 : 0 }} className="h-px w-full bg-[var(--ink)]" />
-          <motion.span animate={{ opacity: open ? 0 : 1 }} className="h-px w-full bg-[var(--ink)]" />
-          <motion.span animate={{ rotate: open ? -45 : 0, y: open ? -6 : 0 }} className="h-px w-full bg-[var(--ink)]" />
+          <span className="nav-burger__bar" />
+          <span className="nav-burger__bar" />
+          <span className="nav-burger__bar" />
         </button>
 
         <MagneticButton
@@ -170,27 +187,24 @@ export default function Navbar() {
         </MagneticButton>
       </div>
 
-      <motion.div
-        initial={false}
-        animate={{ height: open ? 'auto' : 0, opacity: open ? 1 : 0 }}
-        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        className="md:hidden absolute top-full left-0 right-0 overflow-hidden bg-[var(--surface-0)] border-b border-[var(--glass-border)]"
-      >
-        <div className="flex flex-col p-6 gap-4">
-          {LINKS.map((l, i) => (
-            <motion.button
-              key={l.id}
-              onClick={() => goTo(l.id)}
-              initial={false}
-              animate={{ x: open ? 0 : -20 }}
-              transition={{ delay: i * 0.04 }}
-              className="text-left font-display text-2xl text-[var(--ink-mid)] hover:text-[var(--accent-bright)]"
-            >
-              {l.label}
-            </motion.button>
-          ))}
+      {/* `height: auto` cannot be animated by CSS, but `grid-template-rows`
+          can — the standard zero-JS accordion. */}
+      <div className="nav-drawer md:hidden" data-open={open}>
+        <div className="nav-drawer__inner">
+          <div className="flex flex-col p-6 gap-4">
+            {LINKS.map((l, i) => (
+              <button
+                key={l.id}
+                onClick={() => goTo(l.id)}
+                style={{ '--i': i }}
+                className="nav-drawer__link text-left font-display text-2xl text-[var(--ink-mid)] hover:text-[var(--accent-bright)]"
+              >
+                {l.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </motion.div>
+      </div>
     </header>
   )
 }

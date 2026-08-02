@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, Children } from 'react'
-import { motion, useScroll, useTransform } from 'framer-motion'
+import { useCallback, useEffect, useRef, useState, Children } from 'react'
+import { motion, useMotionValue, useScroll, useTransform } from 'framer-motion'
+import { onFrame } from '../../lib/raf.js'
 
 // How tall the visible deck is. The STICKY WRAPPER is always a full 100vh —
 // that part is not a style choice, it is the arithmetic that removes the gap.
@@ -22,17 +23,61 @@ const PANEL_VH = 78
 function estimateOvershoot(count) {
   if (typeof window === 'undefined' || count < 1) return 0
   const vw = window.innerWidth
-  // Cards are roughly 80vw on phones and 46vw on desktop, matching the deck.
-  const cardWidth = vw < 768 ? vw * 0.84 : vw * 0.46
+  // Cards are roughly 88vw on phones and 46vw on desktop, matching the deck.
+  const cardWidth = vw < 768 ? vw * 0.88 : vw * 0.46
   return Math.max(0, count * cardWidth - vw)
 }
 
+/**
+ * Horizontal deck, dual-mode (§15.3).
+ *
+ * Desktop `(hover: hover)` keeps the sticky-translate design, because that is
+ * where a wheel needs translating into horizontal motion at all. Touch gets
+ * native `overflow-x` + scroll-snap instead: browser-composited momentum, zero
+ * JS on the scroll path, and — crucially — no second scroll system fighting
+ * Lenis on the same axis (Research #20/#21).
+ */
 export default function HorizontalScroll({ children, className = '' }) {
+  const [pinned, setPinned] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(hover: hover) and (pointer: fine)').matches
+  )
+
+  useEffect(() => {
+    const mq = window.matchMedia('(hover: hover) and (pointer: fine)')
+    const onChange = (e) => setPinned(e.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+
+  return pinned
+    ? <PinnedDeck className={className}>{children}</PinnedDeck>
+    : <SnapDeck className={className}>{children}</SnapDeck>
+}
+
+function EdgeFades() {
+  return (
+    <>
+      <div
+        className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16"
+        style={{ background: 'linear-gradient(to right, var(--surface-0), transparent)' }}
+        aria-hidden="true"
+      />
+      <div
+        className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16"
+        style={{ background: 'linear-gradient(to left, var(--surface-0), transparent)' }}
+        aria-hidden="true"
+      />
+    </>
+  )
+}
+
+function PinnedDeck({ children, className }) {
   const childCount = Children.count(children)
   const containerRef = useRef(null)
   const trackRef = useRef(null)
   const [overshoot, setOvershoot] = useState(() => estimateOvershoot(childCount))
   const [inView, setInView] = useState(false)
+  const [current, setCurrent] = useState(0)
 
   // Measure real track width so the translate distance matches exactly what's
   // scrollable — no fixed -100% guess that overshoots or leaves dead runway.
@@ -49,7 +94,7 @@ export default function HorizontalScroll({ children, className = '' }) {
     measure()
     const ro = new ResizeObserver(measure)
     ro.observe(track)
-    window.addEventListener('resize', measure)
+    window.addEventListener('resize', measure, { passive: true })
     return () => {
       ro.disconnect()
       window.removeEventListener('resize', measure)
@@ -71,8 +116,28 @@ export default function HorizontalScroll({ children, className = '' }) {
     offset: ['start start', 'end end'],
   })
 
-  const x = useTransform(scrollYProgress, [0, 1], [0, -overshoot])
-  const activeIdx = useTransform(scrollYProgress, (v) => Math.min(childCount - 1, Math.floor(v * childCount)))
+  const xTarget = useTransform(scrollYProgress, [0, 1], [0, -overshoot])
+  const x = useMotionValue(0)
+
+  // Exponential damping (Research #19), k = 9: framerate-independent, so a
+  // dropped frame glides instead of stepping. A wheel notch is a discrete jump
+  // in scroll position; this is what turns it back into motion.
+  useEffect(() => {
+    if (!inView) { x.set(xTarget.get()); return }
+    return onFrame((_t, dt) => {
+      const target = xTarget.get()
+      const cur = x.get()
+      const next = cur + (target - cur) * (1 - Math.exp(-(dt / 1000) * 9))
+      x.set(Math.abs(target - next) < 0.05 ? target : next)
+    })
+  }, [inView, x, xTarget])
+
+  useEffect(() => {
+    const unsub = scrollYProgress.on('change', (v) =>
+      setCurrent(Math.min(childCount - 1, Math.max(0, Math.round(v * (childCount - 1)))))
+    )
+    return unsub
+  }, [scrollYProgress, childCount])
 
   return (
     <section
@@ -80,54 +145,79 @@ export default function HorizontalScroll({ children, className = '' }) {
       className={`relative ${className}`}
       style={{ height: `calc(${overshoot}px + 100vh)` }}
     >
-      <div
-        className="sticky top-0 left-0 w-full h-screen overflow-hidden flex items-center justify-center"
-      >
+      <div className="sticky top-0 left-0 w-full h-screen overflow-hidden flex items-center justify-center">
         <div className="relative w-full flex items-center" style={{ height: `${PANEL_VH}vh` }}>
-        {/* Edge fade masks */}
-        <div
-          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-16"
-          style={{
-            background: 'linear-gradient(to right, var(--surface-0), transparent)',
-          }}
-          aria-hidden="true"
-        />
-        <div
-          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-16"
-          style={{
-            background: 'linear-gradient(to left, var(--surface-0), transparent)',
-          }}
-          aria-hidden="true"
-        />
+          <EdgeFades />
 
-        {/* No snap-* classes: the track is moved by transform, not scrolled,
-            so scroll snapping had nothing to act on. */}
-        <motion.div
-          ref={trackRef}
-          className="flex h-full"
-          style={{ x, willChange: inView ? 'transform' : 'auto' }}
-        >
-          {children}
-        </motion.div>
+          {/* No snap-* classes: the track is moved by transform, not scrolled,
+              so scroll snapping had nothing to act on. */}
+          <motion.div
+            ref={trackRef}
+            className="flex h-full"
+            style={{ x, willChange: inView ? 'transform' : 'auto' }}
+          >
+            {children}
+          </motion.div>
 
-        {/* Progress rail */}
-        {childCount > 1 && (
-          <ProgressRail count={childCount} activeIdx={activeIdx} />
-        )}
+          {childCount > 1 && <ProgressRail count={childCount} current={current} />}
         </div>
       </div>
     </section>
   )
 }
 
-function ProgressRail({ count, activeIdx }) {
+/**
+ * Touch mode. Everything here is the browser's own scroller — momentum, snap
+ * and rubber-band containment included — so there is literally no JS on the
+ * scroll path. `scrollend` (with a debounced `scroll` fallback for Safari)
+ * only updates the dot indicator.
+ */
+function SnapDeck({ children, className }) {
+  const childCount = Children.count(children)
+  const scrollerRef = useRef(null)
   const [current, setCurrent] = useState(0)
 
-  useEffect(() => {
-    const unsub = activeIdx.on('change', (v) => setCurrent(Math.round(v)))
-    return unsub
-  }, [activeIdx])
+  const sync = useCallback(() => {
+    const el = scrollerRef.current
+    if (!el) return
+    const max = el.scrollWidth - el.clientWidth
+    const p = max > 0 ? el.scrollLeft / max : 0
+    setCurrent(Math.min(childCount - 1, Math.max(0, Math.round(p * (childCount - 1)))))
+  }, [childCount])
 
+  useEffect(() => {
+    const el = scrollerRef.current
+    if (!el) return
+    const hasScrollEnd = 'onscrollend' in window
+    let timer = null
+    const onScroll = () => {
+      if (hasScrollEnd) return
+      clearTimeout(timer)
+      timer = setTimeout(sync, 90)
+    }
+    el.addEventListener('scrollend', sync, { passive: true })
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      clearTimeout(timer)
+      el.removeEventListener('scrollend', sync)
+      el.removeEventListener('scroll', onScroll)
+    }
+  }, [sync])
+
+  return (
+    <section className={`relative ${className}`}>
+      <div className="relative" style={{ height: `${PANEL_VH}vh` }}>
+        <EdgeFades />
+        <div ref={scrollerRef} className="deck-snap-scroller flex h-full">
+          {children}
+        </div>
+        {childCount > 1 && <ProgressRail count={childCount} current={current} />}
+      </div>
+    </section>
+  )
+}
+
+function ProgressRail({ count, current }) {
   return (
     <div
       className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2"
@@ -136,19 +226,9 @@ function ProgressRail({ count, activeIdx }) {
       {Array.from({ length: count }, (_, i) => (
         <div
           key={i}
-          className="flex items-center gap-2"
-        >
-          <div
-            className="transition-all duration-300"
-            style={{
-              width: i === current ? 24 : 8,
-              height: 8,
-              borderRadius: 4,
-              background: i === current ? 'var(--accent)' : 'var(--surface-3)',
-              boxShadow: i === current ? '0 0 8px var(--accent)' : 'none',
-            }}
-          />
-        </div>
+          className="deck-rail__dot"
+          data-active={i === current ? 'true' : 'false'}
+        />
       ))}
       <span className="ml-2 font-mono text-[9px] tracking-wider text-[var(--ink-low)]">
         {String(current + 1).padStart(2, '0')}/{String(count).padStart(2, '0')}

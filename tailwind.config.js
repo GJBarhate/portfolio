@@ -39,15 +39,31 @@ export default {
         danger: 'var(--danger)',
       },
       fontFamily: {
-        display: ['"Clash Display"', '"Space Grotesk"', 'sans-serif'],
+        // 'Clash Fallback' is a metric-matched local face (§8.5) so the
+        // font-display: swap handoff does not reflow headlines.
+        display: ['"Clash Display"', '"Clash Fallback"', '"Space Grotesk"', 'sans-serif'],
         sans: ['"Space Grotesk"', 'sans-serif'],
         mono: ['"JetBrains Mono"', 'monospace'],
       },
+      // §2.4 — the frozen motion vocabulary, exposed to Tailwind so a JSX
+      // class can reference a token instead of inventing a number. After M2,
+      // `duration-300` is a lint smell: use duration-fast / base / cinema.
       transitionTimingFunction: {
-        forge: 'cubic-bezier(0.16, 1, 0.3, 1)',
-        snap: 'cubic-bezier(0.65, 0, 0.35, 1)',
-        anticipate: 'cubic-bezier(0.68, -0.6, 0.32, 1.6)',
+        forge: 'var(--ease-forge)',
+        cinema: 'var(--ease-cinema)',
+        snap: 'var(--ease-cinema)',
+        anticipate: 'var(--ease-anticipate)',
         spring: 'var(--ease-spring)',
+      },
+      transitionDuration: {
+        fast: 'var(--dur-fast)',
+        base: 'var(--dur-base)',
+        cinema: 'var(--dur-cinema)',
+      },
+      animationDuration: {
+        fast: 'var(--dur-fast)',
+        base: 'var(--dur-base)',
+        cinema: 'var(--dur-cinema)',
       },
     },
   },

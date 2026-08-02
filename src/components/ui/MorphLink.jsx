@@ -30,7 +30,7 @@ export default function MorphLink({ children, className = '', ...props }) {
         return (
           <span
             key={i}
-            className="inline-block transition-all duration-[400ms] ease-out"
+            className="inline-block transition-all duration-base ease-out"
             aria-hidden={ch === ' ' ? undefined : undefined}
             style={{
               fontWeight: hovered ? 700 : 400,

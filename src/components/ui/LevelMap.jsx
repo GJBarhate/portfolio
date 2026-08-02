@@ -117,7 +117,7 @@ export default function LevelMap() {
                     : '0 0 0px transparent',
                 }}
                 transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                className={`relative z-10 w-2.5 h-2.5 rounded-full border transition-colors duration-300 ${
+                className={`relative z-10 w-2.5 h-2.5 rounded-full border transition-colors duration-fast ${
                   isPast && !isActive ? 'avatar-track__stamp' : ''
                 }`}
                 style={{
@@ -134,7 +134,7 @@ export default function LevelMap() {
                 }}
               />
 
-              <div className="absolute right-7 top-1/2 -translate-y-1/2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <div className="absolute right-7 top-1/2 -translate-y-1/2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-fast">
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--surface-1)] border border-[var(--glass-border)] whitespace-nowrap">
                   <span className="font-mono text-[9px] tracking-widest" style={{ color: isPast ? 'var(--accent-reward)' : 'var(--accent-bright)' }}>
                     {level.num}

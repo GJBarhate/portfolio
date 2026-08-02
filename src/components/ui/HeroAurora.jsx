@@ -47,7 +47,7 @@ export default function HeroAurora() {
     }
     const stop = onFrame(tick)
 
-    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointermove', onMove, { passive: true })
     return () => {
       stop()
       window.removeEventListener('pointermove', onMove)

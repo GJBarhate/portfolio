@@ -34,35 +34,35 @@
 
 :root {
   --surface-0: oklch(13.5% 0.012 250);
-  --surface-1: oklch(17% 0.014 250);
-  --surface-2: oklch(21% 0.016 250);
+  --surface-1: oklch(17.5% 0.014 250);
+  --surface-2: oklch(22% 0.016 250);
   --surface-3: oklch(26% 0.018 250);
   --ink-hi: oklch(97% 0.004 250);
-  --ink: oklch(89% 0.008 250);
-  --ink-mid: oklch(73% 0.01 250);
-  --ink-low: oklch(60% 0.012 250);
+  --ink: oklch(93% 0.01 250);
+  --ink-mid: oklch(72% 0.015 250);
+  --ink-low: oklch(60% 0.015 250);
   --accent: oklch(72% 0.12 195);
-  --accent-bright: oklch(85% 0.1 195);
+  --accent-bright: oklch(82% 0.13 195);
   --accent-dim: oklch(54% 0.11 195);
   --violet: oklch(66% 0.15 302);
   --warm: oklch(80% 0.13 68);
-  --glass-border: oklch(100% 0 0 / 0.09);
+  --glass-border: color-mix(in oklch, var(--ink) 14%, transparent);
 }
 [data-theme='ember'] {
   --surface-0: oklch(12.5% 0.006 80);
-  --surface-1: oklch(16% 0.008 80);
-  --ink: oklch(89% 0.008 80);
+  --surface-1: oklch(16.5% 0.008 80);
+  --ink: oklch(92% 0.02 85);
   --accent: oklch(80% 0.105 85);
 }
 [data-theme='paper'] {
   --surface-0: oklch(97.5% 0.01 75);
-  --surface-1: oklch(94.5% 0.014 75);
-  --ink-hi: oklch(18% 0.014 75);
-  --ink: oklch(26% 0.016 75);
-  --ink-mid: oklch(42% 0.018 75);
-  --ink-low: oklch(52% 0.018 75);
+  --surface-1: oklch(94% 0.012 75);
+  --ink-hi: oklch(16% 0.02 250);
+  --ink: oklch(22% 0.02 250);
+  --ink-mid: oklch(40% 0.02 250);
+  --ink-low: oklch(52% 0.02 250);
   --accent: oklch(52% 0.115 205);
-  --accent-bright: oklch(42% 0.125 205);
+  --accent-bright: oklch(45% 0.13 205);
 }
 html[data-theme='paper'] { color-scheme: light; }
 
@@ -79,7 +79,16 @@ body {
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
-h1, h2, h3 { margin: 0; font-family: 'Clash Display', 'Space Grotesk', sans-serif; }
+/* Metric-matched fallback so the swap to Clash does not reflow headlines. */
+@font-face {
+  font-family: 'Clash Fallback';
+  src: local('Arial'), local('Helvetica Neue'), local('Liberation Sans');
+  size-adjust: 94%;
+  ascent-override: 96%;
+  descent-override: 24%;
+  line-gap-override: 0%;
+}
+h1, h2, h3 { margin: 0; font-family: 'Clash Display', 'Clash Fallback', 'Space Grotesk', sans-serif; }
 #root { min-height: 100vh; }
 
 /* Hero geometry — reserves the first viewport so nothing reflows. */

@@ -1,4 +1,5 @@
 import { WebGLRenderTarget, LinearFilter, RGBAFormat, FloatType } from 'three'
+import { getPalette } from './palette.js'
 
 export function checkWebGL() {
   try {
@@ -16,46 +17,22 @@ export function checkWebGL() {
   }
 }
 
-function cssColorToHex(raw) {
-  if (!raw) return raw
-  try {
-    const c = document.createElement('canvas')
-    c.width = 1; c.height = 1
-    const ctx = c.getContext('2d', { willReadFrequently: true })
-    ctx.fillStyle = raw
-    ctx.fillRect(0, 0, 1, 1)
-    const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data
-    return '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('')
-  } catch {
-    return raw
-  }
-}
-
 /**
  * Semantic theme colours for WebGL scenes, resolved to hex.
  *
- * Reads the semantic tokens first and falls back to the legacy colour-named
- * ones, so scenes keep working whichever palette layer is in play. `plasma`,
- * `cyan` and `ember` are kept as aliases because several scenes still name
- * their materials that way.
+ * Colour reading lives in `lib/palette.js` now (three-free, so 2-D canvases
+ * can share it, and it is what drives the §6.1 sweep repaint). This wrapper
+ * keeps the legacy aliases several scenes still name their materials by.
  */
 export function getThemeColors() {
-  const root = getComputedStyle(document.documentElement)
-  const read = (...names) => {
-    for (const n of names) {
-      const v = root.getPropertyValue(n).trim()
-      if (v) return cssColorToHex(v)
-    }
-    return null
-  }
-  const accent = read('--accent') || '#2fd4d4'
-  const violet = read('--violet') || '#8b5cf6'
-  const warm = read('--warm') || '#f5a524'
-  const surface = read('--surface-0') || '#0a0a0f'
+  const p = getPalette()
   return {
-    accent, violet, warm, surface,
+    accent: p.accent,
+    violet: p.violet,
+    warm: p.warm,
+    surface: p.surface,
     // legacy aliases
-    plasma: accent, cyan: violet, ember: warm, void: surface,
+    plasma: p.accent, cyan: p.violet, ember: p.warm, void: p.surface,
   }
 }
 

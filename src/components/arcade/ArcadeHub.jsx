@@ -20,8 +20,10 @@ const GAMES = [
   { id: 'snake',    label: 'SNAKE (CLASSIC)',  icon: '🐍', color: 'var(--warm)', lsKey: null, desc: 'Konami code classic' },
 ]
 
-export default function ArcadeHub({ open, onClose }) {
-  const [activeGame, setActiveGame] = useState(null)
+export default function ArcadeHub({ open, onClose, initialGame = null }) {
+  // The Konami code used to summon a second, near-identical Snake in its own
+  // chunk (`MiniGame.jsx`). It now lands straight on this cabinet's classic.
+  const [activeGame, setActiveGame] = useState(initialGame)
   const [best, setBest] = useState(() => Object.fromEntries(GAMES.filter(g => g.lsKey).map(g => [g.id, getBest(g.lsKey)])))
   const { xp, percent } = useGame()
 

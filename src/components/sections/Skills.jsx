@@ -4,6 +4,7 @@ import Reveal from '../ui/Reveal.jsx'
 import { SKILLS } from '../../lib/content.js'
 import { useSpotlight } from '../../hooks/useSpotlight.js'
 import { Spark } from '../ui/SparkHunt.jsx'
+import SplitText from '../ui/SplitText.jsx'
 
 const ISO_OFFSETS = [
   { tx: -8, ty: -4, rz: -2 }, { tx: 0, ty: -6, rz: 0 }, { tx: 8, ty: -4, rz: 2 },
@@ -21,8 +22,9 @@ export default function Skills() {
           <span className="level-badge mb-4">03 — SKILLS</span>
         </Reveal>
         <Reveal delay={0.1}>
-          <h2 className="font-display text-[clamp(2rem,5vw,3.5rem)] leading-tight mb-12 max-w-3xl">
-            Technologies I use <span className="text-gradient">across the stack.</span>
+          <h2 className="section-h2 font-display mb-12 max-w-3xl">
+            <SplitText>Technologies I use </SplitText>
+            <SplitText className="text-gradient" delay={0.14}>across the stack.</SplitText>
           </h2>
         </Reveal>
 
@@ -36,7 +38,7 @@ export default function Skills() {
                   return (
                     <motion.div
                       key={group.category}
-                      className="absolute inset-0 rounded-2xl glass flex items-center justify-center transition-all duration-500"
+                      className="absolute inset-0 rounded-2xl glass flex items-center justify-center transition-all duration-base"
                       style={{
                         transform: `translate3d(${o.tx * 8}px, ${o.ty * 8}px, ${i * -20}px) rotateZ(${o.rz}deg)`,
                         background: group.color === 'plasma'
@@ -97,7 +99,7 @@ function SkillCard({ group, index }) {
       onMouseLeave={() => setTilt({ x: 0, y: 0 })}
     >
       <div
-        className="absolute -inset-1 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-2xl"
+        className="absolute -inset-1 opacity-0 group-hover:opacity-100 transition-opacity duration-base blur-2xl"
         style={{ background: group.color === 'plasma' ? 'var(--accent-dim)' : 'var(--violet-dim)' }}
       />
       <div className="relative z-10">
@@ -119,7 +121,7 @@ function SkillCard({ group, index }) {
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ delay: ii * 0.04, duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-              className="text-[10px] font-mono px-2.5 py-1 rounded-full border border-[var(--glass-border)] text-[var(--ink-mid)] hover:text-[var(--ink)] hover:border-[var(--accent-dim)] transition-all duration-300 cursor-default"
+              className="text-[10px] font-mono px-2.5 py-1 rounded-full border border-[var(--glass-border)] text-[var(--ink-mid)] hover:text-[var(--ink)] hover:border-[var(--accent-dim)] transition-all duration-fast cursor-default"
             >
               {item}
             </motion.span>

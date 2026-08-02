@@ -7,6 +7,7 @@ import ContributionHeatmap from '../ui/ContributionHeatmap.jsx'
 import { STATS, SOCIALS } from '../../lib/content.js'
 import { useSpotlight } from '../../hooks/useSpotlight.js'
 import { Spark } from '../ui/SparkHunt.jsx'
+import SplitText from '../ui/SplitText.jsx'
 
 export default function PlayerStats() {
   const achievementRef = useRef(null)
@@ -23,8 +24,9 @@ export default function PlayerStats() {
           <span className="level-badge mb-4">02 — TRACK RECORD</span>
         </Reveal>
         <Reveal delay={0.1}>
-          <h2 className="font-display text-[clamp(2rem,5vw,3.5rem)] leading-tight mb-16 max-w-3xl">
-            My coding activity, <span className="text-gradient">summarized.</span>
+          <h2 className="section-h2 font-display mb-16 max-w-3xl">
+            <SplitText>My coding activity, </SplitText>
+            <SplitText className="text-gradient" delay={0.12}>summarized.</SplitText>
           </h2>
         </Reveal>
 
@@ -110,11 +112,11 @@ function StatCard({ stat }) {
   const spotlight = useSpotlight()
   return (
     <div
-      className="relative group h-full p-6 rounded-2xl glass glass-glow spotlight sheen sheen--auto overflow-hidden transition-transform duration-400 [transition-timing-function:var(--ease-forge)] hover:-translate-y-1.5"
+      className="relative group h-full p-6 rounded-2xl glass glass-glow spotlight sheen sheen--auto overflow-hidden transition-transform duration-base [transition-timing-function:var(--ease-forge)] hover:-translate-y-1.5"
       {...spotlight}
     >
       <div
-        className="absolute -inset-1 opacity-0 group-hover:opacity-[0.06] transition-opacity duration-500 blur-xl"
+        className="absolute -inset-1 opacity-0 group-hover:opacity-[0.06] transition-opacity duration-base blur-xl"
         style={{ background: stat.accent === 'plasma' ? 'var(--accent)' : 'var(--violet)' }}
       />
       <p className="relative z-10 font-mono text-[10px] tracking-widest text-[var(--ink-low)] mb-3">{stat.tag}</p>

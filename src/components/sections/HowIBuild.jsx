@@ -1,4 +1,5 @@
 import Reveal from '../ui/Reveal.jsx'
+import SplitText from '../ui/SplitText.jsx'
 
 const CHAPTERS = [
   {
@@ -40,8 +41,9 @@ export default function HowIBuild() {
           <span className="level-badge mb-4">06 — HOW I BUILD</span>
         </Reveal>
         <Reveal delay={0.1}>
-          <h2 className="font-display text-[clamp(2rem,5vw,3.5rem)] leading-tight mb-12 max-w-3xl">
-            Three beats that define <span className="text-gradient">my build process.</span>
+          <h2 className="section-h2 font-display mb-12 max-w-3xl">
+            <SplitText>Three beats that define </SplitText>
+            <SplitText className="text-gradient" delay={0.16}>my build process.</SplitText>
           </h2>
         </Reveal>
 
@@ -49,7 +51,7 @@ export default function HowIBuild() {
           {CHAPTERS.map((ch, i) => (
             <Reveal key={ch.num} delay={i * 0.1}>
               <div
-                className="group relative rounded-2xl glass spotlight sheen sheen--auto overflow-hidden p-6 h-full flex flex-col transition-transform duration-500 [transition-timing-function:var(--ease-forge)] hover:-translate-y-1.5"
+                className="group relative rounded-2xl glass spotlight sheen sheen--auto overflow-hidden p-6 h-full flex flex-col transition-transform duration-base [transition-timing-function:var(--ease-forge)] hover:-translate-y-1.5"
               >
                 <div
                   className="absolute top-0 left-0 right-0 h-[2px]"
