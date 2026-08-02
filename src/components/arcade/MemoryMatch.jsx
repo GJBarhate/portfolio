@@ -66,12 +66,12 @@ export default function MemoryMatch() {
 
   return (
     <div className="flex flex-col items-center gap-4">
-      <div className="flex items-center gap-4 font-mono text-[10px] tracking-wider text-[var(--ink-faint)]">
+      <div className="flex items-center gap-4 font-mono text-[10px] tracking-wider text-[var(--ink-low)]">
         <span>MOVES: <span className="text-[var(--ink)]">{moves}</span></span>
-        <span>PAIRS: <span className="text-[var(--plasma-bright)]">{matched.length}/{TECH.length}</span></span>
+        <span>PAIRS: <span className="text-[var(--accent-bright)]">{matched.length}/{TECH.length}</span></span>
         <button
           onClick={() => { setFlipped([]); setMatched([]); setMoves(0); setShowHint(null) }}
-          className="px-3 py-1 rounded-full border border-[var(--glass-border)] text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors"
+          className="px-3 py-1 rounded-full border border-[var(--glass-border)] text-[var(--ink-low)] hover:text-[var(--ink)] transition-colors"
         >
           RESET
         </button>
@@ -86,9 +86,9 @@ export default function MemoryMatch() {
               onClick={() => onFlip(card.id)}
               className="w-16 h-16 rounded-xl transition-all duration-300"
               style={{
-                background: isFlipped ? 'var(--void-2)' : 'var(--void-1)',
-                border: `1px solid ${isFlipped ? 'var(--plasma-dim)' : 'var(--glass-border)'}`,
-                boxShadow: isFlipped ? '0 0 12px color-mix(in oklch, var(--plasma) 20%, transparent)' : 'none',
+                background: isFlipped ? 'var(--surface-2)' : 'var(--surface-1)',
+                border: `1px solid ${isFlipped ? 'var(--accent-dim)' : 'var(--glass-border)'}`,
+                boxShadow: isFlipped ? '0 0 12px color-mix(in oklch, var(--accent) 20%, transparent)' : 'none',
                 transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
                 backfaceVisibility: 'hidden',
               }}
@@ -96,7 +96,7 @@ export default function MemoryMatch() {
               <span
                 className="font-mono text-xs font-bold block"
                 style={{
-                  color: isFlipped ? 'var(--plasma-bright)' : 'transparent',
+                  color: isFlipped ? 'var(--accent-bright)' : 'transparent',
                   opacity: isFlipped ? 1 : 0,
                   transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
                 }}
@@ -115,10 +115,10 @@ export default function MemoryMatch() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="p-3 rounded-xl bg-[var(--void-2)] border border-[var(--plasma-dim)] text-center max-w-xs"
+            className="p-3 rounded-xl bg-[var(--surface-2)] border border-[var(--accent-dim)] text-center max-w-xs"
           >
-            <p className="font-mono text-xs text-[var(--plasma-bright)] mb-1">{showHint.name}</p>
-            <p className="text-[11px] text-[var(--ink-dim)]">{showHint.hint}</p>
+            <p className="font-mono text-xs text-[var(--accent-bright)] mb-1">{showHint.name}</p>
+            <p className="text-[11px] text-[var(--ink-mid)]">{showHint.hint}</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -127,7 +127,7 @@ export default function MemoryMatch() {
         <motion.p
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
-          className="font-display text-lg text-[var(--plasma-bright)]"
+          className="font-display text-lg text-[var(--accent-bright)]"
         >
           All matched! You unlocked the tech constellation.
         </motion.p>

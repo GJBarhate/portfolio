@@ -211,7 +211,7 @@ export default function SnakeClassic() {
           </div>
         )}
       </div>
-      <div className="flex flex-wrap justify-center gap-3 font-mono text-[9px] tracking-wider text-[var(--ink-faint)]">
+      <div className="flex flex-wrap justify-center gap-3 font-mono text-[9px] tracking-wider text-[var(--ink-low)]">
         <span className="hidden sm:inline">WASD / ARROWS MOVE</span>
         <span className="sm:hidden">SWIPE TO MOVE</span>
         <span>EAT 🟠 GROW</span>

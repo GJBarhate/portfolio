@@ -61,7 +61,7 @@ export default function Navbar() {
 
   return (
     <header
-      className="fixed top-0 left-0 right-0 container-px py-4 flex items-center justify-between progressive-blur bg-[color-mix(in_oklch,var(--void-0)_70%,transparent)] border-b border-[var(--glass-border)]"
+      className="fixed top-0 left-0 right-0 container-px py-4 flex items-center justify-between progressive-blur bg-[color-mix(in_oklch,var(--surface-0)_70%,transparent)] border-b border-[var(--glass-border)]"
       style={{ zIndex: 'var(--z-nav)' }}
     >
       <a href="#hero" data-cursor="view" className="font-display text-sm tracking-wide text-[var(--ink)]">
@@ -76,10 +76,10 @@ export default function Navbar() {
             onClick={() => goTo(l.id)}
             onMouseEnter={() => sound?.play('hover')}
             className={`uppercase ${
-              active === l.id ? 'text-[var(--plasma-bright)]' : ''
+              active === l.id ? 'text-[var(--accent-bright)]' : ''
             }`}
           >
-            <MorphLink className={active === l.id ? 'text-[var(--plasma-bright)]' : ''}>
+            <MorphLink className={active === l.id ? 'text-[var(--accent-bright)]' : ''}>
               {l.label}
             </MorphLink>
           </button>
@@ -97,8 +97,8 @@ export default function Navbar() {
             </span>
           </button>
           <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 pointer-events-none">
-            <div className="bg-[var(--void-1)] border border-[var(--plasma-dim)] rounded-xl p-3 shadow-2xl min-w-[180px]">
-              <p className="font-mono text-[8px] tracking-[0.25em] text-[var(--plasma-bright)] mb-2 text-center">5 GAMES</p>
+            <div className="bg-[var(--surface-1)] border border-[var(--accent-dim)] rounded-xl p-3 shadow-2xl min-w-[180px]">
+              <p className="font-mono text-[8px] tracking-[0.25em] text-[var(--accent-bright)] mb-2 text-center">5 GAMES</p>
               <div className="space-y-1">
                 {[
                   { icon: '🏃', label: 'Forge Runner' },
@@ -107,9 +107,9 @@ export default function Navbar() {
                   { icon: '🧠', label: 'Memory Match' },
                   { icon: '🐍', label: 'Snake Classic' },
                 ].map((g) => (
-                  <div key={g.label} className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-[var(--void-2)] transition-colors">
+                  <div key={g.label} className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-[var(--surface-2)] transition-colors">
                     <span className="text-[11px]">{g.icon}</span>
-                    <span className="font-mono text-[9px] text-[var(--ink-dim)]">{g.label}</span>
+                    <span className="font-mono text-[9px] text-[var(--ink-mid)]">{g.label}</span>
                   </div>
                 ))}
               </div>
@@ -126,19 +126,19 @@ export default function Navbar() {
           onClick={toggleMute}
           data-cursor="view"
           aria-label={sound?.muted ? 'Unmute sound' : 'Mute sound'}
-          className="w-8 h-8 rounded-full border border-[var(--glass-border)] bg-[var(--void-2)] flex items-center justify-center hover:border-[var(--plasma-dim)] transition-colors duration-300 font-mono text-[9px] text-[var(--ink-dim)]"
+          className="w-8 h-8 rounded-full border border-[var(--glass-border)] bg-[var(--surface-2)] flex items-center justify-center hover:border-[var(--accent-dim)] transition-colors duration-300 font-mono text-[9px] text-[var(--ink-mid)]"
         >
           {sound?.muted ? 'OFF' : 'ON'}
         </button>
 
         <svg width="40" height="40" className="hidden md:block">
-          <circle cx="20" cy="20" r={RING_R} fill="none" stroke="var(--void-3)" strokeWidth="2" />
+          <circle cx="20" cy="20" r={RING_R} fill="none" stroke="var(--surface-3)" strokeWidth="2" />
           <motion.circle
             cx="20"
             cy="20"
             r={RING_R}
             fill="none"
-            stroke="var(--plasma)"
+            stroke="var(--accent)"
             strokeWidth="2"
             strokeDasharray={RING_C}
             strokeLinecap="round"
@@ -164,7 +164,7 @@ export default function Navbar() {
           target="_blank"
           rel="noopener noreferrer"
           data-cursor="view"
-          className="hidden sm:inline-flex items-center px-5 py-2 rounded-full border border-[var(--plasma-dim)] text-xs font-mono tracking-wider hover:border-[var(--plasma)] hover:shadow-[0_0_24px_var(--plasma-dim)]"
+          className="hidden sm:inline-flex items-center px-5 py-2 rounded-full border border-[var(--accent-dim)] text-xs font-mono tracking-wider hover:border-[var(--accent)] hover:shadow-[0_0_24px_var(--accent-dim)]"
         >
           RESUME
         </MagneticButton>
@@ -174,7 +174,7 @@ export default function Navbar() {
         initial={false}
         animate={{ height: open ? 'auto' : 0, opacity: open ? 1 : 0 }}
         transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-        className="md:hidden absolute top-full left-0 right-0 overflow-hidden bg-[var(--void-0)] border-b border-[var(--glass-border)]"
+        className="md:hidden absolute top-full left-0 right-0 overflow-hidden bg-[var(--surface-0)] border-b border-[var(--glass-border)]"
       >
         <div className="flex flex-col p-6 gap-4">
           {LINKS.map((l, i) => (
@@ -184,7 +184,7 @@ export default function Navbar() {
               initial={false}
               animate={{ x: open ? 0 : -20 }}
               transition={{ delay: i * 0.04 }}
-              className="text-left font-display text-2xl text-[var(--ink-dim)] hover:text-[var(--plasma-bright)]"
+              className="text-left font-display text-2xl text-[var(--ink-mid)] hover:text-[var(--accent-bright)]"
             >
               {l.label}
             </motion.button>

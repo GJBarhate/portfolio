@@ -35,7 +35,7 @@ export default function ArcadeFAB() {
           onClick={open}
           data-cursor="view"
           className="fixed bottom-8 right-8 z-40 w-14 h-14 rounded-full flex items-center justify-center text-lg clay-btn insert-coin"
-          style={{ background: 'linear-gradient(145deg, var(--void-2), var(--void-1))', border: '1px solid var(--plasma-dim)' }}
+          style={{ background: 'linear-gradient(145deg, var(--surface-2), var(--surface-1))', border: '1px solid var(--accent-dim)' }}
           aria-label="Open arcade"
           title="PRESS START — play games"
         >

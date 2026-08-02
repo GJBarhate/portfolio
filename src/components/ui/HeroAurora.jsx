@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useReducedMotion } from '../../lib/useReducedMotion.js'
+import { onFrame } from '../../lib/raf.js'
 
 // Cursor-tracked aurora — three large drifting blobs of theme color follow the
 // mouse with momentum, layered over a subtle animated grid. All GPU-composited
@@ -28,9 +29,7 @@ export default function HeroAurora() {
       idle = 0
     }
 
-    let raf
     const tick = () => {
-      raf = requestAnimationFrame(tick)
       // Stop updating once everything has settled — zero idle cost
       if (Math.abs(mx - cx) < 0.0005 && Math.abs(my - cy) < 0.0005 && ++idle > 30) return
       cx += (mx - cx) * 0.06
@@ -46,11 +45,11 @@ export default function HeroAurora() {
       wrap.style.setProperty('--mxp2', `${(cx2 * rect.width).toFixed(1)}px`)
       wrap.style.setProperty('--myp2', `${(cy2 * rect.height).toFixed(1)}px`)
     }
-    raf = requestAnimationFrame(tick)
+    const stop = onFrame(tick)
 
     window.addEventListener('pointermove', onMove)
     return () => {
-      cancelAnimationFrame(raf)
+      stop()
       window.removeEventListener('pointermove', onMove)
     }
   }, [reduced])
@@ -68,8 +67,8 @@ export default function HeroAurora() {
         className="absolute inset-0 opacity-20"
         style={{
           background: `
-            radial-gradient(ellipse 120% 80% at 20% 30%, color-mix(in oklch, var(--plasma) 25%, transparent), transparent 60%),
-            radial-gradient(ellipse 100% 70% at 80% 70%, color-mix(in oklch, var(--cyan) 20%, transparent), transparent 55%)
+            radial-gradient(ellipse 120% 80% at 20% 30%, color-mix(in oklch, var(--accent) 25%, transparent), transparent 60%),
+            radial-gradient(ellipse 100% 70% at 80% 70%, color-mix(in oklch, var(--violet) 20%, transparent), transparent 55%)
           `,
           animation: reduced ? 'none' : 'meshDrift 14s ease-in-out infinite alternate',
         }}

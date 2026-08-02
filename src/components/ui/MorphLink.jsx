@@ -36,7 +36,7 @@ export default function MorphLink({ children, className = '', ...props }) {
               fontWeight: hovered ? 700 : 400,
               fontStretch: hovered ? '120%' : '100%',
               letterSpacing: hovered && ch !== ' ' ? '-0.02em' : '0em',
-              color: hovered ? 'var(--plasma-bright)' : undefined,
+              color: hovered ? 'var(--accent-bright)' : undefined,
               transitionDelay: hovered ? `${delay}s` : `${(chars.length - 1 - i) * 0.025}s`,
             }}
           >

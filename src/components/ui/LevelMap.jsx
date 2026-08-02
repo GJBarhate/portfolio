@@ -16,12 +16,12 @@ function PixelAvatar({ className = '' }) {
   return (
     <svg width="20" height="20" viewBox="0 0 16 16" className={className} aria-hidden="true">
       <rect x="5" y="0" width="6" height="3" fill="var(--accent-reward)" />
-      <rect x="4" y="3" width="8" height="4" fill="var(--plasma-bright)" />
-      <rect x="3" y="7" width="10" height="3" fill="var(--plasma)" />
-      <rect x="5" y="10" width="2" height="3" fill="var(--ink-dim)" />
-      <rect x="9" y="10" width="2" height="3" fill="var(--ink-dim)" />
-      <rect x="4" y="5" width="2" height="2" fill="var(--void-0)" />
-      <rect x="10" y="5" width="2" height="2" fill="var(--void-0)" />
+      <rect x="4" y="3" width="8" height="4" fill="var(--accent-bright)" />
+      <rect x="3" y="7" width="10" height="3" fill="var(--accent)" />
+      <rect x="5" y="10" width="2" height="3" fill="var(--ink-mid)" />
+      <rect x="9" y="10" width="2" height="3" fill="var(--ink-mid)" />
+      <rect x="4" y="5" width="2" height="2" fill="var(--surface-0)" />
+      <rect x="10" y="5" width="2" height="2" fill="var(--surface-0)" />
     </svg>
   )
 }
@@ -74,15 +74,15 @@ export default function LevelMap() {
     >
       <div className="relative flex flex-col items-center">
         <div
-          className="absolute top-2 bottom-2 w-px bg-[var(--void-3)]"
+          className="absolute top-2 bottom-2 w-px bg-[var(--surface-3)]"
           style={{ left: '50%', transform: 'translateX(-50%)' }}
         />
         <motion.div
-          className="absolute top-2 w-px bg-gradient-to-b from-[var(--plasma)] to-[var(--accent-reward)]"
+          className="absolute top-2 w-px bg-gradient-to-b from-[var(--accent)] to-[var(--accent-reward)]"
           style={{
             left: '50%',
             translateX: '-50%',
-            boxShadow: '0 0 8px var(--plasma)',
+            boxShadow: '0 0 8px var(--accent)',
             height: fillHeight,
           }}
         />
@@ -111,7 +111,7 @@ export default function LevelMap() {
                 animate={{
                   scale: isActive ? 1.4 : 1,
                   boxShadow: isActive
-                    ? '0 0 14px var(--plasma), 0 0 4px var(--plasma)'
+                    ? '0 0 14px var(--accent), 0 0 4px var(--accent)'
                     : isPast
                     ? '0 0 8px var(--accent-reward)'
                     : '0 0 0px transparent',
@@ -123,23 +123,23 @@ export default function LevelMap() {
                 style={{
                   background: isPast
                     ? isActive
-                      ? 'var(--plasma)'
+                      ? 'var(--accent)'
                       : 'var(--accent-reward)'
-                    : 'var(--void-2)',
+                    : 'var(--surface-2)',
                   borderColor: isPast
                     ? isActive
-                      ? 'var(--plasma)'
+                      ? 'var(--accent)'
                       : 'var(--accent-reward)'
-                    : 'var(--void-3)',
+                    : 'var(--surface-3)',
                 }}
               />
 
               <div className="absolute right-7 top-1/2 -translate-y-1/2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--void-1)] border border-[var(--glass-border)] whitespace-nowrap">
-                  <span className="font-mono text-[9px] tracking-widest" style={{ color: isPast ? 'var(--accent-reward)' : 'var(--plasma-bright)' }}>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--surface-1)] border border-[var(--glass-border)] whitespace-nowrap">
+                  <span className="font-mono text-[9px] tracking-widest" style={{ color: isPast ? 'var(--accent-reward)' : 'var(--accent-bright)' }}>
                     {level.num}
                   </span>
-                  <span className="font-mono text-[10px] tracking-wider text-[var(--ink-dim)]">
+                  <span className="font-mono text-[10px] tracking-wider text-[var(--ink-mid)]">
                     {level.label}
                   </span>
                   {isPast && !isActive && (

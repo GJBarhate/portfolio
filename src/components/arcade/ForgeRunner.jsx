@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useGame } from '../../contexts/GameContext.jsx'
+import { onFrame } from '../../lib/raf.js'
 
 const LANES = [0, 1, 2]
 const LANE_WIDTH = 70
@@ -52,7 +53,6 @@ export default function ForgeRunner() {
 
   useEffect(() => {
     if (!playing || gameOver) return
-    let raf
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
 
@@ -226,10 +226,11 @@ export default function ForgeRunner() {
       ctx.fillText(`SPD ${s.speed.toFixed(1)}`, 8, 28)
       ctx.fillText(`HI ${Math.max(s.score, getHighScore())}`, CANVAS_W - 48, 16)
 
-      raf = requestAnimationFrame(tick)
     }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
+    // Game loops ride the shared scheduler like everything else, so a
+    // hidden tab pauses them for free.
+    const stop = onFrame(tick)
+    return stop
   }, [playing, gameOver, unlock])
 
   const applyAction = useCallback((action) => {
@@ -328,7 +329,7 @@ export default function ForgeRunner() {
           </div>
         )}
       </div>
-      <div className="flex flex-wrap justify-center gap-3 font-mono text-[9px] tracking-wider text-[var(--ink-faint)]">
+      <div className="flex flex-wrap justify-center gap-3 font-mono text-[9px] tracking-wider text-[var(--ink-low)]">
         <span className="hidden sm:inline">← → LANE</span>
         <span className="hidden sm:inline">↑ / SPACE JUMP</span>
         <span className="hidden sm:inline">↓ SLIDE</span>

@@ -49,26 +49,26 @@ export default function IdleEasterEgg() {
           aria-hidden="true"
         >
           <div className="idle-bot__body flex flex-col items-center">
-            <svg width="24" height="28" viewBox="0 0 24 28" fill="none" className="drop-shadow-[0_0_6px_var(--plasma)]">
+            <svg width="24" height="28" viewBox="0 0 24 28" fill="none" className="drop-shadow-[0_0_6px_var(--accent)]">
               {/* head */}
-              <rect x="8" y="0" width="8" height="8" rx="1" fill="var(--plasma-bright)" />
+              <rect x="8" y="0" width="8" height="8" rx="1" fill="var(--accent-bright)" />
               {/* eyes */}
-              <rect x="10" y="3" width="2" height="2" fill="var(--void-0)" />
-              <rect x="14" y="3" width="2" height="2" fill="var(--void-0)" />
+              <rect x="10" y="3" width="2" height="2" fill="var(--surface-0)" />
+              <rect x="14" y="3" width="2" height="2" fill="var(--surface-0)" />
               {/* body */}
-              <rect x="6" y="9" width="12" height="10" rx="1" fill="var(--plasma)" />
+              <rect x="6" y="9" width="12" height="10" rx="1" fill="var(--accent)" />
               {/* arms */}
-              <rect x="2" y="10" width="4" height="3" rx="1" fill="var(--plasma-dim)" />
-              <rect x="18" y="10" width="4" height="3" rx="1" fill="var(--plasma-dim)" />
+              <rect x="2" y="10" width="4" height="3" rx="1" fill="var(--accent-dim)" />
+              <rect x="18" y="10" width="4" height="3" rx="1" fill="var(--accent-dim)" />
               {/* legs */}
-              <rect x="7" y="20" width="4" height="6" rx="1" fill="var(--plasma-dim)" />
-              <rect x="13" y="20" width="4" height="6" rx="1" fill="var(--plasma-dim)" />
+              <rect x="7" y="20" width="4" height="6" rx="1" fill="var(--accent-dim)" />
+              <rect x="13" y="20" width="4" height="6" rx="1" fill="var(--accent-dim)" />
               {/* hammer */}
-              <rect x="19" y="6" width="3" height="8" rx="1" fill="var(--ember)" />
-              <rect x="18" y="5" width="5" height="3" rx="1" fill="var(--ember-dim)" />
+              <rect x="19" y="6" width="3" height="8" rx="1" fill="var(--warm)" />
+              <rect x="18" y="5" width="5" height="3" rx="1" fill="var(--warm-dim)" />
             </svg>
             <motion.span
-              className="font-mono text-[8px] text-[var(--ink-faint)] mt-1 whitespace-nowrap"
+              className="font-mono text-[8px] text-[var(--ink-low)] mt-1 whitespace-nowrap"
               initial={{ opacity: 0 }}
               animate={{ opacity: [0, 1, 1, 0] }}
               transition={{ duration: 4, delay: 3, times: [0, 0.1, 0.8, 1] }}

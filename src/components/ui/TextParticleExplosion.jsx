@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useReducedMotion } from '../../lib/useReducedMotion.js'
+import { onFrame } from '../../lib/raf.js'
 
 const PARTICLE_DENSITY = 2
 
@@ -15,7 +16,6 @@ export default function TextParticleExplosion({ scrollProgress, className = '' }
     if (!ctx) return
 
     let particles = []
-    let raf
     let initX, initY
 
     const sampleText = () => {
@@ -25,6 +25,12 @@ export default function TextParticleExplosion({ scrollProgress, className = '' }
       const scale = window.devicePixelRatio || 1
       const w = Math.round(rect.width)
       const h = Math.round(rect.height)
+      // On first mount the heading can still be zero-sized (web font not yet
+      // swapped in, or the element not laid out). getImageData throws an
+      // IndexSizeError on a zero-width source, which took the whole hero
+      // subtree down. The ResizeObserver below re-runs this the moment the
+      // heading gains a size.
+      if (w < 1 || h < 1) return false
       canvas.width = w * scale
       canvas.height = h * scale
       canvas.style.width = w + 'px'
@@ -63,19 +69,32 @@ export default function TextParticleExplosion({ scrollProgress, className = '' }
       return true
     }
 
-    const sampled = sampleText()
-    if (!sampled) return
+    // Sampling may legitimately fail on the first pass (see the size guard
+    // above), so the observer is installed unconditionally and the first
+    // successful sample can happen later. Bailing out here meant a
+    // zero-width first measurement disabled the effect for the whole session.
+    let sampled = sampleText()
 
-    const ro = new ResizeObserver(() => sampleText())
+    const ro = new ResizeObserver(() => { sampled = sampleText() || sampled })
     ro.observe(document.querySelector('.hero-name-iridescent') || canvas)
-    const mutationObs = new MutationObserver(() => sampleText())
+
+    // The accent colour is read on theme change only. Reading it inside the
+    // draw loop forced a style recalculation on every single frame.
+    let color = '#2fd4d4'
+    const readColor = () => {
+      color = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || color
+    }
+    readColor()
+    const mutationObs = new MutationObserver(() => { sampleText(); readColor() })
     mutationObs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
 
-    let prevProgress = scrollProgress
+    let settledFrames = 0
 
     const tick = () => {
-      raf = requestAnimationFrame(tick)
+      if (!sampled || !particles.length) return
       const pct = Math.min(1, Math.max(0, scrollProgress))
+      // Fully reassembled and off-scroll: nothing left to draw.
+      if (pct <= 0 && settledFrames > 45) return
       const w = canvas.width / (window.devicePixelRatio || 1)
       const h = canvas.height / (window.devicePixelRatio || 1)
       ctx.clearRect(0, 0, w, h)
@@ -84,10 +103,7 @@ export default function TextParticleExplosion({ scrollProgress, className = '' }
       const spread = pct * 80
       const alpha = Math.min(1, pct * 3)
       const reassemble = pct < 0.01
-
-      // Get the current theme color
-      const root = getComputedStyle(document.documentElement)
-      const color = root.getPropertyValue('--plasma').trim() || '#d946ef'
+      settledFrames = reassemble ? settledFrames + 1 : 0
 
       for (const p of particles) {
         if (reassemble) {
@@ -112,12 +128,11 @@ export default function TextParticleExplosion({ scrollProgress, className = '' }
         ctx.fill()
       }
 
-      prevProgress = scrollProgress
     }
-    raf = requestAnimationFrame(tick)
+    const stop = onFrame(tick)
 
     return () => {
-      cancelAnimationFrame(raf)
+      stop()
       ro.disconnect()
       mutationObs.disconnect()
     }

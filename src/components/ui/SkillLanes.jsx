@@ -4,8 +4,8 @@ import { SKILLS } from '../../lib/content.js'
 import { useIsMobile } from '../../lib/useIsMobile.js'
 
 const LANE_CONFIG = [
-  { label: 'FRONTEND', categories: ['Frontend', 'Realtime'], color: 'var(--plasma)' },
-  { label: 'BACKEND', categories: ['Backend', 'Data'], color: 'var(--cyan)' },
+  { label: 'FRONTEND', categories: ['Frontend', 'Realtime'], color: 'var(--accent)' },
+  { label: 'BACKEND', categories: ['Backend', 'Data'], color: 'var(--violet)' },
   { label: 'TOOLS', categories: ['AI', 'Competitive Programming'], color: 'var(--accent-reward)' },
 ]
 
@@ -57,7 +57,7 @@ function Lane({ config, index }) {
         >
           {config.label}
         </span>
-        <span className="font-mono text-[9px] text-[var(--ink-faint)] ml-2">
+        <span className="font-mono text-[9px] text-[var(--ink-low)] ml-2">
           {skills.length} skills
         </span>
       </div>
@@ -93,7 +93,7 @@ function MobileLanes() {
             className="flex-1 py-2 rounded-full font-mono text-[10px] tracking-[0.2em] transition-all duration-300"
             style={{
               border: `1px solid ${i === activeLane ? lane.color : 'var(--glass-border)'}`,
-              color: i === activeLane ? lane.color : 'var(--ink-faint)',
+              color: i === activeLane ? lane.color : 'var(--ink-low)',
               background: i === activeLane ? `color-mix(in oklch, ${lane.color} 10%, transparent)` : 'transparent',
             }}
           >

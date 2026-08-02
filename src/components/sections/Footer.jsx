@@ -18,7 +18,7 @@ function Signature() {
       <path
         d="M10 45 C15 10, 30 8, 28 30 C26 45, 15 50, 20 35 M30 25 C35 15, 50 15, 45 30 C42 40, 35 42, 38 30 M50 22 C55 18, 60 20, 55 30 C52 38, 48 40, 50 22 M60 25 C65 15, 75 15, 72 28 C70 35, 62 38, 65 25 L75 25 M80 22 C85 12, 95 15, 90 28 C87 38, 78 40, 82 25 M95 22 C100 15, 110 15, 108 28 C105 40, 95 45, 100 30"
         fill="none"
-        stroke="var(--plasma)"
+        stroke="var(--accent)"
         strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -57,28 +57,28 @@ export default function Footer() {
       </div>
 
       <div className="overflow-hidden mb-10 marquee-mask">
-        <div className="flex whitespace-nowrap animate-[outroMarquee_20s_linear_infinite] gap-10 font-display text-3xl md:text-5xl text-[var(--ink-faint)]">
+        <div className="flex whitespace-nowrap animate-[outroMarquee_20s_linear_infinite] gap-10 font-display text-3xl md:text-5xl text-[var(--ink-low)]">
           {Array(6)
             .fill(null)
             .map((_, i) => (
-              <span key={i}>LET&apos;S WORK TOGETHER <span className="text-[var(--plasma)]">&#10038;</span></span>
+              <span key={i}>LET&apos;S WORK TOGETHER <span className="text-[var(--accent)]">&#10038;</span></span>
             ))}
         </div>
       </div>
 
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-        <p className="font-mono text-xs text-[var(--ink-faint)]">
+        <p className="font-mono text-xs text-[var(--ink-low)]">
           &copy; {new Date().getFullYear()} Gaurav Barhate. All rights reserved.
         </p>
         <div className="flex items-center gap-6">
-          <span className="font-mono text-[10px] text-[var(--ink-faint)]">
-            press <kbd className="px-1.5 py-0.5 rounded border border-[var(--glass-border)] text-[var(--ink-dim)]">&#8984;K</kbd> for commands
+          <span className="font-mono text-[10px] text-[var(--ink-low)]">
+            press <kbd className="px-1.5 py-0.5 rounded border border-[var(--glass-border)] text-[var(--ink-mid)]">&#8984;K</kbd> for commands
           </span>
           <motion.button
             onClick={scrollTop}
             data-cursor="view"
             whileHover={{ y: -3 }}
-            className="font-mono text-xs tracking-widest text-[var(--ink-dim)] hover:text-[var(--plasma-bright)] flex items-center gap-2 transition-colors duration-300"
+            className="font-mono text-xs tracking-widest text-[var(--ink-mid)] hover:text-[var(--accent-bright)] flex items-center gap-2 transition-colors duration-300"
           >
             BACK TO TOP &#8593;
           </motion.button>

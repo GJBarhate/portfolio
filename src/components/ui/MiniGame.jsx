@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSound } from '../../contexts/SoundContext.jsx'
+import { onFrame } from '../../lib/raf.js'
 
 const GRID = 18
 const CELL = 18
@@ -75,7 +76,6 @@ export default function MiniGame({ open, onClose, onHighScore }) {
 
   useEffect(() => {
     if (!open || gameOver) return
-    let raf
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
 
@@ -173,10 +173,11 @@ export default function MiniGame({ open, onClose, onHighScore }) {
       ctx.textAlign = 'left'
       ctx.fillText(`SCORE ${s.snake.length - 3}`, 6, 14)
 
-      raf = requestAnimationFrame(tick)
     }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
+    // Game loops ride the shared scheduler like everything else, so a
+    // hidden tab pauses them for free.
+    const stop = onFrame(tick)
+    return stop
   }, [open, gameOver, sound, onHighScore])
 
   return (
@@ -189,7 +190,7 @@ export default function MiniGame({ open, onClose, onHighScore }) {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          data-theme="obsidian"
+          data-theme="ember"
         >
           <motion.div
             onClick={(e) => e.stopPropagation()}
@@ -200,8 +201,8 @@ export default function MiniGame({ open, onClose, onHighScore }) {
             className="glass rounded-3xl p-6 flex flex-col items-center gap-4"
           >
             <div className="flex items-center justify-between w-full gap-6">
-              <p className="font-mono text-xs tracking-[0.25em] text-[var(--plasma-bright)]">SECRET: SNAKE · CV MODE</p>
-              <button onClick={onClose} className="text-[var(--ink-faint)] hover:text-[var(--ink)] font-mono text-xs flex-shrink-0">
+              <p className="font-mono text-xs tracking-[0.25em] text-[var(--accent-bright)]">SECRET: SNAKE · CV MODE</p>
+              <button onClick={onClose} className="text-[var(--ink-low)] hover:text-[var(--ink)] font-mono text-xs flex-shrink-0">
                 ESC &#10005;
               </button>
             </div>
@@ -221,7 +222,7 @@ export default function MiniGame({ open, onClose, onHighScore }) {
                 </div>
               )}
             </div>
-            <div className="flex items-center justify-between w-full font-mono text-xs text-[var(--ink-faint)]">
+            <div className="flex items-center justify-between w-full font-mono text-xs text-[var(--ink-low)]">
               <span>
                 SCORE: <span className="text-[var(--ink)]">{score}</span>
               </span>

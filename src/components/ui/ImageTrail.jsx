@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useIsMobile } from '../../lib/useIsMobile.js'
 import { useReducedMotion } from '../../lib/useReducedMotion.js'
+import { onFrame } from '../../lib/raf.js'
 
 const TRAIL_COUNT = 8
 const INTERVAL_MS = 60
@@ -125,12 +126,11 @@ export default function ImageTrail({ images = [], containerRef }) {
         ctx.restore()
       }
 
-      raf = requestAnimationFrame(tick)
     }
-    raf = requestAnimationFrame(tick)
+    const stop = onFrame(tick)
 
     return () => {
-      cancelAnimationFrame(raf)
+      stop()
       window.removeEventListener('resize', resize)
       container.removeEventListener('mousemove', onMove)
       container.removeEventListener('mouseenter', onEnter)

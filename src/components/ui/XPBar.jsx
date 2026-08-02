@@ -7,13 +7,13 @@ export default function XPBar() {
 
   return (
     <div
-      className="fixed top-[60px] left-0 right-0 h-[3px] bg-[var(--void-3)]/60"
+      className="fixed top-[60px] left-0 right-0 h-[3px] bg-[var(--surface-3)]/60"
       style={{ zIndex: 'var(--z-nav)' }}
       aria-hidden="true"
     >
       <motion.div
-        className="h-full bg-gradient-to-r from-[var(--plasma)] via-[var(--cyan)] to-[var(--plasma-bright)]"
-        style={{ boxShadow: '0 0 10px var(--plasma)' }}
+        className="h-full bg-gradient-to-r from-[var(--accent)] via-[var(--violet)] to-[var(--accent-bright)]"
+        style={{ boxShadow: '0 0 10px var(--accent)' }}
         initial={{ width: 0 }}
         animate={{ width: `${game.percent}%` }}
         transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}

@@ -74,9 +74,9 @@ export default function SnakeLaddersCV() {
 
   return (
     <div className="flex flex-col items-center gap-4">
-      <div className="flex items-center gap-4 font-mono text-[10px] tracking-wider text-[var(--ink-faint)]">
+      <div className="flex items-center gap-4 font-mono text-[10px] tracking-wider text-[var(--ink-low)]">
         <span>POSITION: <span className="text-[var(--ink)]">{position}</span> / 25</span>
-        <span>MOVES: <span className="text-[var(--plasma-bright)]">{moveCount}</span></span>
+        <span>MOVES: <span className="text-[var(--accent-bright)]">{moveCount}</span></span>
       </div>
 
       {/* Board */}
@@ -93,10 +93,10 @@ export default function SnakeLaddersCV() {
               key={cellNum}
               className="relative w-10 h-10 rounded-lg flex items-center justify-center text-[10px] font-mono transition-all duration-300"
               style={{
-                background: isCurrent ? 'var(--plasma)' : isSnake ? 'color-mix(in oklch, var(--ember) 20%, var(--void-2))' : isLadder ? 'color-mix(in oklch, var(--plasma) 20%, var(--void-2))' : 'var(--void-1)',
-                border: `1px solid ${isCurrent ? 'var(--plasma-bright)' : isSnake ? 'var(--ember-dim)' : isLadder ? 'var(--plasma-dim)' : 'var(--glass-border)'}`,
-                color: isCurrent ? 'var(--void-0)' : 'var(--ink-faint)',
-                boxShadow: isCurrent ? '0 0 12px var(--plasma)' : 'none',
+                background: isCurrent ? 'var(--accent)' : isSnake ? 'color-mix(in oklch, var(--warm) 20%, var(--surface-2))' : isLadder ? 'color-mix(in oklch, var(--accent) 20%, var(--surface-2))' : 'var(--surface-1)',
+                border: `1px solid ${isCurrent ? 'var(--accent-bright)' : isSnake ? 'var(--warm-dim)' : isLadder ? 'var(--accent-dim)' : 'var(--glass-border)'}`,
+                color: isCurrent ? 'var(--surface-0)' : 'var(--ink-low)',
+                boxShadow: isCurrent ? '0 0 12px var(--accent)' : 'none',
               }}
               title={tlEvent ? `${tlEvent.year}: ${tlEvent.title}` : ''}
             >
@@ -116,32 +116,32 @@ export default function SnakeLaddersCV() {
           onClick={roll}
           disabled={rolling || won}
           className="clay-btn px-5 py-2.5 rounded-full font-mono text-xs tracking-wider disabled:opacity-40"
-          style={{ color: 'var(--plasma-bright)' }}
+          style={{ color: 'var(--accent-bright)' }}
         >
           {won ? 'WON!' : rolling ? 'ROLLING...' : 'ROLL DICE'}
         </button>
-        <button onClick={reset} className="px-3 py-1.5 rounded-full border border-[var(--glass-border)] text-[10px] font-mono text-[var(--ink-faint)] hover:text-[var(--ink)]">
+        <button onClick={reset} className="px-3 py-1.5 rounded-full border border-[var(--glass-border)] text-[10px] font-mono text-[var(--ink-low)] hover:text-[var(--ink)]">
           RESET
         </button>
       </div>
 
       {/* Dice fact */}
       {dice && (
-        <p className="text-[11px] text-[var(--ink-dim)] text-center max-w-xs italic">
+        <p className="text-[11px] text-[var(--ink-mid)] text-center max-w-xs italic">
           &ldquo;{dice.fact}&rdquo;
         </p>
       )}
 
       {/* Career events on each cell */}
       <div className="w-full max-w-xs">
-        <p className="font-mono text-[9px] tracking-wider text-[var(--ink-faint)] mb-2">CAREER MILESTONES</p>
+        <p className="font-mono text-[9px] tracking-wider text-[var(--ink-low)] mb-2">CAREER MILESTONES</p>
         <div className="space-y-1">
           {history.slice(0, 5).map((h, i) => (
             <div key={i} className="flex items-start gap-2 text-[10px] font-mono">
-              <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[8px]" style={{ background: h.snake ? 'var(--ember-dim)' : h.ladder ? 'var(--plasma-dim)' : 'var(--void-3)' }}>
+              <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[8px]" style={{ background: h.snake ? 'var(--warm-dim)' : h.ladder ? 'var(--accent-dim)' : 'var(--surface-3)' }}>
                 {h.snake ? '🐍' : h.ladder ? '🪜' : h.val}
               </span>
-              <span className="text-[var(--ink-dim)]">{h.fact}</span>
+              <span className="text-[var(--ink-mid)]">{h.fact}</span>
             </div>
           ))}
         </div>

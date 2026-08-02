@@ -25,13 +25,13 @@ export default function RatingGraph() {
       <svg viewBox="0 0 600 220" className="w-full h-auto overflow-visible">
         <defs>
           <linearGradient id="ratingFill" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--plasma)" stopOpacity="0.35" />
-            <stop offset="100%" stopColor="var(--plasma)" stopOpacity="0" />
+            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.35" />
+            <stop offset="100%" stopColor="var(--accent)" stopOpacity="0" />
           </linearGradient>
         </defs>
 
         {[0, 1, 2, 3].map((i) => (
-          <line key={i} x1="0" x2="600" y1={i * 60} y2={i * 60} stroke="var(--void-3)" strokeWidth="1" />
+          <line key={i} x1="0" x2="600" y1={i * 60} y2={i * 60} stroke="var(--surface-3)" strokeWidth="1" />
         ))}
 
         <motion.path
@@ -45,10 +45,10 @@ export default function RatingGraph() {
         <motion.path
           d={path}
           fill="none"
-          stroke="var(--plasma-bright)"
+          stroke="var(--accent-bright)"
           strokeWidth="2.5"
           strokeLinecap="round"
-          style={{ filter: 'drop-shadow(0 0 6px var(--plasma))' }}
+          style={{ filter: 'drop-shadow(0 0 6px var(--accent))' }}
           initial={{ pathLength: 0 }}
           animate={inView ? { pathLength: 1 } : { pathLength: 0 }}
           transition={{ duration: 1.8, ease: [0.16, 1, 0.3, 1] }}
@@ -61,16 +61,16 @@ export default function RatingGraph() {
               cx={x}
               cy={y}
               r="6"
-              fill="var(--cyan)"
+              fill="var(--violet)"
               initial={{ scale: 0, opacity: 0 }}
               animate={inView ? { scale: 1, opacity: 1 } : {}}
               transition={{ delay: 1.9, duration: 0.5, ease: 'backOut' }}
-              style={{ filter: 'drop-shadow(0 0 10px var(--cyan))' }}
+              style={{ filter: 'drop-shadow(0 0 10px var(--violet))' }}
             />
           ) : null
         )}
       </svg>
-      <div className="flex justify-between font-mono text-xs text-[var(--ink-faint)] mt-2">
+      <div className="flex justify-between font-mono text-xs text-[var(--ink-low)] mt-2">
         <span>{min}</span>
         <span>peak {max}</span>
       </div>

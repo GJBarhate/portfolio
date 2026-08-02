@@ -1,15 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { useIsMobile } from '../../lib/useIsMobile.js'
+import { onFrame } from '../../lib/raf.js'
 
 const TRAIL_COUNT = 5
-
-const THEME_COLORS = {
-  forest:  { trail: '#6a9955', dot: '#e8a23d' },
-  ocean:   { trail: '#8fb8d9', dot: '#b8d0e0' },
-  golden:  { trail: '#e0b35c', dot: '#fff3d6' },
-  dawn:    { trail: '#d9a85e', dot: '#fff8e8' },
-  obsidian:{ trail: '#d4b876', dot: '#f0e0b8' },
-}
 
 export default function CustomCursor() {
   const dotRef = useRef(null)
@@ -37,54 +30,72 @@ export default function CustomCursor() {
       el.style.cursor = 'auto'
     })
 
+    // Colours come from the palette tokens rather than a hardcoded per-theme
+    // map, so a new or renamed theme cannot silently fall back to the wrong
+    // colour.
     const applyTheme = () => {
-      const theme = document.documentElement.getAttribute('data-theme') || 'forest'
-      const c = THEME_COLORS[theme] || THEME_COLORS.forest
-      if (dot) dot.style.background = c.dot
-      trails.forEach((t) => {
-        if (t) t.style.background = c.trail
-      })
+      const cs = getComputedStyle(document.documentElement)
+      const dotColor = cs.getPropertyValue('--accent-bright').trim() || cs.getPropertyValue('--ink').trim()
+      const trailColor = cs.getPropertyValue('--accent').trim() || dotColor
+      if (dot) dot.style.background = dotColor
+      trails.forEach((t) => { if (t) t.style.background = trailColor })
     }
     applyTheme()
 
     let mouseX = window.innerWidth / 2
     let mouseY = window.innerHeight / 2
     const trailPositions = trails.map(() => ({ x: mouseX, y: mouseY }))
-    let raf
+    let idle = 0
+    let stop = null
 
     const observer = new MutationObserver(applyTheme)
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+
+    const tick = () => {
+      let moved = false
+      for (let i = 0; i < trails.length; i++) {
+        const target = i === 0 ? { x: mouseX, y: mouseY } : trailPositions[i - 1]
+        const ease = 0.12 - i * 0.018
+        const dx = target.x - trailPositions[i].x
+        const dy = target.y - trailPositions[i].y
+        if (Math.abs(dx) > 0.1 || Math.abs(dy) > 0.1) moved = true
+        trailPositions[i].x += dx * ease
+        trailPositions[i].y += dy * ease
+        trails[i].style.transform = `translate3d(${trailPositions[i].x}px, ${trailPositions[i].y}px, 0) translate(-50%, -50%)`
+        trails[i].style.opacity = String(0.35 - i * 0.06)
+      }
+      // Once the trail has caught up there is nothing left to interpolate;
+      // the subscription is dropped until the pointer moves again.
+      if (!moved && ++idle > 20) {
+        stop?.()
+        stop = null
+      }
+    }
+
+    const start = () => {
+      idle = 0
+      if (!stop) stop = onFrame(tick)
+    }
 
     const onMove = (e) => {
       mouseX = e.clientX
       mouseY = e.clientY
       dot.style.transform = `translate3d(${mouseX}px, ${mouseY}px, 0) translate(-50%, -50%)`
       dot.style.opacity = '1'
+      start()
     }
 
     window.addEventListener('mousemove', onMove)
-
-    const tick = () => {
-      for (let i = 0; i < trails.length; i++) {
-        const target = i === 0 ? { x: mouseX, y: mouseY } : trailPositions[i - 1]
-        const ease = 0.12 - i * 0.018
-        trailPositions[i].x += (target.x - trailPositions[i].x) * ease
-        trailPositions[i].y += (target.y - trailPositions[i].y) * ease
-        trails[i].style.transform = `translate3d(${trailPositions[i].x}px, ${trailPositions[i].y}px, 0) translate(-50%, -50%)`
-        trails[i].style.opacity = String(0.35 - i * 0.06)
-      }
-      raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
+    start()
 
     const onLeave = () => { dot.style.opacity = '0'; trails.forEach(t => t.style.opacity = '0') }
-    const onEnter = () => { dot.style.opacity = '1' }
+    const onEnter = () => { dot.style.opacity = '1'; start() }
 
     document.addEventListener('mouseleave', onLeave)
     document.addEventListener('mouseenter', onEnter)
 
     return () => {
-      cancelAnimationFrame(raf)
+      stop?.()
       observer.disconnect()
       window.removeEventListener('mousemove', onMove)
       document.removeEventListener('mouseleave', onLeave)

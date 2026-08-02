@@ -27,18 +27,18 @@ export default function Timeline() {
 
         <div ref={ref} className="relative max-w-3xl ml-4 md:ml-10">
           {/* Track background */}
-          <div className="absolute left-0 top-0 bottom-0 w-px bg-[var(--void-3)]" />
+          <div className="absolute left-0 top-0 bottom-0 w-px bg-[var(--surface-3)]" />
           {/* Gradient fill line */}
           <motion.div
-            className="absolute left-0 top-0 w-px bg-gradient-to-b from-[var(--plasma)] via-[var(--cyan)] to-[var(--plasma)]"
-            style={{ height: lineHeight, boxShadow: '0 0 12px var(--plasma), 0 0 4px var(--cyan)' }}
+            className="absolute left-0 top-0 w-px bg-gradient-to-b from-[var(--accent)] via-[var(--violet)] to-[var(--accent)]"
+            style={{ height: lineHeight, boxShadow: '0 0 12px var(--accent), 0 0 4px var(--violet)' }}
           />
           {/* Self-drawing SVG path — scroll-scrubbed stroke dash offset */}
           <svg className="absolute left-0 top-0 w-full h-full pointer-events-none" aria-hidden="true">
             <motion.line
               x1="0" y1="0" x2="0"
               y2="100%"
-              stroke="var(--plasma-bright)"
+              stroke="var(--accent-bright)"
               strokeWidth="1.5"
               strokeLinecap="round"
               strokeDasharray="800 20"
@@ -52,12 +52,12 @@ export default function Timeline() {
               <Reveal key={item.year} delay={i * 0.05} className="relative pl-10">
                 <NodeDot index={i} />
                 <div className="flex items-center gap-3 mb-2">
-                  <span className="font-mono text-[10px] tracking-[0.25em] px-2.5 py-1 rounded-full border border-[var(--plasma-dim)] text-[var(--plasma-bright)] bg-[color-mix(in_oklch,var(--plasma)_6%,transparent)]">
+                  <span className="font-mono text-[10px] tracking-[0.25em] px-2.5 py-1 rounded-full border border-[var(--accent-dim)] text-[var(--accent-bright)] bg-[color-mix(in_oklch,var(--accent)_6%,transparent)]">
                     {item.year}
                   </span>
                 </div>
                 <h3 className="font-display text-xl md:text-2xl mb-2">{item.title}</h3>
-                <p className="text-[var(--ink-dim)] text-sm md:text-base max-w-lg">{item.desc}</p>
+                <p className="text-[var(--ink-mid)] text-sm md:text-base max-w-lg">{item.desc}</p>
               </Reveal>
             ))}
           </div>
@@ -76,13 +76,13 @@ function NodeDot({ index }) {
       transition={{ duration: 0.5, delay: 0.1, ease: 'backOut' }}
       className="absolute -left-[6px] top-1.5 w-3 h-3 rounded-full"
       style={{
-        background: index % 2 === 0 ? 'var(--plasma)' : 'var(--cyan)',
-        boxShadow: `0 0 12px ${index % 2 === 0 ? 'var(--plasma)' : 'var(--cyan)'}, 0 0 4px ${index % 2 === 0 ? 'var(--plasma)' : 'var(--cyan)'}`,
+        background: index % 2 === 0 ? 'var(--accent)' : 'var(--violet)',
+        boxShadow: `0 0 12px ${index % 2 === 0 ? 'var(--accent)' : 'var(--violet)'}, 0 0 4px ${index % 2 === 0 ? 'var(--accent)' : 'var(--violet)'}`,
       }}
     >
       <motion.div
         className="absolute inset-0 rounded-full"
-        style={{ background: index % 2 === 0 ? 'var(--plasma)' : 'var(--cyan)' }}
+        style={{ background: index % 2 === 0 ? 'var(--accent)' : 'var(--violet)' }}
         animate={{ scale: [1, 2.2], opacity: [0.5, 0] }}
         transition={{ duration: 2, repeat: Infinity, ease: 'easeOut' }}
       />

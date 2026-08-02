@@ -17,11 +17,32 @@
     <meta name="twitter:description" content="LeetCode Knight (1972). Full-stack developer. 5+ apps live in production." />
     <link rel="manifest" href="/manifest.json" />
 
-    <!-- Fonts: self-hosted Clash Display + Space Grotesk + JetBrains Mono — no external render-blocking requests -->
-    <link rel="preload" as="font" type="font/woff2" href="/fonts/clash-display-400.woff2" crossorigin />
+    <!--
+      Resolve the theme before the stylesheet is parsed, so no frame is ever
+      painted with the wrong palette. Old theme ids map onto the three that
+      survive so returning visitors keep a sensible look.
+    -->
+    <script>
+      (function () {
+        try {
+          var map = { forest: 'eclipse', ocean: 'eclipse', golden: 'ember', obsidian: 'ember', dawn: 'paper' };
+          var saved = localStorage.getItem('forge-theme');
+          var theme = map[saved] || saved || 'eclipse';
+          if (theme !== saved) { try { localStorage.setItem('forge-theme', theme); } catch (e) {} }
+          document.documentElement.dataset.theme = theme;
+        } catch (e) {
+          document.documentElement.dataset.theme = 'eclipse';
+        }
+      })();
+    </script>
+
+    <!-- Fonts: self-hosted Clash Display + Space Grotesk + JetBrains Mono — no external render-blocking requests.
+         Only the three faces used above the fold are preloaded; preloading more
+         competes with the LCP image for early bandwidth. The rest arrive via
+         font-display: swap. -->
     <link rel="preload" as="font" type="font/woff2" href="/fonts/clash-display-700.woff2" crossorigin />
     <link rel="preload" as="font" type="font/woff2" href="/fonts/space-grotesk-400.woff2" crossorigin />
-    <link rel="preload" as="font" type="font/woff2" href="/fonts/space-grotesk-700.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/jetbrains-mono-400.woff2" crossorigin />
 
     <!-- JSON-LD structured data -->
     <script type="application/ld+json">

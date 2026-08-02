@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { useIsMobile } from '../../lib/useIsMobile.js'
 import { useReducedMotion } from '../../lib/useReducedMotion.js'
+import { onFrame } from '../../lib/raf.js'
 
 const LETTER_CHARS = [...'GAURAV BARHATE']
 
@@ -122,12 +123,12 @@ export default function PhysicsFooter() {
         ctx.restore()
       })
 
-      requestAnimationFrame(render)
     }
-    requestAnimationFrame(render)
+    const stopFrame = onFrame(render)
     setLoaded(true)
 
     return () => {
+      stopFrame()
       Runner.stop(runner)
       Engine.clear(engine)
     }
@@ -154,7 +155,7 @@ export default function PhysicsFooter() {
         style={{ cursor: isMobile ? 'default' : 'grab' }}
       />
       {!loaded && (
-        <p className="absolute inset-0 flex items-center justify-center font-display text-[clamp(1.5rem,5vw,3rem)] text-[var(--ink-faint)]">
+        <p className="absolute inset-0 flex items-center justify-center font-display text-[clamp(1.5rem,5vw,3rem)] text-[var(--ink-low)]">
           {LETTER_CHARS.join('')}
         </p>
       )}

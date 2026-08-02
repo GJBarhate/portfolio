@@ -45,11 +45,9 @@ function makeSweep({ from = 200, to = 800, duration = 0.15, type = 'sine', volum
 }
 
 const THEME_SOUNDS = {
-  forest:  { hover: { freq: 660,  type: 'sine',     duration: 0.05 }, click: { freq: 180, type: 'triangle', duration: 0.09 }, desc: 'wood tick' },
-  ocean:   { hover: { freq: 1200, type: 'sine',     duration: 0.04 }, click: { freq: 260, type: 'sine',     duration: 0.08 }, desc: 'water drop' },
-  golden:  { hover: { freq: 990,  type: 'triangle', duration: 0.05 }, click: { freq: 210, type: 'sawtooth', duration: 0.07 }, desc: 'amber chime' },
-  dawn:    { hover: { freq: 780,  type: 'sine',     duration: 0.06 }, click: { freq: 240, type: 'triangle', duration: 0.1  }, desc: 'paper rustle' },
-  obsidian:{ hover: { freq: 440,  type: 'sine',     duration: 0.07 }, click: { freq: 110, type: 'sawtooth', duration: 0.12 }, desc: 'metal ping' },
+  eclipse: { hover: { freq: 1200, type: 'sine',     duration: 0.04 }, click: { freq: 260, type: 'sine',     duration: 0.08 }, desc: 'water drop' },
+  ember:   { hover: { freq: 440,  type: 'sine',     duration: 0.07 }, click: { freq: 110, type: 'sawtooth', duration: 0.12 }, desc: 'metal ping' },
+  paper:   { hover: { freq: 780,  type: 'sine',     duration: 0.06 }, click: { freq: 240, type: 'triangle', duration: 0.1  }, desc: 'paper rustle' },
 }
 
 export function SoundProvider({ children }) {
@@ -57,7 +55,7 @@ export function SoundProvider({ children }) {
   const { theme } = useTheme()
 
   const sounds = useMemo(() => {
-    const ts = THEME_SOUNDS[theme] || THEME_SOUNDS.forest
+    const ts = THEME_SOUNDS[theme] || THEME_SOUNDS.eclipse
     return {
       hover: makeTone(ts.hover),
       click: makeTone(ts.click),

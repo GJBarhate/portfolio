@@ -40,20 +40,20 @@ export default function Skills() {
                       style={{
                         transform: `translate3d(${o.tx * 8}px, ${o.ty * 8}px, ${i * -20}px) rotateZ(${o.rz}deg)`,
                         background: group.color === 'plasma'
-                          ? 'color-mix(in oklch, var(--plasma-dim) 12%, var(--void-1))'
-                          : 'color-mix(in oklch, var(--cyan-dim) 10%, var(--void-1))',
-                        borderColor: group.color === 'plasma' ? 'var(--plasma-dim)' : 'var(--cyan-dim)',
+                          ? 'color-mix(in oklch, var(--accent-dim) 12%, var(--surface-1))'
+                          : 'color-mix(in oklch, var(--violet-dim) 10%, var(--surface-1))',
+                        borderColor: group.color === 'plasma' ? 'var(--accent-dim)' : 'var(--violet-dim)',
                       }}
                       whileHover={{ translateZ: 40, scale: 1.03 }}
                     >
-                      <span className="font-mono text-xs tracking-wider" style={{ color: group.color === 'plasma' ? 'var(--plasma-bright)' : 'var(--cyan)' }}>
+                      <span className="font-mono text-xs tracking-wider" style={{ color: group.color === 'plasma' ? 'var(--accent-bright)' : 'var(--violet)' }}>
                         {group.category}
                       </span>
                     </motion.div>
                   )
                 })}
               </div>
-              <p className="text-center font-mono text-[9px] tracking-wider text-[var(--ink-faint)] mt-6">HOVER TO EXPLORE DEPTH</p>
+              <p className="text-center font-mono text-[9px] tracking-wider text-[var(--ink-low)] mt-6">HOVER TO EXPLORE DEPTH</p>
             </div>
           </Reveal>
 
@@ -98,14 +98,14 @@ function SkillCard({ group, index }) {
     >
       <div
         className="absolute -inset-1 opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-2xl"
-        style={{ background: group.color === 'plasma' ? 'var(--plasma-dim)' : 'var(--cyan-dim)' }}
+        style={{ background: group.color === 'plasma' ? 'var(--accent-dim)' : 'var(--violet-dim)' }}
       />
       <div className="relative z-10">
         <div
           className="w-9 h-9 rounded-full mb-3 flex items-center justify-center font-mono text-[10px] font-bold"
           style={{
-            border: `1.5px solid ${group.color === 'plasma' ? 'var(--plasma)' : 'var(--cyan)'}`,
-            color: group.color === 'plasma' ? 'var(--plasma-bright)' : 'var(--cyan)',
+            border: `1.5px solid ${group.color === 'plasma' ? 'var(--accent)' : 'var(--violet)'}`,
+            color: group.color === 'plasma' ? 'var(--accent-bright)' : 'var(--violet)',
           }}
         >
           {String(index + 1).padStart(2, '0')}
@@ -119,7 +119,7 @@ function SkillCard({ group, index }) {
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ delay: ii * 0.04, duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-              className="text-[10px] font-mono px-2.5 py-1 rounded-full border border-[var(--glass-border)] text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--plasma-dim)] transition-all duration-300 cursor-default"
+              className="text-[10px] font-mono px-2.5 py-1 rounded-full border border-[var(--glass-border)] text-[var(--ink-mid)] hover:text-[var(--ink)] hover:border-[var(--accent-dim)] transition-all duration-300 cursor-default"
             >
               {item}
             </motion.span>

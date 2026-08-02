@@ -87,11 +87,11 @@ export default function RunComplete() {
 
           <div className="flex justify-center gap-4 mb-6">
             <div className="text-center">
-              <span className="font-mono text-[10px] text-[var(--ink-faint)] tracking-wider">XP EARNED</span>
-              <p className="font-display text-lg" style={{ color: 'var(--plasma-bright)' }}>{stats.xp}</p>
+              <span className="font-mono text-[10px] text-[var(--ink-low)] tracking-wider">XP EARNED</span>
+              <p className="font-display text-lg" style={{ color: 'var(--accent-bright)' }}>{stats.xp}</p>
             </div>
             <div className="text-center">
-              <span className="font-mono text-[10px] text-[var(--ink-faint)] tracking-wider">BEST TIME</span>
+              <span className="font-mono text-[10px] text-[var(--ink-low)] tracking-wider">BEST TIME</span>
               <p className="font-display text-lg" style={{ color: 'var(--accent-reward)' }}>{stats.pb}</p>
             </div>
           </div>
@@ -106,16 +106,16 @@ export default function RunComplete() {
             className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full font-medium text-sm"
             style={{
               background: 'var(--accent-reward)',
-              color: 'var(--void-0)',
+              color: 'var(--surface-0)',
               boxShadow: '0 0 32px color-mix(in oklch, var(--accent-reward) 40%, transparent)',
             }}
           >
-            Now let's build something — email me
+            Now let&rsquo;s build something — email me
           </a>
 
           <button
             onClick={() => setShow(false)}
-            className="block mx-auto mt-4 font-mono text-[10px] text-[var(--ink-faint)] hover:text-[var(--ink)] tracking-wider"
+            className="block mx-auto mt-4 font-mono text-[10px] text-[var(--ink-low)] hover:text-[var(--ink)] tracking-wider"
           >
             DISMISS
           </button>

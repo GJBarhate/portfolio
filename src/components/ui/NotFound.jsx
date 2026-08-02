@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import '../../styles/arcade.css'
 import { motion } from 'framer-motion'
+import { onFrame } from '../../lib/raf.js'
 
 const GRAVITY = 0.6
 const JUMP_VEL = -10
@@ -29,7 +31,6 @@ export default function NotFound() {
 
   useEffect(() => {
     if (!playing || gameOver) return
-    let raf
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
     const W = 320, H = 160
@@ -105,41 +106,42 @@ export default function NotFound() {
       }
 
       // Ground
-      ctx.fillStyle = 'var(--void-3)'
+      ctx.fillStyle = 'var(--surface-3)'
       ctx.fillRect(0, GROUND_Y + 24, W, 4)
-      ctx.fillStyle = 'var(--void-2)'
+      ctx.fillStyle = 'var(--surface-2)'
       for (let x = s.groundOffset; x < W; x += 20) {
         ctx.fillRect(x, GROUND_Y + 24, 10, 2)
       }
 
       // Dino
       const bounce = s.dino.y >= GROUND_Y ? Math.sin(s.frame * 0.3) * 2 : 0
-      ctx.fillStyle = 'var(--plasma-bright)'
+      ctx.fillStyle = 'var(--accent-bright)'
       ctx.fillRect(30, s.dino.y + bounce, s.dino.w, s.dino.h)
       // Eye
-      ctx.fillStyle = 'var(--void-0)'
+      ctx.fillStyle = 'var(--surface-0)'
       ctx.fillRect(42, s.dino.y + bounce + 4, 4, 4)
       // Legs
-      ctx.fillStyle = 'var(--plasma)'
+      ctx.fillStyle = 'var(--accent)'
       const legAnim = Math.sin(s.frame * 0.2) * 3
       ctx.fillRect(32, s.dino.y + bounce + s.dino.h, 5, 4 + legAnim)
       ctx.fillRect(42, s.dino.y + bounce + s.dino.h, 5, 4 - legAnim)
 
       // Obstacles
       s.obstacles.forEach((o) => {
-        ctx.fillStyle = 'var(--ember)'
+        ctx.fillStyle = 'var(--warm)'
         ctx.fillRect(o.x, o.y - o.h, o.w, o.h)
       })
 
       // Score
-      ctx.fillStyle = 'var(--ink-faint)'
+      ctx.fillStyle = 'var(--ink-low)'
       ctx.font = '8px monospace'
       ctx.fillText(`SCORE: ${s.score}`, 8, 12)
 
-      raf = requestAnimationFrame(tick)
     }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
+    // Game loops ride the shared scheduler like everything else, so a
+    // hidden tab pauses them for free.
+    const stop = onFrame(tick)
+    return stop
   }, [playing, gameOver])
 
   useEffect(() => {
@@ -156,7 +158,7 @@ export default function NotFound() {
   }, [playing, gameOver])
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-8 container-px" style={{ background: 'var(--void-0)' }}>
+    <div className="min-h-screen flex flex-col items-center justify-center gap-8 container-px" style={{ background: 'var(--surface-0)' }}>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -166,7 +168,7 @@ export default function NotFound() {
         <h1 className="font-display text-[clamp(3rem,10vw,6rem)] leading-[0.95] mb-4">
           This page <span className="text-gradient">doesn&apos;t exist.</span>
         </h1>
-        <p className="text-[var(--ink-dim)] mb-8 max-w-md mx-auto">
+        <p className="text-[var(--ink-mid)] mb-8 max-w-md mx-auto">
           The link you followed may be broken, or the page has been removed.
           While you&apos;re here, try the dino runner below.
         </p>
@@ -186,10 +188,10 @@ export default function NotFound() {
           onClick={() => { if (!playing || gameOver) reset() }}
         />
         {(!playing || gameOver) && (
-          <div className="absolute inset-0 bg-[var(--void-0)]/80 backdrop-blur-sm flex items-center justify-center">
+          <div className="absolute inset-0 bg-[var(--surface-0)]/80 backdrop-blur-sm flex items-center justify-center">
             <button
               onClick={reset}
-              className="clay-btn px-6 py-3 rounded-full font-mono text-xs tracking-wider text-[var(--plasma-bright)]"
+              className="clay-btn px-6 py-3 rounded-full font-mono text-xs tracking-wider text-[var(--accent-bright)]"
             >
               {gameOver ? `GAME OVER · Score: ${score} — Play Again` : 'START RUNNING'}
             </button>
@@ -198,10 +200,10 @@ export default function NotFound() {
       </motion.div>
 
       <div className="flex gap-6 mt-4">
-        <a href="/" className="font-mono text-xs tracking-wider text-[var(--plasma-bright)] hover:underline">
+        <a href="/" className="font-mono text-xs tracking-wider text-[var(--accent-bright)] hover:underline">
           &larr; Back to Home
         </a>
-        <button onClick={() => window.location.reload()} className="font-mono text-xs tracking-wider text-[var(--ink-dim)] hover:text-[var(--ink)] transition-colors">
+        <button onClick={() => window.location.reload()} className="font-mono text-xs tracking-wider text-[var(--ink-mid)] hover:text-[var(--ink)] transition-colors">
           Reload Page
         </button>
       </div>

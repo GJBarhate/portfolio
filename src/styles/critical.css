@@ -1,0 +1,103 @@
+/*
+ * Critical CSS — inlined into index.html at build time by the
+ * `inline-critical-css` plugin in vite.config.js. The full stylesheet then
+ * loads without blocking render.
+ *
+ * Keep this SMALL and keep it to what the first viewport actually needs:
+ * palette tokens, the three preloaded font faces, base body styling, and
+ * enough hero/navbar geometry that nothing jumps when the real sheet lands.
+ * Token VALUES are duplicated from index.css on purpose — if you change a
+ * palette token there, change it here too.
+ */
+
+@font-face {
+  font-family: 'Clash Display';
+  src: url('/fonts/clash-display-700.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  src: url('/fonts/space-grotesk-400.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('/fonts/jetbrains-mono-400.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+  font-style: normal;
+}
+
+:root {
+  --surface-0: oklch(13.5% 0.012 250);
+  --surface-1: oklch(17% 0.014 250);
+  --surface-2: oklch(21% 0.016 250);
+  --surface-3: oklch(26% 0.018 250);
+  --ink-hi: oklch(97% 0.004 250);
+  --ink: oklch(89% 0.008 250);
+  --ink-mid: oklch(73% 0.01 250);
+  --ink-low: oklch(60% 0.012 250);
+  --accent: oklch(72% 0.12 195);
+  --accent-bright: oklch(85% 0.1 195);
+  --accent-dim: oklch(54% 0.11 195);
+  --violet: oklch(66% 0.15 302);
+  --warm: oklch(80% 0.13 68);
+  --glass-border: oklch(100% 0 0 / 0.09);
+}
+[data-theme='ember'] {
+  --surface-0: oklch(12.5% 0.006 80);
+  --surface-1: oklch(16% 0.008 80);
+  --ink: oklch(89% 0.008 80);
+  --accent: oklch(80% 0.105 85);
+}
+[data-theme='paper'] {
+  --surface-0: oklch(97.5% 0.01 75);
+  --surface-1: oklch(94.5% 0.014 75);
+  --ink-hi: oklch(18% 0.014 75);
+  --ink: oklch(26% 0.016 75);
+  --ink-mid: oklch(42% 0.018 75);
+  --ink-low: oklch(52% 0.018 75);
+  --accent: oklch(52% 0.115 205);
+  --accent-bright: oklch(42% 0.125 205);
+}
+html[data-theme='paper'] { color-scheme: light; }
+
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--surface-0);
+  color: var(--ink);
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-size: max(11px, 1rem);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+h1, h2, h3 { margin: 0; font-family: 'Clash Display', 'Space Grotesk', sans-serif; }
+#root { min-height: 100vh; }
+
+/* Hero geometry — reserves the first viewport so nothing reflows. */
+#hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+}
+.container-px { padding-inline: clamp(1rem, 5vw, 5rem); }
+
+/* The mesh backdrop paints immediately rather than flashing black. */
+.hero-mesh {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 40%, var(--surface-1), var(--surface-0) 72%);
+}

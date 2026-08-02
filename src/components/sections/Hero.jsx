@@ -63,15 +63,24 @@ export default function Hero({ introDone = true }) {
     }
   }, [])
 
+  // Both elements were re-queried on every scroll tick; they are resolved once
+  // and cached instead.
+  const grainRef = useRef(null)
+  const heroNameElRef = useRef(null)
+  useEffect(() => {
+    grainRef.current = document.querySelector('.film-grain')
+    heroNameElRef.current = nameRef.current
+  }, [])
+
   useScrollVelocity((vel) => {
     const absVel = Math.min(1, Math.abs(vel * 30))
-    const grain = document.querySelector('.film-grain')
+    const grain = grainRef.current
     if (grain) grain.style.opacity = String(0.02 + absVel * 0.06)
-    const heroName = document.querySelector('.hero-name-iridescent')
+    const heroName = heroNameElRef.current
     if (heroName) heroName.style.transform = `skewX(${Math.min(1, absVel * 2) * 0.2}deg)`
-    // E19: Scroll-linked hue drift — page hue shifts 8° across the run
-    const scrollPct = window.scrollY / Math.max(1, document.documentElement.scrollHeight - window.innerHeight)
-    document.documentElement.style.setProperty('--grade-hue', `${scrollPct * 8}deg`)
+    // --grade-hue is written by SmoothScrollContext alone. This used to write
+    // it too, with a different formula (p * 8deg vs p * 40deg) on a different
+    // schedule, and the two fought each other.
   }, { throttleMs: 80 })
   const sectionRef = useRef(null)
   const isMobile = useIsMobile()
@@ -121,7 +130,7 @@ export default function Hero({ introDone = true }) {
           className="hero-badge mb-6"
         >
           <span className="hero-badge__dot" />
-          <span className="font-mono text-[11px] tracking-wide text-[var(--ink-dim)]">
+          <span className="font-mono text-[11px] tracking-wide text-[var(--ink-mid)]">
             Open to opportunities
           </span>
         </motion.div>
@@ -174,7 +183,7 @@ export default function Hero({ introDone = true }) {
         </div>
 
         <div className="overflow-hidden mt-3 h-[1.4em]">
-          <p className="font-mono text-sm md:text-lg tracking-wide text-[var(--ink-dim)]">
+          <p className="font-mono text-sm md:text-lg tracking-wide text-[var(--ink-mid)]">
             <WordRotator words={['Full-Stack Developer', 'Competitive Programmer', 'MERN Stack Developer', 'B.Tech CSE Graduate']} />
           </p>
         </div>
@@ -183,7 +192,7 @@ export default function Hero({ introDone = true }) {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: EASE_FORGE, delay: 0.5 }}
-          className="mt-6 max-w-md text-[var(--ink-dim)] text-sm md:text-base"
+          className="mt-6 max-w-md text-[var(--ink-mid)] text-sm md:text-base"
         >
           <span className="hero-stat-strong">LeetCode Knight</span>, max rating{' '}
           <span className="hero-stat-strong">1972</span>
@@ -207,7 +216,7 @@ export default function Hero({ introDone = true }) {
               as="a"
               href="#projects"
               data-cursor="view"
-              className="hero-cta hero-cta--primary px-7 py-3.5 rounded-full font-medium text-sm shadow-[0_0_40px_var(--plasma-dim)] hover:shadow-[0_0_60px_var(--plasma)] transition-shadow duration-500"
+              className="hero-cta hero-cta--primary px-7 py-3.5 rounded-full font-medium text-sm shadow-[0_0_40px_var(--accent-dim)] hover:shadow-[0_0_60px_var(--accent)] transition-shadow duration-500"
               onClick={(e) => {
                 e.preventDefault()
                 document.getElementById('projects')?.scrollIntoView({ behavior: 'smooth' })
@@ -235,7 +244,7 @@ export default function Hero({ introDone = true }) {
               target="_blank"
               rel="noopener noreferrer"
               data-cursor="view"
-              className="hero-cta hero-cta--ghost px-5 md:px-7 py-3.5 rounded-full text-sm font-mono text-[var(--ink-dim)] hover:text-[var(--ink)] transition-colors duration-300"
+              className="hero-cta hero-cta--ghost px-5 md:px-7 py-3.5 rounded-full text-sm font-mono text-[var(--ink-mid)] hover:text-[var(--ink)] transition-colors duration-300"
             >
               GitHub ↗
             </MagneticButton>
@@ -249,8 +258,8 @@ export default function Hero({ introDone = true }) {
           className="arcade-hero-hint group cursor-pointer"
           onClick={() => window.dispatchEvent(new CustomEvent('forge:open-arcade'))}
         >
-          <div className="flex flex-col items-center gap-1.5 px-3 py-2 rounded-xl border border-[var(--plasma-dim)]/20 hover:border-[var(--plasma-dim)]/60 transition-all duration-300"
-            style={{ background: 'color-mix(in oklch, var(--plasma) 4%, var(--void-1))' }}
+          <div className="flex flex-col items-center gap-1.5 px-3 py-2 rounded-xl border border-[var(--accent-dim)]/20 hover:border-[var(--accent-dim)]/60 transition-all duration-300"
+            style={{ background: 'color-mix(in oklch, var(--accent) 4%, var(--surface-1))' }}
           >
             <div className="flex gap-1">
               <span className="text-[9px]">🏃</span>
@@ -259,7 +268,7 @@ export default function Hero({ introDone = true }) {
               <span className="text-[9px]">🧠</span>
               <span className="text-[9px]">🐍</span>
             </div>
-            <span className="font-mono text-[8px] tracking-[0.2em] text-[var(--ink-faint)]">ARCADE · 5 GAMES</span>
+            <span className="font-mono text-[8px] tracking-[0.2em] text-[var(--ink-low)]">ARCADE · 5 GAMES</span>
           </div>
         </div>
       </div>
@@ -268,9 +277,9 @@ export default function Hero({ introDone = true }) {
         style={{ opacity: scrollHintOpacity }}
         className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
       >
-        <span className="font-mono text-[10px] tracking-widest text-[var(--ink-faint)]">SCROLL</span>
+        <span className="font-mono text-[10px] tracking-widest text-[var(--ink-low)]">SCROLL</span>
         <div className="w-px h-10 overflow-hidden">
-          <div className="w-px h-10 bg-gradient-to-b from-[var(--plasma)] to-transparent animate-[scrollHint_1.8s_ease-in-out_infinite]" />
+          <div className="w-px h-10 bg-gradient-to-b from-[var(--accent)] to-transparent animate-[scrollHint_1.8s_ease-in-out_infinite]" />
         </div>
       </motion.div>
     </section>

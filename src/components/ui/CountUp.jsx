@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useInView } from 'framer-motion'
+import { onFrame } from '../../lib/raf.js'
 
 export default function CountUp({ value, duration = 1.6, suffix = '' }) {
   const ref = useRef(null)
@@ -8,16 +9,15 @@ export default function CountUp({ value, duration = 1.6, suffix = '' }) {
   const [key, setKey] = useState(0)
 
   const animate = useCallback(() => {
-    let raf
     const start = performance.now()
-    const tick = (now) => {
+    let stop = null
+    stop = onFrame((now) => {
       const t = Math.min(1, (now - start) / (duration * 1000))
       const eased = 1 - Math.pow(1 - t, 3)
       setDisplay(Math.round(eased * value))
-      if (t < 1) raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
+      if (t >= 1) stop?.()
+    })
+    return () => stop?.()
   }, [value, duration])
 
   useEffect(() => {

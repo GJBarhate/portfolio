@@ -1,4 +1,4 @@
-import * as THREE from 'three'
+import { WebGLRenderTarget, LinearFilter, RGBAFormat, FloatType } from 'three'
 
 export function checkWebGL() {
   try {
@@ -31,24 +31,43 @@ function cssColorToHex(raw) {
   }
 }
 
+/**
+ * Semantic theme colours for WebGL scenes, resolved to hex.
+ *
+ * Reads the semantic tokens first and falls back to the legacy colour-named
+ * ones, so scenes keep working whichever palette layer is in play. `plasma`,
+ * `cyan` and `ember` are kept as aliases because several scenes still name
+ * their materials that way.
+ */
 export function getThemeColors() {
   const root = getComputedStyle(document.documentElement)
-  const plasma = cssColorToHex(root.getPropertyValue('--plasma').trim()) || '#d946ef'
-  const cyan = cssColorToHex(root.getPropertyValue('--cyan').trim()) || '#06b6d4'
-  const ember = cssColorToHex(root.getPropertyValue('--ember').trim()) || '#f97316'
-  const inkVoid = cssColorToHex(root.getPropertyValue('--ink-void').trim()) || '#0a0a0f'
-  return { plasma, cyan, ember, void: inkVoid }
+  const read = (...names) => {
+    for (const n of names) {
+      const v = root.getPropertyValue(n).trim()
+      if (v) return cssColorToHex(v)
+    }
+    return null
+  }
+  const accent = read('--accent') || '#2fd4d4'
+  const violet = read('--violet') || '#8b5cf6'
+  const warm = read('--warm') || '#f5a524'
+  const surface = read('--surface-0') || '#0a0a0f'
+  return {
+    accent, violet, warm, surface,
+    // legacy aliases
+    plasma: accent, cyan: violet, ember: warm, void: surface,
+  }
 }
 
 export function makePingPongRT(width, height, options = {}) {
   const opts = {
-    minFilter: THREE.LinearFilter,
-    magFilter: THREE.LinearFilter,
-    format: THREE.RGBAFormat,
-    type: THREE.FloatType,
+    minFilter: LinearFilter,
+    magFilter: LinearFilter,
+    format: RGBAFormat,
+    type: FloatType,
     ...options,
   }
-  const rt1 = new THREE.WebGLRenderTarget(width, height, opts)
-  const rt2 = new THREE.WebGLRenderTarget(width, height, opts)
+  const rt1 = new WebGLRenderTarget(width, height, opts)
+  const rt2 = new WebGLRenderTarget(width, height, opts)
   return { rt1, rt2, current: rt1, alternate: rt2, swap() { const t = this.current; this.current = this.alternate; this.alternate = t } }
 }

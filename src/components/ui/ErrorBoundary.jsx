@@ -16,10 +16,10 @@ export default class ErrorBoundary extends Component {
       if (this.props.fallback) return this.props.fallback
       return (
         <div className="flex flex-col items-center justify-center min-h-[200px] gap-4 p-8 text-center">
-          <p className="font-mono text-sm text-[var(--ink-dim)]">Something went wrong rendering this section.</p>
+          <p className="font-mono text-sm text-[var(--ink-mid)]">Something went wrong rendering this section.</p>
           <button
             onClick={() => this.setState({ error: null })}
-            className="px-4 py-2 rounded-full border border-[var(--glass-border)] text-xs font-mono text-[var(--ink-faint)] hover:text-[var(--ink)] transition-colors"
+            className="px-4 py-2 rounded-full border border-[var(--glass-border)] text-xs font-mono text-[var(--ink-low)] hover:text-[var(--ink)] transition-colors"
           >
             Retry
           </button>

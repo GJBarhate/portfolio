@@ -71,7 +71,7 @@ export default function Preloader({ onReveal }) {
             <motion.path
               d="M18 8c-5.5 0-10 4.5-10 10s4.5 10 10 10 10-4.5 10-10-4.5-10-10-10zm0 16c-3.3 0-6-2.7-6-6s2.7-6 6-6 6 2.7 6 6-2.6 6-6 6zM42 8l14 20-14 20"
               fill="none"
-              stroke="var(--plasma-bright)"
+              stroke="var(--accent-bright)"
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -84,7 +84,7 @@ export default function Preloader({ onReveal }) {
               cy="18"
               r="10"
               fill="none"
-              stroke="var(--plasma-dim)"
+              stroke="var(--accent-dim)"
               strokeWidth="1"
               opacity="0.3"
             />
@@ -96,12 +96,12 @@ export default function Preloader({ onReveal }) {
             style={{ scaleX: barScale, transformOrigin: 'left' }}
           />
         </div>
-        <p className="font-mono text-[9px] tracking-[0.35em] text-[var(--ink-faint)]">
+        <p className="font-mono text-[9px] tracking-[0.35em] text-[var(--ink-low)]">
           FORGING INTERFACE
         </p>
         <motion.p
           className="font-mono text-[10px] tracking-[0.2em] mt-4"
-          style={{ color: 'var(--plasma-bright)' }}
+          style={{ color: 'var(--accent-bright)' }}
           initial={{ opacity: 0 }}
           animate={{ opacity: [0, 1, 0] }}
           transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}

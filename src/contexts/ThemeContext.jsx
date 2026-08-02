@@ -2,24 +2,36 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react'
 
 // bg / accent / glow are used by the Theme Atelier swatches and the
 // <meta name="theme-color"> sync — keep them in step with index.css.
+// Three themes, not five. Eclipse is the flagship the site is designed around;
+// the other two are a delightful extra, not equal first-class designs. Each
+// passes the same APCA thresholds independently.
 const THEMES = [
-  { id: 'forest', label: 'Deep Forest', meaning: 'Moss & walnut — a quiet studio at night', bg: '#10140e', accent: '#6a9955', glow: '#e8a23d' },
-  { id: 'ocean', label: 'Serene Ocean', meaning: 'Steel blue on midnight — deep-water calm', bg: '#0b1524', accent: '#8fb8d9', glow: '#b8d0e0' },
-  { id: 'golden', label: 'Golden Hour', meaning: 'Amber over ember — late-sun warmth', bg: '#1e1408', accent: '#e0b35c', glow: '#fff3d6' },
-  { id: 'dawn', label: 'Dawn', meaning: 'Pale sunrise paper — the only light theme', bg: '#f8f1e3', accent: '#d9a85e', glow: '#fff8e8' },
-  { id: 'obsidian', label: 'Obsidian', meaning: 'Black & champagne gold — midnight luxury', bg: '#0d0c0a', accent: '#d4b876', glow: '#f0e0b8' },
+  { id: 'eclipse', label: 'Eclipse', meaning: 'Blue-black & electric teal — the default', bg: '#0e1114', accent: '#3ac6c9', glow: '#7fe3e5' },
+  { id: 'ember', label: 'Ember', meaning: 'Warm charcoal & champagne gold — midnight luxury', bg: '#0f0e0c', accent: '#d4b876', glow: '#f0e0b8' },
+  { id: 'paper', label: 'Paper', meaning: 'Pale sunrise paper — the light theme', bg: '#f8f4ec', accent: '#1f7d86', glow: '#fff8e8' },
 ]
+
+// Old theme ids map onto the survivors so a returning visitor's saved
+// preference still resolves. index.html applies the same mapping before first
+// paint; this is the runtime half.
+export const LEGACY_THEME_MAP = {
+  forest: 'eclipse',
+  ocean: 'eclipse',
+  golden: 'ember',
+  obsidian: 'ember',
+  dawn: 'paper',
+}
 
 // Time-aware suggestions
 const TIME_HINTS = {
-  dawn:    { from: 5,  to: 9,  suggestion: 'dawn',   toast: '☀️ Good morning — Dawn theme suits the early light.' },
-  golden:  { from: 16, to: 19, suggestion: 'golden',  toast: '🌅 Golden hour — Golden theme matches the sunset.' },
-  obsidian:{ from: 20, to: 4,  suggestion: 'obsidian',toast: '🌙 Late night — Obsidian theme is easier on the eyes.' },
+  paper:   { from: 5,  to: 9,  suggestion: 'paper',   toast: '☀️ Good morning — Paper suits the early light.' },
+  ember:   { from: 16, to: 19, suggestion: 'ember',   toast: '🌅 Golden hour — Ember matches the sunset.' },
+  eclipse: { from: 20, to: 4,  suggestion: 'eclipse', toast: '🌙 Late night — Eclipse is easier on the eyes.' },
 }
 
 function getTimeSuggestion() {
   const h = new Date().getHours()
-  for (const key of ['dawn', 'golden', 'obsidian']) {
+  for (const key of ['paper', 'ember', 'eclipse']) {
     const r = TIME_HINTS[key]
     if (r.from <= r.to ? (h >= r.from && h < r.to) : (h >= r.from || h < r.to)) return { id: key, ...r }
   }
@@ -32,10 +44,12 @@ export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
     const saved = localStorage.getItem('forge-theme')
     if (THEMES.some((t) => t.id === saved)) return saved
-    // Obsidian is the default first impression (black + champagne gold);
-    // first-time light-mode users land on Dawn instead (§2).
+    const migrated = LEGACY_THEME_MAP[saved]
+    if (migrated) return migrated
+    // Eclipse is the default first impression; first-time light-mode users
+    // land on Paper instead.
     const prefersLight = window.matchMedia?.('(prefers-color-scheme: light)').matches
-    return prefersLight ? 'dawn' : 'obsidian'
+    return prefersLight ? 'paper' : 'eclipse'
   })
   const [suggestion, setSuggestion] = useState(null)
   const suggestedRef = useRef(null)
@@ -57,7 +71,8 @@ export function ThemeProvider({ children }) {
 
   useEffect(() => {
     const handler = (e) => {
-      if (THEMES.some((t) => t.id === e.detail)) setTheme(e.detail)
+      const next = LEGACY_THEME_MAP[e.detail] || e.detail
+      if (THEMES.some((t) => t.id === next)) setTheme(next)
     }
     window.addEventListener('forge:set-theme', handler)
     return () => window.removeEventListener('forge:set-theme', handler)

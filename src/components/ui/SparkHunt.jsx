@@ -71,9 +71,9 @@ export function SparkCounter() {
   if (collected.length === 0) return null
 
   return (
-    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-[var(--glass-border)] bg-[var(--void-2)]">
+    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-[var(--glass-border)] bg-[var(--surface-2)]">
       <span className="spark-mini" />
-      <span className="font-mono text-[9px] tracking-wider text-[var(--plasma-bright)]">
+      <span className="font-mono text-[9px] tracking-wider text-[var(--accent-bright)]">
         {collected.length}/{total}
       </span>
     </div>
@@ -98,18 +98,18 @@ export function SparkCompleteToast() {
           initial={{ opacity: 0, y: 40, scale: 0.9 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -20 }}
-          className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 glass sheen rounded-2xl px-6 py-4 border border-[var(--plasma-dim)] text-center"
+          className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 glass sheen rounded-2xl px-6 py-4 border border-[var(--accent-dim)] text-center"
         >
-          <p className="font-mono text-[9px] tracking-[0.3em] text-[var(--ember)] mb-1">
+          <p className="font-mono text-[9px] tracking-[0.3em] text-[var(--warm)] mb-1">
             ALL SPARKS COLLECTED
           </p>
           <p className="font-display text-lg">Forge Master</p>
-          <p className="text-[11px] text-[var(--ink-dim)] mt-1">
+          <p className="text-[11px] text-[var(--ink-mid)] mt-1">
             You found all 5 hidden sparks
           </p>
           <button
             onClick={() => setShow(false)}
-            className="mt-3 font-mono text-[10px] text-[var(--ink-faint)] hover:text-[var(--ink)]"
+            className="mt-3 font-mono text-[10px] text-[var(--ink-low)] hover:text-[var(--ink)]"
           >
             DISMISS
           </button>

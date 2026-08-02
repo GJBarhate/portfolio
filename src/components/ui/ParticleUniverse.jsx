@@ -1,7 +1,18 @@
 import { useEffect, useRef } from 'react'
-import * as THREE from 'three'
+import {
+  Color,
+  Scene,
+  PerspectiveCamera,
+  BufferGeometry,
+  BufferAttribute,
+  ShaderMaterial,
+  AdditiveBlending,
+  Points,
+} from 'three'
 import { useReducedMotion } from '../../lib/useReducedMotion.js'
 import { checkWebGL, getThemeColors } from '../../lib/threeUtils.js'
+import { getTier, onTierChange } from '../../lib/raf.js'
+import { register } from '../../lib/glStage.js'
 
 const COUNT = 250
 
@@ -17,15 +28,12 @@ export default function ParticleUniverse() {
     if (!webgl.supported) return
 
     const colors = getThemeColors()
-    const accent = new THREE.Color(colors.plasma)
+    const accent = new Color(colors.accent)
 
-    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: false })
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-    renderer.setClearColor(0x000000, 0)
-    container.appendChild(renderer.domElement)
-
-    const scene = new THREE.Scene()
-    const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1000)
+    // Drawn by the shared stage — this used to hold one of the nine live
+    // WebGL contexts all by itself.
+    const scene = new Scene()
+    const camera = new PerspectiveCamera(60, 1, 0.1, 1000)
     camera.position.z = 300
 
     const positions = new Float32Array(COUNT * 3)
@@ -44,15 +52,17 @@ export default function ParticleUniverse() {
       opacities[i] = 0.1 + Math.random() * 0.25
     }
 
-    const geo = new THREE.BufferGeometry()
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-    geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1))
-    geo.setAttribute('opacity', new THREE.BufferAttribute(opacities, 1))
+    const geo = new BufferGeometry()
+    geo.setAttribute('position', new BufferAttribute(positions, 3))
+    geo.setAttribute('size', new BufferAttribute(sizes, 1))
+    geo.setAttribute('opacity', new BufferAttribute(opacities, 1))
+    // Tier 2 halves the visible particle count without reallocating buffers.
+    geo.setDrawRange(0, getTier() >= 3 ? COUNT : Math.floor(COUNT / 2))
 
-    const mat = new THREE.ShaderMaterial({
+    const mat = new ShaderMaterial({
       uniforms: {
         uColor: { value: accent },
-        uPixelRatio: { value: renderer.getPixelRatio() },
+        uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
       },
       vertexShader: `
         attribute float size;
@@ -81,59 +91,48 @@ export default function ParticleUniverse() {
       `,
       transparent: true,
       depthWrite: false,
-      blending: THREE.AdditiveBlending,
+      blending: AdditiveBlending,
     })
 
-    const points = new THREE.Points(geo, mat)
+    const points = new Points(geo, mat)
     scene.add(points)
-
-    const resize = () => {
-      const w = window.innerWidth
-      const h = window.innerHeight
-      camera.aspect = w / h
-      camera.updateProjectionMatrix()
-      renderer.setSize(w, h)
-    }
-    window.addEventListener('resize', resize)
-    resize()
 
     const observer = new MutationObserver(() => {
       const c = getThemeColors()
-      accent.set(c.plasma)
+      accent.set(c.accent)
       mat.uniforms.uColor.value = accent
     })
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
 
-    let visible = !document.hidden
-    let inView = true
-    document.addEventListener('visibilitychange', () => { visible = !document.hidden })
-    const ivObserver = new IntersectionObserver(([e]) => { inView = e.isIntersecting }, { threshold: 0 })
-    ivObserver.observe(container)
+    const offTier = onTierChange((t) => {
+      geo.setDrawRange(0, t >= 3 ? COUNT : Math.floor(COUNT / 2))
+      mat.uniforms.uPixelRatio.value = Math.min(window.devicePixelRatio, t >= 3 ? 2 : 1.5)
+    })
 
-    let raf
+    // This layer is `fixed inset-0`, so it is always intersecting — an
+    // IntersectionObserver here would never gate anything. The shared
+    // scheduler's document.hidden check plus the tier governor are the real
+    // guards; below tier 2 the layer does not render at all.
     let time = 0
-    const tick = () => {
-      raf = requestAnimationFrame(tick)
-      if (!visible || !inView) return
-      time += 0.002
-      points.rotation.y = time * 0.02
-      points.rotation.x = Math.sin(time * 0.01) * 0.02
-      renderer.render(scene, camera)
-    }
-    raf = requestAnimationFrame(tick)
+    const stage = register({
+      element: container,
+      scene,
+      camera,
+      onFrame: (_, dt) => {
+        if (getTier() < 2) return
+        time += 0.002 * (dt / 16.7)
+        points.rotation.y = time * 0.02
+        points.rotation.x = Math.sin(time * 0.01) * 0.02
+      },
+    })
 
     return () => {
-      cancelAnimationFrame(raf)
+      stage.dispose()
+      offTier()
       observer.disconnect()
-      ivObserver.disconnect()
-      window.removeEventListener('resize', resize)
       geo.dispose()
       mat.dispose()
       scene.remove(points)
-      renderer.dispose()
-      if (renderer.domElement.parentNode === container) {
-        container.removeChild(renderer.domElement)
-      }
     }
   }, [reduced])
 

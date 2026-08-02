@@ -8,18 +8,22 @@ import { SOCIALS } from '../../lib/content.js'
 import { useSpotlight } from '../../hooks/useSpotlight.js'
 import { EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, EMAILJS_PUBLIC_KEY } from '../../lib/emailConfig.js'
 // Spark moved to footer wordmark per plan §3.3
-import leetcodeShot from '../../assets/social/leetcode-profile.webp'
-import codechefShot from '../../assets/social/codechef-profile.webp'
-import linkedinShot from '../../assets/social/linkedin-profile.webp'
-import githubShot from '../../assets/social/github-profile.webp'
-import resumeShot from '../../assets/social/resume-preview.webp'
+// AVIF-first, two widths. These previews render at ~420px wide but shipped at
+// up to 1919px; resume-preview alone was 286 KB.
+import leetcodeShot from '../../assets/social/leetcode-profile.webp?w=480;960&format=avif;webp&as=picture'
+import codechefShot from '../../assets/social/codechef-profile.webp?w=480;960&format=avif;webp&as=picture'
+import linkedinShot from '../../assets/social/linkedin-profile.webp?w=480;960&format=avif;webp&as=picture'
+import githubShot from '../../assets/social/github-profile.webp?w=480;960&format=avif;webp&as=picture'
+// The resume source is only 762px wide, so asking for 960 would upscale it.
+import resumeShot from '../../assets/social/resume-preview.webp?w=480;762&format=avif;webp&as=picture'
+import Picture from '../ui/Picture.jsx'
 
 const PLATFORMS = [
   { label: 'GitHub', value: '18+ Repos', href: SOCIALS.github, color: '#9aa5b1', shot: githubShot, tag: 'OPEN SOURCE' },
   { label: 'LeetCode', value: 'Knight Rank · 1972 Max Rating', href: SOCIALS.leetcode, color: '#ffa116', shot: leetcodeShot, tag: '800+ SOLVED' },
   { label: 'CodeChef', value: '4★ Coder · gaurav_jb', href: SOCIALS.codechef, color: '#d68f4c', shot: codechefShot, tag: 'RATING 1830' },
   { label: 'LinkedIn', value: 'IIIT Vadodara · CSE Graduate \'26', href: SOCIALS.linkedin, color: '#3b9eef', shot: linkedinShot, tag: 'CONNECT' },
-  { label: 'Resume', value: 'Full Build Log · PDF', href: '/Gaurav_Resume.pdf', color: 'var(--plasma)', shot: resumeShot, tag: 'DOWNLOAD' },
+  { label: 'Resume', value: 'Full Build Log · PDF', href: '/Gaurav_Resume.pdf', color: 'var(--accent)', shot: resumeShot, tag: 'DOWNLOAD' },
 ]
 
 // Field names match the variables already wired into the EmailJS template
@@ -67,31 +71,27 @@ function PlatformCard({ platform, index }) {
           }}
           aria-hidden="true"
         />
-        <span className="absolute inset-[1.5px] rounded-[24.5px] bg-[var(--void-0)]" aria-hidden="true" />
+        <span className="absolute inset-[1.5px] rounded-[24.5px] bg-[var(--surface-0)]" aria-hidden="true" />
 
         <div
           className="relative rounded-[24.5px] glass spotlight sheen overflow-hidden h-full"
           {...spotlight}
         >
           <div className="relative aspect-[16/10] overflow-hidden">
-            <motion.img
-              src={platform.shot}
+            <Picture
+              picture={platform.shot}
               alt={`${platform.label} preview`}
-              loading="lazy"
-              decoding="async"
-              animate={{ scale: 1.05 }}
-              whileHover={{ scale: 1.12 }}
-              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-              className="w-full h-full object-cover object-top"
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 420px"
+              className="w-full h-full object-cover object-top transition-transform duration-[600ms] ease-[cubic-bezier(0.16,1,0.3,1)] scale-105 group-hover:scale-[1.12]"
               style={{ filter: 'saturate(0.9)' }}
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-[var(--void-0)] via-[var(--void-0)]/30 to-transparent opacity-95" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[var(--surface-0)] via-[var(--surface-0)]/30 to-transparent opacity-95" />
             <div
               className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 mix-blend-overlay"
               style={{ background: `linear-gradient(140deg, ${platform.color}60, transparent 65%)` }}
             />
             <span
-              className="absolute top-3 left-3 px-2.5 py-1 rounded-full font-mono text-[9px] tracking-[0.2em] backdrop-blur-md"
+              className="absolute top-3 left-3 px-2.5 py-1 rounded-full font-mono text-[9px] tracking-[0.2em]"
               style={{
                 color: platform.color,
                 background: 'rgba(0,0,0,0.4)',
@@ -100,13 +100,13 @@ function PlatformCard({ platform, index }) {
             >
               {platform.tag}
             </span>
-            <span className="absolute bottom-3 right-3 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md text-sm transition-transform duration-300 group-hover:scale-110 group-hover:rotate-45" style={{ background: 'rgba(0,0,0,0.45)', border: `1px solid ${platform.color}60`, color: platform.color }}>
+            <span className="absolute bottom-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-sm transition-transform duration-300 group-hover:scale-110 group-hover:rotate-45" style={{ background: 'rgba(0,0,0,0.45)', border: `1px solid ${platform.color}60`, color: platform.color }}>
               ↗
             </span>
           </div>
 
           <div className="relative z-10 p-5">
-            <p className="font-mono text-[10px] tracking-widest text-[var(--ink-faint)] mb-1">{platform.label.toUpperCase()}</p>
+            <p className="font-mono text-[10px] tracking-widest text-[var(--ink-low)] mb-1">{platform.label.toUpperCase()}</p>
             <p className="font-display text-lg md:text-xl text-[var(--ink)] truncate">{platform.value}</p>
           </div>
 
@@ -189,9 +189,9 @@ export default function Contact() {
                     value={values[f.name]}
                     onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
                     placeholder=" "
-                    className="w-full bg-transparent border-b border-[var(--glass-border)] py-3 outline-none focus:border-[var(--plasma)] transition-colors duration-300 peer disabled:opacity-50"
+                    className="w-full bg-transparent border-b border-[var(--glass-border)] py-3 outline-none focus:border-[var(--accent)] transition-colors duration-300 peer disabled:opacity-50"
                   />
-                  <label className="absolute left-0 top-3 text-[var(--ink-faint)] text-sm pointer-events-none transition-all duration-300 peer-focus:-translate-y-5 peer-focus:text-xs peer-focus:text-[var(--plasma-bright)] peer-[&:not(:placeholder-shown)]:-translate-y-5 peer-[&:not(:placeholder-shown)]:text-xs">
+                  <label className="absolute left-0 top-3 text-[var(--ink-low)] text-sm pointer-events-none transition-all duration-300 peer-focus:-translate-y-5 peer-focus:text-xs peer-focus:text-[var(--accent-bright)] peer-[&:not(:placeholder-shown)]:-translate-y-5 peer-[&:not(:placeholder-shown)]:text-xs">
                     {f.label}
                   </label>
                 </div>
@@ -205,9 +205,9 @@ export default function Contact() {
                   value={values.from_message}
                   onChange={(e) => setValues((v) => ({ ...v, from_message: e.target.value }))}
                   placeholder=" "
-                  className="w-full bg-transparent border-b border-[var(--glass-border)] py-3 outline-none focus:border-[var(--plasma)] transition-colors duration-300 resize-none peer disabled:opacity-50"
+                  className="w-full bg-transparent border-b border-[var(--glass-border)] py-3 outline-none focus:border-[var(--accent)] transition-colors duration-300 resize-none peer disabled:opacity-50"
                 />
-                <label className="absolute left-0 top-3 text-[var(--ink-faint)] text-sm pointer-events-none transition-all duration-300 peer-focus:-translate-y-5 peer-focus:text-xs peer-focus:text-[var(--plasma-bright)] peer-[&:not(:placeholder-shown)]:-translate-y-5 peer-[&:not(:placeholder-shown)]:text-xs">
+                <label className="absolute left-0 top-3 text-[var(--ink-low)] text-sm pointer-events-none transition-all duration-300 peer-focus:-translate-y-5 peer-focus:text-xs peer-focus:text-[var(--accent-bright)] peer-[&:not(:placeholder-shown)]:-translate-y-5 peer-[&:not(:placeholder-shown)]:text-xs">
                   Message
                 </label>
               </div>
@@ -218,10 +218,10 @@ export default function Contact() {
                   type="submit"
                   data-cursor="send"
                   disabled={status === 'sending'}
-                  className="w-full px-7 py-4 rounded-full bg-[var(--plasma)] text-[var(--void-0)] font-medium shadow-[0_0_32px_color-mix(in_oklch,var(--plasma)_40%,transparent)] hover:shadow-[0_0_56px_color-mix(in_oklch,var(--plasma)_50%,transparent)] transition-shadow duration-500 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="w-full px-7 py-4 rounded-full bg-[var(--accent)] text-[var(--surface-0)] font-medium shadow-[0_0_32px_color-mix(in_oklch,var(--accent)_40%,transparent)] hover:shadow-[0_0_56px_color-mix(in_oklch,var(--accent)_50%,transparent)] transition-shadow duration-500 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {status === 'sending' && (
-                    <span className="w-4 h-4 rounded-full border-2 border-[var(--void-0)]/30 border-t-[var(--void-0)] animate-spin" aria-hidden="true" />
+                    <span className="w-4 h-4 rounded-full border-2 border-[var(--surface-0)]/30 border-t-[var(--surface-0)] animate-spin" aria-hidden="true" />
                   )}
                   {status === 'sending' ? 'Sending…' : status === 'success' ? 'Sent — thank you!' : 'Send Message'}
                 </MagneticButton>
@@ -237,7 +237,7 @@ export default function Contact() {
                     className="mt-4 text-sm text-emerald-400 flex items-center gap-2"
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgb(52,211,153)]" />
-                    Your message has been sent. I'll get back to you soon.
+                    Your message has been sent. I&rsquo;ll get back to you soon.
                   </motion.p>
                 )}
                 {status === 'error' && (
@@ -246,10 +246,10 @@ export default function Contact() {
                     initial={{ opacity: 0, y: -6 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
-                    className="mt-4 text-sm text-[var(--ember)]"
+                    className="mt-4 text-sm text-[var(--warm)]"
                   >
                     Something went wrong sending that. Please email me directly at{' '}
-                    <a href={`mailto:${SOCIALS.email}`} className="underline hover:text-[var(--ember-dim)]">
+                    <a href={`mailto:${SOCIALS.email}`} className="underline hover:text-[var(--warm-dim)]">
                       {SOCIALS.email}
                     </a>
                     .
@@ -272,11 +272,11 @@ function ContactLink({ label, value, href }) {
       target={external ? '_blank' : undefined}
       rel={external ? 'noopener noreferrer' : undefined}
       data-cursor="view"
-      className="group flex items-center justify-between border-b border-[var(--glass-border)] pb-4 hover:border-[var(--plasma-dim)] transition-colors duration-300"
+      className="group flex items-center justify-between border-b border-[var(--glass-border)] pb-4 hover:border-[var(--accent-dim)] transition-colors duration-300"
     >
-      <span className="font-mono text-xs tracking-widest text-[var(--ink-faint)]">{label}</span>
+      <span className="font-mono text-xs tracking-widest text-[var(--ink-low)]">{label}</span>
       <motion.span
-        className="font-display text-lg md:text-xl text-[var(--ink-dim)] group-hover:text-[var(--plasma-bright)] transition-colors duration-300"
+        className="font-display text-lg md:text-xl text-[var(--ink-mid)] group-hover:text-[var(--accent-bright)] transition-colors duration-300"
         whileHover={{ x: 6 }}
       >
         {value}

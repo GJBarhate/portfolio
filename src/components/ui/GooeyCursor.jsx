@@ -1,16 +1,15 @@
 import { useEffect, useRef } from 'react'
 import { useIsMobile } from '../../lib/useIsMobile.js'
 import { useReducedMotion } from '../../lib/useReducedMotion.js'
+import { onFrame } from '../../lib/raf.js'
 
 const BLOB_COUNT = 6
 const EASE = 0.08
 
 const THEME_COLORS = {
-  forest: [106, 153, 85],
-  ocean: [143, 184, 217],
-  golden: [224, 179, 92],
-  dawn: [217, 168, 94],
-  obsidian: [212, 184, 118],
+  eclipse: [58, 198, 201],
+  ember: [212, 184, 118],
+  paper: [31, 125, 134],
 }
 
 export default function GooeyCursor() {
@@ -36,8 +35,8 @@ export default function GooeyCursor() {
     }))
 
     const getColor = () => {
-      const theme = document.documentElement.getAttribute('data-theme') || 'obsidian'
-      return THEME_COLORS[theme] || THEME_COLORS.obsidian
+      const theme = document.documentElement.getAttribute('data-theme') || 'eclipse'
+      return THEME_COLORS[theme] || THEME_COLORS.eclipse
     }
 
     const resize = () => {
@@ -92,16 +91,15 @@ export default function GooeyCursor() {
       ctx.drawImage(tempCanvas, 0, 0, w * dpr, h * dpr, 0, 0, w, h)
       ctx.filter = 'none'
 
-      raf = requestAnimationFrame(tick)
     }
 
     resize()
     window.addEventListener('resize', resize)
     window.addEventListener('mousemove', onMove)
-    raf = requestAnimationFrame(tick)
+    const stop = onFrame(tick)
 
     return () => {
-      cancelAnimationFrame(raf)
+      stop()
       window.removeEventListener('resize', resize)
       window.removeEventListener('mousemove', onMove)
     }

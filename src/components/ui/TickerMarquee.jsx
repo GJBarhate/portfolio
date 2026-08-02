@@ -21,14 +21,14 @@ export default function TickerMarquee({ className = '' }) {
 
   return (
     <div className={'relative overflow-hidden py-6 marquee-mask ' + className}>
-      <div className="flex whitespace-nowrap gap-8 font-mono text-xs md:text-sm tracking-[0.25em] text-[var(--ink-faint)]">
+      <div className="flex whitespace-nowrap gap-8 font-mono text-xs md:text-sm tracking-[0.25em] text-[var(--ink-low)]">
         <div
           ref={trackRef}
           className="flex gap-8 marquee-speed"
           style={{ animation: `marquee 36s linear infinite`, willChange: 'transform' }}
         >
           {[...TICKER, ...TICKER].map((t, i) => (
-            <span key={i} className={t === '·' ? 'text-[var(--plasma)]' : ''}>
+            <span key={i} className={t === '·' ? 'text-[var(--accent)]' : ''}>
               {t}
             </span>
           ))}

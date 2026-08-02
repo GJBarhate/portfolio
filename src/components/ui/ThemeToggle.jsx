@@ -5,39 +5,27 @@ import { useTheme } from '../../contexts/ThemeContext.jsx'
 import { useSound } from '../../contexts/SoundContext.jsx'
 
 const TEXTURES = {
-  forest: {
-    track: 'radial-gradient(circle at 30% 25%, #5d8a44, #3e6b2c 55%, #2a4d1c)',
-    knob: 'radial-gradient(circle at 35% 30%, #6e4f33, #4a3320 60%, #2c1f12)',
-    glow: '#e8a23d',
-    label: 'FOREST',
+  eclipse: {
+    track: 'linear-gradient(155deg, #23404a, #14262e 58%, #0d1a20)',
+    knob: 'radial-gradient(circle at 32% 28%, #b8f0f2, #3ac6c9 42%, #1d8a8d 80%, #10585a)',
+    glow: '#7fe3e5',
+    label: 'ECLIPSE',
   },
-  ocean: {
-    track: 'linear-gradient(155deg, #5e88a8, #3c6486 55%, #274a66)',
-    knob: 'radial-gradient(circle at 32% 28%, rgba(255,255,255,0.95), #aecfe2 35%, #5f93b3 75%, #3f7194)',
-    glow: '#eef7ff',
-    label: 'OCEAN',
-  },
-  golden: {
-    track: 'linear-gradient(155deg, #d9a13a, #b87f1f 55%, #8f5e10)',
-    knob: 'radial-gradient(circle at 32% 28%, #ffe9b0, #e8b94d 40%, #c2901f 80%, #9c6f12)',
-    glow: '#fff0c2',
-    label: 'GOLDEN',
-  },
-  dawn: {
-    track: 'linear-gradient(155deg, #fff8ec, #ffe9c2 55%, #f3d59a)',
-    knob: 'radial-gradient(circle at 32% 28%, #ffffff, #fff3da 40%, #ffe2ab 80%, #f0c878)',
-    glow: '#fff4d6',
-    label: 'DAWN',
-  },
-  obsidian: {
+  ember: {
     track: 'linear-gradient(155deg, #23201a, #0d0c0a 60%, #060605)',
     knob: 'radial-gradient(circle at 32% 28%, #f4e3b2, #d4b876 45%, #9a7d3f 80%, #6b5426)',
     glow: '#f0e0b8',
-    label: 'OBSIDIAN',
+    label: 'EMBER',
+  },
+  paper: {
+    track: 'linear-gradient(155deg, #fff8ec, #ffe9c2 55%, #f3d59a)',
+    knob: 'radial-gradient(circle at 32% 28%, #ffffff, #d9eff1 40%, #7fc4c8 80%, #3f9296)',
+    glow: '#fff4d6',
+    label: 'PAPER',
   },
 }
 
-const ORDER = ['forest', 'ocean', 'golden', 'dawn', 'obsidian']
+const ORDER = ['eclipse', 'ember', 'paper']
 
 // Track/knob geometry — knob travel = TRACK_W - PAD*2 - KNOB, never overflows
 const TRACK_W = 92
@@ -67,7 +55,7 @@ export default function ThemeToggle() {
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
   const idx = Math.max(0, ORDER.indexOf(theme))
-  const tex = TEXTURES[theme] || TEXTURES.forest
+  const tex = TEXTURES[theme] || TEXTURES.eclipse
 
   // Close the Atelier on outside click or Escape
   useEffect(() => {
@@ -157,7 +145,7 @@ export default function ThemeToggle() {
             transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
             className="atelier-panel"
           >
-            <p className="font-mono text-[9px] tracking-[0.3em] text-[var(--ink-faint)] px-3 pt-2 pb-2">
+            <p className="font-mono text-[9px] tracking-[0.3em] text-[var(--ink-low)] px-3 pt-2 pb-2">
               THEME ATELIER
             </p>
             {themes.map((t) => (
@@ -188,7 +176,7 @@ export default function ThemeToggle() {
                       <span className="ml-2" style={{ color: t.accent }}>●</span>
                     )}
                   </span>
-                  <span className="block text-[11px] text-[var(--ink-faint)] truncate mt-0.5">
+                  <span className="block text-[11px] text-[var(--ink-low)] truncate mt-0.5">
                     {t.meaning}
                   </span>
                 </span>

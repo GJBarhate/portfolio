@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useSound } from '../../contexts/SoundContext.jsx'
 import { useReducedMotion } from '../../lib/useReducedMotion.js'
+import { onFrame, getTier } from '../../lib/raf.js'
 
 // A calm constellation of drifting nodes — a fraction of the weight of a WebGL
 // scene (plain Canvas2D, no GPU shader pipeline), and deliberately quiet so it
@@ -19,25 +20,20 @@ export default function AmbientField() {
   useEffect(() => {
     const canvas = canvasRef.current
     const ctx = canvas.getContext('2d')
-    let raf
     let w = 0
     let h = 0
     let dpr = Math.min(window.devicePixelRatio || 1, 2)
     let nodes = []
-    let visible = !document.hidden
-
-    const onVisibility = () => { visible = !document.hidden }
-    document.addEventListener('visibilitychange', onVisibility)
 
     // Theme colors are read once per theme change, NOT per stroke — calling
     // getComputedStyle inside the draw loop cost hundreds of forced style
     // reads per frame.
-    let colorA = '#6a9955'
-    let colorB = '#d0a05c'
+    let colorA = '#2fd4d4'
+    let colorB = '#8b5cf6'
     const readColors = () => {
       const root = getComputedStyle(document.documentElement)
-      colorA = root.getPropertyValue('--plasma').trim() || colorA
-      colorB = root.getPropertyValue('--cyan').trim() || colorB
+      colorA = root.getPropertyValue('--accent').trim() || colorA
+      colorB = root.getPropertyValue('--violet').trim() || colorB
     }
     readColors()
     const themeObserver = new MutationObserver(readColors)
@@ -53,7 +49,10 @@ export default function AmbientField() {
       canvas.height = h * dpr
       ctx.scale(dpr, dpr)
 
-      const count = w < 768 ? NODE_COUNT_MOBILE : NODE_COUNT_DESKTOP
+      // The link pass is O(n²), so the node count is what the tier governor
+      // has to act on.
+      const base = w < 768 ? NODE_COUNT_MOBILE : NODE_COUNT_DESKTOP
+      const count = getTier() >= 3 ? base : Math.ceil(base * 0.55)
       nodes = Array.from({ length: count }, () => ({
         x: Math.random() * w,
         y: Math.random() * h,
@@ -68,12 +67,11 @@ export default function AmbientField() {
     ro.observe(canvas.parentElement)
     resize()
 
-    let last = performance.now()
-    const tick = (now) => {
-      raf = requestAnimationFrame(tick)
-      const dt = now - last
-      if (dt < 33 || !visible) return // cap ~30fps, skip entirely when tab hidden
-      last = now
+    let acc = 0
+    const stop = onFrame((_, dt) => {
+      acc += dt
+      if (acc < 33) return // cap ~30fps
+      acc = 0
 
       ctx.clearRect(0, 0, w, h)
 
@@ -127,14 +125,12 @@ export default function AmbientField() {
         ctx.stroke()
       }
       ctx.globalAlpha = 1
-    }
-    raf = requestAnimationFrame(tick)
+    })
 
     return () => {
-      cancelAnimationFrame(raf)
+      stop()
       ro.disconnect()
       themeObserver.disconnect()
-      document.removeEventListener('visibilitychange', onVisibility)
     }
   }, [reduced])
 

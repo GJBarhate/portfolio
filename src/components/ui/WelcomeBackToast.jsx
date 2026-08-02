@@ -43,13 +43,13 @@ export default function WelcomeBackToast() {
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 welcome-toast glass rounded-full px-5 py-2.5 border border-[var(--glass-border)] flex items-center gap-3"
         >
-          <span className="w-2 h-2 rounded-full bg-[var(--plasma)] shadow-[0_0_6px_var(--plasma)]" />
-          <span className="font-mono text-[11px] tracking-wide text-[var(--ink-dim)]">
+          <span className="w-2 h-2 rounded-full bg-[var(--accent)] shadow-[0_0_6px_var(--accent)]" />
+          <span className="font-mono text-[11px] tracking-wide text-[var(--ink-mid)]">
             {message}
           </span>
           <button
             onClick={() => setShow(false)}
-            className="text-[var(--ink-faint)] hover:text-[var(--ink)] text-xs ml-1"
+            className="text-[var(--ink-low)] hover:text-[var(--ink)] text-xs ml-1"
           >
             ✕
           </button>

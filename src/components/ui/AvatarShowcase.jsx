@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
 import AvatarScrub from './AvatarScrub.jsx'
 
-const ORBIT_TAGS = ['REACT', 'NODE', 'REDIS', 'WEBRTC', 'AI']
+// Three tags and six particles, down from five and twelve: the ornament has
+// to scale with the smaller frame or it reads as clutter around it.
+const ORBIT_TAGS = ['REACT', 'NODE', 'WEBRTC']
+const PARTICLE_COUNT = 6
 
 export default function AvatarShowcase({ sectionId = 'about' }) {
   const containerRef = useRef(null)
@@ -94,13 +97,13 @@ export default function AvatarShowcase({ sectionId = 'about' }) {
       </motion.div>
 
       {/* Particle dots */}
-      {Array.from({ length: 12 }).map((_, i) => (
+      {Array.from({ length: PARTICLE_COUNT }).map((_, i) => (
         <span
           key={i}
           className="avatar-showcase__particle"
           style={{
             '--p-i': i,
-            '--p-total': 12,
+            '--p-total': PARTICLE_COUNT,
           }}
         />
       ))}

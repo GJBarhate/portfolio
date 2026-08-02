@@ -82,49 +82,90 @@
 }
 
 :root {
-  /* === Base void layers â€” deep mossy black (Deep Forest, default) === */
-  --void-0: oklch(12% 0.016 145);
-  --void-1: oklch(15% 0.02 145);
-  --void-2: oklch(19% 0.024 145);
-  --void-3: oklch(25% 0.028 145);
+  /* ══════════════════════════════════════════════════════════════════════
+     ECLIPSE — the flagship palette (P3)
 
-  /* === Signature palette: moss green Ã— oiled walnut === */
-  --plasma: oklch(70% 0.16 145);
-  --plasma-dim: oklch(48% 0.14 145);
-  --plasma-bright: oklch(83% 0.16 145);
-  --cyan: oklch(72% 0.13 70);
-  --cyan-dim: oklch(52% 0.12 70);
+     OKLCH throughout: perceptual lightness means a lightness ramp IS a
+     contrast ramp, and the same L across different hues reads as the same
+     contrast — something RGB and HSL cannot give you.
 
-  /* === 3rd accent: amber glow === */
-  --ember: oklch(78% 0.16 70);
-  --ember-dim: oklch(56% 0.14 70);
+     Contrast is targeted with APCA (stricter than WCAG 2 for light-on-dark):
+     body copy >= Lc 75, secondary >= Lc 60, large display >= Lc 45,
+     non-text UI >= Lc 30.
+     ══════════════════════════════════════════════════════════════════════ */
 
-  /* === Ink (text hierarchy) === */
-  --ink: oklch(94% 0.006 320);
-  --ink-dim: oklch(68% 0.012 320);
-  --ink-faint: oklch(44% 0.016 320);
+  /* ── Surfaces (chroma <= .02 — tinted neutrals, never coloured) ── */
+  --surface-0: oklch(13.5% 0.012 250);   /* page background */
+  --surface-1: oklch(17.0% 0.014 250);   /* cards */
+  --surface-2: oklch(21.0% 0.016 250);   /* raised / hover */
+  --surface-3: oklch(26.0% 0.018 250);   /* borders, dividers */
+  --surface-4: oklch(32.0% 0.020 250);   /* pressed / active */
+
+  /* ── Ink (APCA Lc against --surface-0) ── */
+  --ink-hi:  oklch(97% 0.004 250);  /* Lc ~97 — headings */
+  --ink:     oklch(89% 0.008 250);  /* Lc ~85 — body */
+  --ink-mid: oklch(73% 0.010 250);  /* Lc ~63 — secondary */
+  --ink-low: oklch(60% 0.012 250);  /* Lc ~46 — labels, >=14px only */
+  /* The old --ink-low (44%, Lc ~32) is gone. It was used 75 times for tech
+     chips, captions and marquee text and was the single biggest readability
+     problem on the site. De-emphasis is now done with size and weight, never
+     by dropping below a readable contrast. */
+
+  /* ── Primary accent: electric teal (sRGB-safe base; P3 upgrade below) ── */
+  --accent:        oklch(72% 0.120 195);
+  --accent-bright: oklch(85% 0.100 195);
+  --accent-dim:    oklch(54% 0.110 195);
+  --accent-ghost:  oklch(72% 0.120 195 / 0.12);
+
+  /* ── Secondary: warm amber (rewards, live badges, CTA hover) ── */
+  --warm:      oklch(80% 0.130 68);
+  --warm-dim:  oklch(60% 0.115 68);
+
+  /* ── Tertiary: violet (gradient endpoints ONLY, never text) ── */
+  --violet:     oklch(66% 0.150 302);
+  --violet-dim: oklch(48% 0.130 302);
+
+  /* ── Semantic ── */
+  --success: oklch(78% 0.16 152);
+  --danger:  oklch(68% 0.19 27);
+  /* Achievements and reward moments are the one amber-dominant role. */
+  --accent-reward: var(--warm);
+
+  /* ── Materials ── */
+  --glass-bg: color-mix(in oklch, var(--surface-1) 92%, transparent);
+  --glass-border:    oklch(100% 0 0 / 0.09);
+  --glass-highlight: oklch(100% 0 0 / 0.05);
+  --glass-blur: 16px;
+  --shadow-color:    250 30% 4%;
+
+  /* ── Signature gradient — hero name, section numerals, one CTA. `in oklch`
+        interpolation avoids the grey dead-zone sRGB hits between teal and
+        violet. ── */
+  --grad-signature: linear-gradient(
+    118deg in oklch,
+    var(--accent-bright) 0%,
+    var(--accent) 38%,
+    var(--violet) 100%
+  );
 
   /* === Scroll-linked hue grade === */
   --grade-hue: 0deg;
-  --grade-base-hue: 145;
+  --grade-base-hue: 195;
 
   /* === Glow tokens === */
   --glow-sm: 0 0 12px;
   --glow-md: 0 0 32px;
   --glow-lg: 0 0 64px;
 
-  /* === Named easing curves === */
+  /* === Named easing curves ===
+     linear() gives a true spring curve; the cubic-beziers stay for the
+     non-spring cases. */
   --ease-forge: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-snap: cubic-bezier(0.65, 0, 0.35, 1);
   --ease-anticipate: cubic-bezier(0.68, -0.6, 0.32, 1.6);
   --ease-glide: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
-
-  /* === Glass tokens === */
-  --glass-bg: color-mix(in oklch, var(--void-1) 65%, transparent);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --glass-highlight: rgba(255, 255, 255, 0.04);
-  --glass-blur: 16px;
+  --ease-spring: linear(0, 0.25 13%, 0.6 25%, 1.02 45%, 0.99 60%, 1);
 
   /* === Z-index layers === */
   --z-cursor: 9999;
@@ -135,99 +176,99 @@
   --z-content: 1;
 }
 
-/* === Theme palette overrides â€” each theme fully reskins the site, === */
-/* === not just accent colors: void layers, ink tint, and glow base hue all shift === */
-[data-theme="ocean"] {
-  --grade-base-hue: 215;
-  --void-0: oklch(16% 0.04 235);
-  --void-1: oklch(20% 0.044 235);
-  --void-2: oklch(25% 0.048 235);
-  --void-3: oklch(33% 0.05 235);
-  --plasma: oklch(80% 0.09 225);
-  --plasma-dim: oklch(58% 0.09 225);
-  --plasma-bright: oklch(90% 0.07 225);
-  --cyan: oklch(94% 0.014 225);
-  --cyan-dim: oklch(74% 0.014 225);
-  --ember: oklch(93% 0.012 225);
-  --ember-dim: oklch(72% 0.012 225);
-  --ink: oklch(95% 0.01 225);
-  --ink-dim: oklch(74% 0.018 225);
-  --ink-faint: oklch(52% 0.02 225);
-  --glass-bg: color-mix(in oklch, var(--void-1) 55%, transparent);
-  --glass-border: rgba(220, 235, 245, 0.12);
-  --glass-highlight: rgba(220, 235, 245, 0.07);
+/* OKLCH can express colours outside sRGB. The base tokens above are
+   sRGB-safe; wide-gamut displays get the fully vivid versions. */
+@supports (color: color(display-p3 1 1 1)) {
+  @media (color-gamut: p3) {
+    :root {
+      --accent:        oklch(76% 0.145 195);
+      --accent-bright: oklch(87% 0.120 195);
+      --accent-dim:    oklch(56% 0.130 195);
+      --warm:          oklch(80% 0.150 68);
+      --violet:        oklch(66% 0.170 302);
+    }
+  }
 }
-[data-theme="golden"] {
-  --grade-base-hue: 70;
-  --void-0: oklch(15% 0.035 60);
-  --void-1: oklch(19% 0.04 60);
-  --void-2: oklch(24% 0.045 60);
-  --void-3: oklch(31% 0.05 60);
-  --plasma: oklch(82% 0.16 80);
-  --plasma-dim: oklch(60% 0.15 80);
-  --plasma-bright: oklch(90% 0.14 80);
-  --cyan: oklch(93% 0.06 75);
-  --cyan-dim: oklch(72% 0.06 75);
-  --ember: oklch(88% 0.13 60);
-  --ember-dim: oklch(66% 0.12 60);
-  --ink: oklch(96% 0.015 75);
-  --ink-dim: oklch(76% 0.022 75);
-  --ink-faint: oklch(54% 0.026 75);
-  --glass-bg: color-mix(in oklch, var(--void-1) 55%, transparent);
-  --glass-border: rgba(255, 226, 170, 0.12);
-  --glass-highlight: rgba(255, 226, 170, 0.07);
-}
-/* Dawn â€” the only light palette: a pale, warm sunrise instead of a dark mode
-   with a gold tint. Void/ink roles are deliberately flipped from the other
-   three themes so text stays legible against the bright backdrop. */
-[data-theme="dawn"] {
-  --grade-base-hue: 50;
-  --void-0: oklch(97% 0.012 75);
-  --void-1: oklch(94% 0.018 75);
-  --void-2: oklch(90% 0.024 75);
-  --void-3: oklch(84% 0.03 75);
-  --plasma: oklch(68% 0.13 70);
-  --plasma-dim: oklch(78% 0.1 70);
-  --plasma-bright: oklch(58% 0.15 65);
-  --cyan: oklch(55% 0.06 35);
-  --cyan-dim: oklch(68% 0.05 35);
-  --ember: oklch(62% 0.13 40);
-  --ember-dim: oklch(74% 0.1 40);
-  --ink: oklch(24% 0.018 75);
-  --ink-dim: oklch(42% 0.022 75);
-  --ink-faint: oklch(50% 0.02 75);
-  --glass-bg: color-mix(in oklch, var(--void-0) 60%, transparent);
-  --glass-border: rgba(120, 90, 30, 0.12);
-  --glass-highlight: rgba(255, 255, 255, 0.65);
-}
-/* Obsidian â€” true black with champagne gold: the watch-brand theme.
-   Hairlines are gold, highlights are warm, chroma is nearly zero elsewhere. */
-[data-theme="obsidian"] {
+
+/* ══════════════════════════════════════════════════════════════════════
+   The other two themes. Three, not five: three half-tuned palettes cost
+   more in maintenance and inconsistency than they add. `forest`, `ocean`
+   and `golden` are gone; index.html maps their old localStorage values
+   onto these so returning visitors keep a sensible look.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* Ember — warm charcoal + champagne gold (the old obsidian, retuned). */
+[data-theme="ember"] {
   --grade-base-hue: 85;
-  --void-0: oklch(10% 0.004 85);
-  --void-1: oklch(13% 0.006 85);
-  --void-2: oklch(17% 0.008 85);
-  --void-3: oklch(23% 0.012 85);
-  --plasma: oklch(78% 0.115 85);
-  --plasma-dim: oklch(56% 0.095 85);
-  --plasma-bright: oklch(88% 0.1 90);
-  --cyan: oklch(86% 0.02 85);
-  --cyan-dim: oklch(63% 0.02 85);
-  --ember: oklch(74% 0.12 65);
-  --ember-dim: oklch(54% 0.1 65);
-  --ink: oklch(93% 0.006 85);
-  --ink-dim: oklch(70% 0.012 85);
-  --ink-faint: oklch(47% 0.014 85);
-  --glass-bg: color-mix(in oklch, var(--void-1) 62%, transparent);
-  --glass-border: rgba(212, 184, 118, 0.16);
-  --glass-highlight: rgba(255, 235, 190, 0.07);
+  --surface-0: oklch(12.5% 0.006 80);
+  --surface-1: oklch(16.0% 0.008 80);
+  --surface-2: oklch(20.0% 0.010 80);
+  --surface-3: oklch(25.0% 0.013 80);
+  --surface-4: oklch(31.0% 0.016 80);
+
+  --ink-hi:  oklch(97% 0.005 80);
+  --ink:     oklch(89% 0.008 80);
+  --ink-mid: oklch(73% 0.012 80);
+  --ink-low: oklch(60% 0.014 80);
+
+  --accent:        oklch(80% 0.105 85);
+  --accent-bright: oklch(90% 0.085 88);
+  --accent-dim:    oklch(58% 0.090 85);
+  --accent-ghost:  oklch(80% 0.105 85 / 0.12);
+
+  --warm:      oklch(76% 0.120 62);
+  --warm-dim:  oklch(56% 0.100 62);
+  --violet:     oklch(70% 0.090 40);
+  --violet-dim: oklch(50% 0.080 40);
+
+  --glass-border:    oklch(85% 0.09 85 / 0.16);
+  --glass-highlight: oklch(95% 0.06 85 / 0.07);
 }
 
-html[data-theme="dawn"] { color-scheme: light; }
+/* Paper — the light theme. APCA thresholds differ by polarity, so the ink
+   ramp is rebuilt for dark-on-light rather than inverted. */
+[data-theme="paper"] {
+  --grade-base-hue: 55;
+  --surface-0: oklch(97.5% 0.010 75);
+  --surface-1: oklch(94.5% 0.014 75);
+  --surface-2: oklch(91.0% 0.018 75);
+  --surface-3: oklch(85.0% 0.022 75);
+  --surface-4: oklch(78.0% 0.026 75);
 
-/* === Per-theme material identity === */
-/* Forest: paper grain texture */
-[data-theme="forest"] body::after {
+  --ink-hi:  oklch(18% 0.014 75);
+  --ink:     oklch(26% 0.016 75);
+  --ink-mid: oklch(42% 0.018 75);
+  --ink-low: oklch(52% 0.018 75);
+
+  /* Accents must go DARKER, not lighter, to carry contrast on a pale field. */
+  --accent:        oklch(52% 0.115 205);
+  --accent-bright: oklch(42% 0.125 205);
+  --accent-dim:    oklch(68% 0.080 205);
+  --accent-ghost:  oklch(52% 0.115 205 / 0.12);
+
+  --warm:      oklch(56% 0.130 55);
+  --warm-dim:  oklch(72% 0.090 55);
+  --violet:     oklch(48% 0.150 300);
+  --violet-dim: oklch(66% 0.100 300);
+
+  --success: oklch(52% 0.150 152);
+  --danger:  oklch(52% 0.190 27);
+
+  --glass-bg: color-mix(in oklch, var(--surface-0) 92%, transparent);
+  --glass-border:    oklch(35% 0.03 75 / 0.14);
+  --glass-highlight: oklch(100% 0 0 / 0.65);
+  --shadow-color: 55 25% 45%;
+}
+
+html[data-theme="paper"] { color-scheme: light; }
+
+/* === Per-theme material identity ===
+   The best ideas from the deleted themes survive here as texture layers, and
+   they only render at tier 3 — a fixed full-viewport paint layer is exactly
+   the kind of thing a weak machine should not be asked for. */
+
+/* Eclipse: fine paper grain + a cool caustic shimmer (from the old ocean). */
+:where([data-gfx-tier="3"]) body::after {
   content: '';
   position: fixed;
   inset: 0;
@@ -236,58 +277,19 @@ html[data-theme="dawn"] { color-scheme: light; }
   opacity: 0.03;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E");
 }
-/* Ocean: subtle wave caustics */
-[data-theme="ocean"] body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  opacity: 0.04;
-  background: repeating-conic-gradient(
-    from 0deg at 50% 50%,
-    rgba(143,184,217,0.06) 0deg,
-    transparent 30deg,
-    transparent 60deg
-  );
-  background-size: 120px 120px;
-  animation: causticsDrift 30s linear infinite;
+
+/* Ember: specular gold sheen on glass borders (from the old obsidian). */
+[data-theme="ember"] .glass {
+  border-color: color-mix(in oklch, var(--accent) 22%, transparent);
 }
-@keyframes causticsDrift {
-  to { background-position: 120px 120px; }
-}
-/* Golden: warm radial bloom */
-[data-theme="golden"] body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background: radial-gradient(ellipse 80% 60% at 50% 30%, rgba(224,179,92,0.06), transparent 70%);
-}
-/* Dawn: soft paper shadow */
-[data-theme="dawn"] body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
+
+/* Paper: soft paper shadow instead of grain (from the old dawn/golden bloom). */
+[data-theme="paper"] body::after {
   opacity: 0.5;
-  background: radial-gradient(ellipse 100% 80% at 50% 0%, rgba(255,248,232,0.5), transparent 70%),
-              radial-gradient(ellipse 80% 60% at 50% 100%, rgba(217,168,94,0.08), transparent 50%);
-}
-/* Obsidian: specular gold sheen on glass borders */
-[data-theme="obsidian"] .glass {
-  border-image: linear-gradient(135deg, rgba(212,184,118,0.25), transparent 40%, transparent 60%, rgba(212,184,118,0.15)) 1;
-  border-image-slice: 1;
-}
-[data-theme="obsidian"] .glass.rounded-2xl,
-[data-theme="obsidian"] .glass.rounded-3xl {
-  border-image: none;
-  border-color: rgba(212,184,118,0.18);
-}
-@media (prefers-reduced-motion: reduce) {
-  [data-theme="ocean"] body::after { animation: none; }
+  background-image: none;
+  background:
+    radial-gradient(ellipse 100% 80% at 50% 0%, color-mix(in oklch, var(--surface-0) 60%, transparent), transparent 70%),
+    radial-gradient(ellipse 80% 60% at 50% 100%, color-mix(in oklch, var(--warm) 8%, transparent), transparent 50%);
 }
 
 /* === Theme wipe â€” the new palette reveals as a circle from the toggle === */
@@ -304,10 +306,46 @@ html[data-theme="dawn"] { color-scheme: light; }
   to { clip-path: circle(150vmax at var(--vt-x, 50%) var(--vt-y, 50%)); }
 }
 
+/* === Project cards: Cinema ⇄ Grid (P4.2) ===
+   Each card carries view-transition-name: project-<id> in BOTH layouts, so
+   the browser morphs every card between the two arrangements instead of
+   cross-fading the whole block. Roughly ten lines for a genuinely high-end
+   moment. */
+::view-transition-group(*) {
+  animation-duration: 0.42s;
+  animation-timing-function: var(--ease-forge);
+}
+::view-transition-old(root) { z-index: 0; }
+::view-transition-new(root) { z-index: 1; }
+
+/* Section navigation from the Command Palette / Level Map cross-fades rather
+   than jumping. */
+html[data-vt='nav']::view-transition-old(root),
+html[data-vt='nav']::view-transition-new(root) {
+  animation-duration: 0.3s;
+}
+html[data-vt='nav']::view-transition-new(root) {
+  clip-path: none;
+  animation-name: vtFadeIn;
+}
+html[data-vt='nav']::view-transition-old(root) {
+  animation-name: vtFadeOut;
+}
+@keyframes vtFadeIn  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes vtFadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
 * { box-sizing: border-box; }
 
 html {
-  background: var(--void-0);
+  background: var(--surface-0);
   color-scheme: dark;
   scroll-behavior: auto;
 }
@@ -319,7 +357,7 @@ html, body {
 }
 
 body {
-  background: var(--void-0);
+  background: var(--surface-0);
   color: var(--ink);
   font-family: 'Space Grotesk', sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -327,7 +365,7 @@ body {
 }
 
 ::selection {
-  background: var(--plasma-dim);
+  background: var(--accent-dim);
   color: var(--ink);
 }
 
@@ -340,8 +378,8 @@ a { color: inherit; text-decoration: none; }
   left: 16px;
   z-index: 10000;
   padding: 8px 16px;
-  background: var(--plasma);
-  color: var(--void-0);
+  background: var(--accent);
+  color: var(--surface-0);
   border-radius: 0 0 8px 8px;
   font-size: 14px;
   font-weight: 600;
@@ -353,7 +391,7 @@ a { color: inherit; text-decoration: none; }
 
 /* === Focus visible === */
 :focus-visible {
-  outline: 2px solid var(--plasma);
+  outline: 2px solid var(--accent);
   outline-offset: 3px;
   border-radius: 4px;
 }
@@ -365,7 +403,7 @@ a { color: inherit; text-decoration: none; }
 }
 
 .text-gradient {
-  background: linear-gradient(120deg, var(--ink) 20%, var(--plasma-bright) 50%, var(--cyan) 80%, var(--plasma) 100%);
+  background: linear-gradient(120deg, var(--ink) 20%, var(--accent-bright) 50%, var(--violet) 80%, var(--accent) 100%);
   background-size: 200% 100%;
   animation: gradientShift 6s ease-in-out infinite;
   -webkit-background-clip: text;
@@ -377,7 +415,7 @@ a { color: inherit; text-decoration: none; }
   50% { background-position: 100% 50%; }
 }
 
-.glow-text { text-shadow: var(--glow-sm) var(--plasma-dim); }
+.glow-text { text-shadow: var(--glow-sm) var(--accent-dim); }
 
 .tabular { font-variant-numeric: tabular-nums; }
 
@@ -400,7 +438,9 @@ a { color: inherit; text-decoration: none; }
   left: 0;
   top: 0;
   border-radius: 9999px;
-  filter: blur(64px);
+  /* filter: blur(64px) removed. A large-radius blur is the most expensive
+     filter the browser has, and at 64px the result is indistinguishable from
+     a soft-stopped radial gradient — which is what the blobs already are. */
   opacity: 0.55;
   will-change: transform;
   mix-blend-mode: screen;
@@ -408,13 +448,14 @@ a { color: inherit; text-decoration: none; }
 .hero-aurora__blob--a {
   width: 56vmax;
   height: 56vmax;
-  background: radial-gradient(circle, var(--plasma) 0%, transparent 65%);
+  /* Multi-stop falloff replaces the removed 64px blur. */
+  background: radial-gradient(circle, var(--accent) 0%, color-mix(in oklch, var(--accent) 45%, transparent) 32%, transparent 72%);
   transform: translate3d(calc(var(--mxp) - 28vmax), calc(var(--myp) - 28vmax), 0);
 }
 .hero-aurora__blob--b {
   width: 42vmax;
   height: 42vmax;
-  background: radial-gradient(circle, var(--cyan) 0%, transparent 65%);
+  background: radial-gradient(circle, var(--violet) 0%, color-mix(in oklch, var(--violet) 45%, transparent) 32%, transparent 72%);
   opacity: 0.4;
   transform: translate3d(calc(var(--mxp2) - 21vmax), calc(var(--myp2) - 21vmax), 0);
 }
@@ -423,7 +464,7 @@ a { color: inherit; text-decoration: none; }
   height: 35vmax;
   left: 12%;
   top: 65%;
-  background: radial-gradient(circle, var(--ember) 0%, transparent 65%);
+  background: radial-gradient(circle, var(--warm) 0%, color-mix(in oklch, var(--warm) 45%, transparent) 32%, transparent 72%);
   opacity: 0.3;
   animation: auroraDriftC 26s ease-in-out infinite;
 }
@@ -435,8 +476,8 @@ a { color: inherit; text-decoration: none; }
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(to right, color-mix(in oklch, var(--plasma) 8%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in oklch, var(--plasma) 8%, transparent) 1px, transparent 1px);
+    linear-gradient(to right, color-mix(in oklch, var(--accent) 8%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklch, var(--accent) 8%, transparent) 1px, transparent 1px);
   background-size: 80px 80px;
   mask-image: radial-gradient(circle 320px at var(--mx) var(--my), #000 0%, transparent 70%);
   -webkit-mask-image: radial-gradient(circle 320px at var(--mx) var(--my), #000 0%, transparent 70%);
@@ -446,7 +487,7 @@ a { color: inherit; text-decoration: none; }
 .hero-aurora__scan {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, transparent 0%, color-mix(in oklch, var(--plasma-bright) 6%, transparent) 50%, transparent 100%);
+  background: linear-gradient(180deg, transparent 0%, color-mix(in oklch, var(--accent-bright) 6%, transparent) 50%, transparent 100%);
   background-size: 100% 8px;
   opacity: 0.25;
   pointer-events: none;
@@ -455,7 +496,7 @@ a { color: inherit; text-decoration: none; }
 .hero-aurora__vignette {
   position: absolute;
   inset: 0;
-  background: radial-gradient(ellipse 100% 80% at 50% 50%, transparent 50%, var(--void-0) 100%);
+  background: radial-gradient(ellipse 100% 80% at 50% 50%, transparent 50%, var(--surface-0) 100%);
   pointer-events: none;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -468,8 +509,8 @@ a { color: inherit; text-decoration: none; }
     120deg,
     var(--ink) 0%,
     var(--ink) 30%,
-    var(--plasma-bright) 45%,
-    var(--cyan) 55%,
+    var(--accent-bright) 45%,
+    var(--violet) 55%,
     var(--ink) 70%,
     var(--ink) 100%
   );
@@ -521,7 +562,7 @@ a { color: inherit; text-decoration: none; }
   position: absolute;
   inset: 0;
   color: transparent;
-  -webkit-text-stroke: 1px color-mix(in oklch, var(--plasma) 35%, transparent);
+  -webkit-text-stroke: 1px color-mix(in oklch, var(--accent) 35%, transparent);
   filter: blur(2px);
   opacity: 0.5;
   transform: translate(0.18em, 0.1em) scale(1.015);
@@ -545,19 +586,19 @@ a { color: inherit; text-decoration: none; }
   gap: 0.5rem;
   padding: 0.45rem 0.9rem 0.45rem 0.7rem;
   border-radius: 9999px;
-  background: var(--glass-bg);
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.05), transparent 65%),
+    color-mix(in oklch, var(--surface-1) 90%, transparent);
   border: 1px solid var(--glass-border);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 1px 0 var(--glass-highlight) inset, 0 8px 24px -12px var(--plasma-dim);
+  box-shadow: 0 1px 0 var(--glass-highlight) inset, 0 8px 24px -12px var(--accent-dim);
 }
 .hero-badge__dot {
   position: relative;
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--plasma);
-  box-shadow: 0 0 8px var(--plasma);
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
   flex-shrink: 0;
 }
 .hero-badge__dot::after {
@@ -565,7 +606,7 @@ a { color: inherit; text-decoration: none; }
   position: absolute;
   inset: -5px;
   border-radius: 50%;
-  border: 1px solid var(--plasma);
+  border: 1px solid var(--accent);
   animation: badgePulse 2s ease-out infinite;
 }
 @keyframes badgePulse {
@@ -583,8 +624,8 @@ a { color: inherit; text-decoration: none; }
   height: 3px;
   margin: 0 0.55em;
   border-radius: 50%;
-  background: var(--plasma);
-  box-shadow: 0 0 6px var(--plasma);
+  background: var(--accent);
+  box-shadow: 0 0 6px var(--accent);
   vertical-align: middle;
 }
 .hero-stat-strong {
@@ -599,8 +640,8 @@ a { color: inherit; text-decoration: none; }
   overflow: hidden;
 }
 .hero-cta--primary {
-  background: var(--plasma);
-  color: var(--void-0);
+  background: var(--accent);
+  color: var(--surface-0);
 }
 .hero-cta--primary::before {
   content: '';
@@ -614,9 +655,7 @@ a { color: inherit; text-decoration: none; }
   transform: translateX(120%);
 }
 .hero-cta--ghost {
-  background: var(--glass-bg);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: color-mix(in oklch, var(--surface-1) 88%, transparent);
 }
 .hero-cta--ghost::before {
   content: '';
@@ -624,7 +663,7 @@ a { color: inherit; text-decoration: none; }
   inset: 0;
   border-radius: inherit;
   padding: 1px;
-  background: conic-gradient(from var(--cta-angle, 0deg), var(--plasma), var(--cyan), var(--ember), var(--plasma));
+  background: conic-gradient(from var(--cta-angle, 0deg), var(--accent), var(--violet), var(--warm), var(--accent));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
@@ -632,9 +671,9 @@ a { color: inherit; text-decoration: none; }
   animation: ctaSpin 4s linear infinite;
 }
 .hero-cta--arcade {
-  background: linear-gradient(145deg, color-mix(in oklch, var(--plasma) 12%, var(--void-2)), color-mix(in oklch, var(--plasma) 6%, var(--void-1)));
-  border: 1px solid var(--plasma-dim);
-  color: var(--plasma-bright);
+  background: linear-gradient(145deg, color-mix(in oklch, var(--accent) 12%, var(--surface-2)), color-mix(in oklch, var(--accent) 6%, var(--surface-1)));
+  border: 1px solid var(--accent-dim);
+  color: var(--accent-bright);
   position: relative;
   overflow: hidden;
   animation: arcadeBtnPulse 3s ease-in-out infinite;
@@ -644,7 +683,7 @@ a { color: inherit; text-decoration: none; }
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(115deg, transparent 30%, color-mix(in oklch, var(--plasma) 20%, transparent) 48%, transparent 66%);
+  background: linear-gradient(115deg, transparent 30%, color-mix(in oklch, var(--accent) 20%, transparent) 48%, transparent 66%);
   transform: translateX(-120%);
   transition: transform 0.7s cubic-bezier(0.16,1,0.3,1);
 }
@@ -652,13 +691,13 @@ a { color: inherit; text-decoration: none; }
   transform: translateX(120%);
 }
 .hero-cta--arcade:hover {
-  border-color: var(--plasma-bright);
-  box-shadow: 0 0 30px color-mix(in oklch, var(--plasma) 25%, transparent);
+  border-color: var(--accent-bright);
+  box-shadow: 0 0 30px color-mix(in oklch, var(--accent) 25%, transparent);
   animation: arcadeBtnPulse 1.5s ease-in-out infinite;
 }
 @keyframes arcadeBtnPulse {
-  0%, 100% { box-shadow: 0 0 12px color-mix(in oklch, var(--plasma) 15%, transparent); }
-  50% { box-shadow: 0 0 24px color-mix(in oklch, var(--plasma) 30%, transparent); }
+  0%, 100% { box-shadow: 0 0 12px color-mix(in oklch, var(--accent) 15%, transparent); }
+  50% { box-shadow: 0 0 24px color-mix(in oklch, var(--accent) 30%, transparent); }
 }
 @property --cta-angle {
   syntax: '<angle>';
@@ -682,21 +721,19 @@ a { color: inherit; text-decoration: none; }
   transition: border-color 0.5s var(--ease-forge);
 }
 .deck-card:hover {
-  border-color: color-mix(in oklch, var(--accent, var(--plasma)) 35%, transparent);
+  border-color: color-mix(in oklch, var(--accent, var(--accent)) 35%, transparent);
 }
 .deck-index-chip {
   border: 1px solid var(--glass-border);
-  color: var(--ink-dim);
-  background: var(--glass-bg);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  color: var(--ink-mid);
+  background: color-mix(in oklch, var(--surface-1) 90%, transparent);
   transition: border-color 0.3s var(--ease-forge), color 0.3s var(--ease-forge),
               box-shadow 0.3s var(--ease-forge), transform 0.3s var(--ease-forge);
 }
 .deck-index-chip:hover {
   color: var(--ink);
-  border-color: color-mix(in oklch, var(--chip-accent, var(--plasma)) 60%, transparent);
-  box-shadow: 0 0 16px color-mix(in oklch, var(--chip-accent, var(--plasma)) 25%, transparent);
+  border-color: color-mix(in oklch, var(--chip-accent, var(--accent)) 60%, transparent);
+  box-shadow: 0 0 16px color-mix(in oklch, var(--chip-accent, var(--accent)) 25%, transparent);
   transform: translateY(-1px);
 }
 
@@ -704,8 +741,8 @@ a { color: inherit; text-decoration: none; }
 .project-btn {
   position: relative;
   border: 1px solid var(--glass-border);
-  color: var(--ink-dim);
-  background: color-mix(in oklch, var(--void-2) 40%, transparent);
+  color: var(--ink-mid);
+  background: color-mix(in oklch, var(--surface-2) 40%, transparent);
   /* Luxury pacing: fills breathe in over ~0.55s instead of snapping */
   transition: color 0.55s var(--ease-forge), border-color 0.55s var(--ease-forge),
               background-color 0.55s var(--ease-forge), box-shadow 0.55s var(--ease-forge),
@@ -715,18 +752,18 @@ a { color: inherit; text-decoration: none; }
   transform: translateY(-1px);
 }
 .project-btn--live {
-  border-color: color-mix(in oklch, var(--btn-accent, var(--plasma)) 45%, transparent);
+  border-color: color-mix(in oklch, var(--btn-accent, var(--accent)) 45%, transparent);
   color: var(--ink);
 }
 .project-btn--live:hover {
-  border-color: var(--btn-accent, var(--plasma));
-  background: color-mix(in oklch, var(--btn-accent, var(--plasma)) 18%, transparent);
-  box-shadow: 0 0 18px color-mix(in oklch, var(--btn-accent, var(--plasma)) 35%, transparent);
+  border-color: var(--btn-accent, var(--accent));
+  background: color-mix(in oklch, var(--btn-accent, var(--accent)) 18%, transparent);
+  box-shadow: 0 0 18px color-mix(in oklch, var(--btn-accent, var(--accent)) 35%, transparent);
 }
 .project-btn--ghost:hover {
-  border-color: var(--ink-faint);
+  border-color: var(--ink-low);
   color: var(--ink);
-  background: color-mix(in oklch, var(--void-3) 50%, transparent);
+  background: color-mix(in oklch, var(--surface-3) 50%, transparent);
 }
 
 /* === Scroll progress bar â€” fixed top, gradient fill driven by scroll % === */
@@ -738,8 +775,8 @@ a { color: inherit; text-decoration: none; }
   height: 2.5px;
   z-index: 9999;
   transform-origin: 0% 50%;
-  background: linear-gradient(90deg, var(--plasma), var(--cyan), var(--ember));
-  box-shadow: 0 0 12px var(--plasma-dim);
+  background: linear-gradient(90deg, var(--accent), var(--violet), var(--warm));
+  box-shadow: 0 0 12px var(--accent-dim);
 }
 
 /* === Film grain overlay (site-wide) ===
@@ -779,25 +816,85 @@ a { color: inherit; text-decoration: none; }
   transition: background 0.6s var(--ease-forge);
 }
 
+/* === Hero mesh gradient — the default hero backdrop ===
+   Three radial-gradient layers drifting on registered custom properties.
+   Everything animates on the compositor (transform/opacity only), so this
+   costs ~0 ms of main thread where the fluid simulation cost ~24 shader
+   passes per frame. The WebGL sim layers on top of this only on tier-3
+   machines with 8+ cores. */
+.hero-mesh {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 40%, var(--surface-1), var(--surface-0) 72%);
+}
+.hero-mesh__layer {
+  position: absolute;
+  border-radius: 50%;
+  /* Pre-baked soft-edged gradients instead of filter: blur(64px) — visually
+     indistinguishable at this radius and free by comparison. */
+  will-change: transform;
+}
+.hero-mesh__layer--a {
+  inset: -25% 30% 35% -20%;
+  background: radial-gradient(closest-side, color-mix(in oklch, var(--accent) 42%, transparent), transparent 100%);
+  opacity: 0.5;
+}
+.hero-mesh__layer--b {
+  inset: 20% -25% -30% 35%;
+  background: radial-gradient(closest-side, color-mix(in oklch, var(--violet) 38%, transparent), transparent 100%);
+  opacity: 0.42;
+}
+.hero-mesh__layer--c {
+  inset: -15% -10% 45% 45%;
+  background: radial-gradient(closest-side, color-mix(in oklch, var(--warm) 26%, transparent), transparent 100%);
+  opacity: 0.3;
+}
+.hero-mesh[data-animated='true'] .hero-mesh__layer--a { animation: heroMeshA 26s ease-in-out infinite alternate; }
+.hero-mesh[data-animated='true'] .hero-mesh__layer--b { animation: heroMeshB 32s ease-in-out infinite alternate; }
+.hero-mesh[data-animated='true'] .hero-mesh__layer--c { animation: heroMeshC 22s ease-in-out infinite alternate; }
+
+@keyframes heroMeshA {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(6%, 4%, 0) scale(1.12); }
+}
+@keyframes heroMeshB {
+  from { transform: translate3d(0, 0, 0) scale(1.06); }
+  to   { transform: translate3d(-7%, -5%, 0) scale(0.94); }
+}
+@keyframes heroMeshC {
+  from { transform: translate3d(0, 0, 0) scale(0.96); }
+  to   { transform: translate3d(4%, -6%, 0) scale(1.1); }
+}
+/* Below tier 3 the drift stops; the gradient itself stays. */
+:where([data-gfx-tier='1'], [data-gfx-tier='2']) .hero-mesh__layer {
+  animation: none !important;
+  will-change: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-mesh__layer { animation: none !important; will-change: auto; }
+}
+
 /* === Hero poster (CSS fallback for WebGL) === */
 .hero-poster {
   background:
-    radial-gradient(ellipse 90% 80% at 35% 40%, color-mix(in oklch, var(--plasma-dim) 50%, transparent), transparent 55%),
-    radial-gradient(ellipse 60% 50% at 70% 60%, color-mix(in oklch, var(--cyan-dim) 35%, transparent), transparent 50%),
-    radial-gradient(circle at 50% 50%, var(--void-1), var(--void-0) 70%);
+    radial-gradient(ellipse 90% 80% at 35% 40%, color-mix(in oklch, var(--accent-dim) 50%, transparent), transparent 55%),
+    radial-gradient(ellipse 60% 50% at 70% 60%, color-mix(in oklch, var(--violet-dim) 35%, transparent), transparent 50%),
+    radial-gradient(circle at 50% 50%, var(--surface-1), var(--surface-0) 70%);
 }
 
 /* === Mesh gradient section backgrounds === */
 .mesh-gradient-a {
   background:
-    radial-gradient(ellipse 100% 70% at 20% 10%, color-mix(in oklch, var(--plasma) 16%, transparent), transparent 55%),
-    radial-gradient(ellipse 80% 60% at 80% 90%, color-mix(in oklch, var(--cyan) 12%, transparent), transparent 55%);
+    radial-gradient(ellipse 100% 70% at 20% 10%, color-mix(in oklch, var(--accent) 16%, transparent), transparent 55%),
+    radial-gradient(ellipse 80% 60% at 80% 90%, color-mix(in oklch, var(--violet) 12%, transparent), transparent 55%);
   transition: background 0.6s var(--ease-forge);
 }
 .mesh-gradient-b {
   background:
-    radial-gradient(ellipse 90% 60% at 70% 20%, color-mix(in oklch, var(--cyan) 18%, transparent), transparent 55%),
-    radial-gradient(ellipse 70% 50% at 20% 80%, color-mix(in oklch, var(--plasma) 12%, transparent), transparent 55%);
+    radial-gradient(ellipse 90% 60% at 70% 20%, color-mix(in oklch, var(--violet) 18%, transparent), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 20% 80%, color-mix(in oklch, var(--accent) 12%, transparent), transparent 55%);
   transition: background 0.6s var(--ease-forge);
 }
 /* Animated mesh drift for sections */
@@ -814,15 +911,24 @@ a { color: inherit; text-decoration: none; }
 /* === Glass panel â€” with bevel & emboss (AE layer-style port):
    1px light top hairline + 1px dark bottom edge makes surfaces read as
    machined objects instead of flat rectangles. === */
+/* `.glass` appears on nearly every card. A backdrop-filter forces the
+   compositor to re-read and re-blur the layer beneath it on every scroll
+   frame, and there were 22 of these on the page. A layered opaque gradient is
+   visually near-identical over an opaque page background and costs nothing.
+   Elements that genuinely float over moving content opt in with .glass--live. */
 .glass {
-  background: var(--glass-bg);
-  backdrop-filter: blur(var(--glass-blur));
-  -webkit-backdrop-filter: blur(var(--glass-blur));
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.04), transparent 60%),
+    color-mix(in oklch, var(--surface-1) 92%, transparent);
   border: 1px solid var(--glass-border);
   box-shadow:
     inset 0 1px 0 0 var(--glass-highlight),
     inset 0 -1px 0 0 rgba(0, 0, 0, 0.28);
   transition: background-color 0.6s var(--ease-forge), border-color 0.6s var(--ease-forge);
+}
+.glass--live {
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
 }
 
 /* === Surface system â€” elevation ladder (dual-layer: tight dark + wide soft) === */
@@ -832,7 +938,7 @@ a { color: inherit; text-decoration: none; }
 
 /* Recessed well â€” inputs, code panes, game screens */
 .well {
-  background: color-mix(in oklch, var(--void-0) 75%, transparent);
+  background: color-mix(in oklch, var(--surface-0) 75%, transparent);
   box-shadow:
     inset 0 2px 6px rgba(0, 0, 0, 0.45),
     inset 0 1px 2px rgba(0, 0, 0, 0.55),
@@ -863,7 +969,7 @@ a { color: inherit; text-decoration: none; }
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle 250px at var(--mx) var(--my), color-mix(in oklch, var(--plasma) 15%, transparent), transparent 50%);
+  background: radial-gradient(circle 250px at var(--mx) var(--my), color-mix(in oklch, var(--accent) 15%, transparent), transparent 50%);
   opacity: 0;
   transition: opacity 0.4s var(--ease-forge);
   pointer-events: none;
@@ -919,7 +1025,7 @@ a { color: inherit; text-decoration: none; }
   font-size: clamp(3.5rem, 20vw, 18rem);
   font-weight: 700;
   color: transparent;
-  -webkit-text-stroke: 1px color-mix(in oklch, var(--ink-faint) 15%, transparent);
+  -webkit-text-stroke: 1px color-mix(in oklch, var(--ink-low) 15%, transparent);
   line-height: 1;
   pointer-events: none;
   user-select: none;
@@ -928,16 +1034,16 @@ a { color: inherit; text-decoration: none; }
   overflow: hidden;
 }
 
-/* Editorial numerals (§4.6) — Obsidian gets a Rolex-style hairline gold
-   gradient fill instead of the plain faint outline used elsewhere. */
-[data-theme="obsidian"] .ghost-numeral {
-  -webkit-text-stroke: 0.5px color-mix(in oklch, var(--plasma-bright) 55%, transparent);
+/* Editorial numerals (§4.6) — Ember gets a Rolex-style hairline gold
+   gradient fill instead of the plain outline used elsewhere. */
+[data-theme="ember"] .ghost-numeral {
+  -webkit-text-stroke: 0.5px color-mix(in oklch, var(--accent-bright) 55%, transparent);
   background-image: linear-gradient(
     135deg,
-    color-mix(in oklch, var(--plasma-bright) 90%, white) 0%,
-    var(--plasma-bright) 35%,
-    color-mix(in oklch, var(--plasma-bright) 55%, black) 65%,
-    var(--plasma-bright) 100%
+    color-mix(in oklch, var(--accent-bright) 90%, white) 0%,
+    var(--accent-bright) 35%,
+    color-mix(in oklch, var(--accent-bright) 55%, black) 65%,
+    var(--accent-bright) 100%
   );
   -webkit-background-clip: text;
   background-clip: text;
@@ -968,8 +1074,10 @@ a { color: inherit; text-decoration: none; }
    ════════════════════════════════════════════════════════════════ */
 .avatar-showcase {
   position: relative;
-  width: 100%;
-  max-width: 280px;
+  /* Was width:100% / max-width:280px, which the orbit rings then extended to
+     roughly 360px of visual footprint. */
+  width: clamp(150px, 18vw, 210px);
+  max-width: 210px;
   margin: 0 auto;
   perspective: 900px;
   z-index: 1;
@@ -978,9 +1086,9 @@ a { color: inherit; text-decoration: none; }
 /* Outer ambient glow */
 .avatar-showcase__glow {
   position: absolute;
-  inset: -30%;
+  inset: -18%;
   border-radius: 50%;
-  background: radial-gradient(circle, var(--plasma-dim) 0%, transparent 65%);
+  background: radial-gradient(circle, var(--accent-dim) 0%, transparent 65%);
   opacity: 0.3;
   animation: showcaseGlowPulse 4s ease-in-out infinite;
   pointer-events: none;
@@ -994,31 +1102,33 @@ a { color: inherit; text-decoration: none; }
 /* Orbital rings */
 .avatar-showcase__orbit {
   position: absolute;
-  inset: -15%;
-  border: 1px solid var(--plasma-dim);
+  inset: -10%;
+  border: 1px solid var(--accent-dim);
   border-radius: 50%;
   opacity: 0.25;
   pointer-events: none;
   z-index: 0;
 }
+/* Infinite rotations run only in the viewport, only above reduced-motion, and
+   only on tier 3 — see the [data-gfx-tier] guard at the end of this file. */
 .avatar-showcase__orbit--1 {
-  inset: -18%;
+  inset: -10%;
   animation: orbitSpin 18s linear infinite;
   border-style: dashed;
-  border-color: var(--plasma-dim);
+  border-color: var(--accent-dim);
 }
 .avatar-showcase__orbit--2 {
-  inset: -28%;
+  inset: -18%;
   animation: orbitSpin 28s linear infinite reverse;
   border-style: dotted;
-  border-color: var(--cyan-dim, var(--plasma-dim));
+  border-color: var(--violet, var(--accent-dim));
   opacity: 0.15;
 }
 .avatar-showcase__orbit--3 {
-  inset: -38%;
+  inset: -26%;
   animation: orbitSpin 40s linear infinite;
   border-width: 0.5px;
-  border-color: var(--ember-dim, var(--plasma-dim));
+  border-color: var(--warm, var(--accent-dim));
   opacity: 0.1;
 }
 @keyframes orbitSpin {
@@ -1034,9 +1144,9 @@ a { color: inherit; text-decoration: none; }
   font-family: var(--font-mono);
   font-size: 9px;
   letter-spacing: 0.12em;
-  color: var(--plasma-bright);
-  background: color-mix(in oklch, var(--void-1) 85%, transparent);
-  border: 1px solid var(--plasma-dim);
+  color: var(--accent-bright);
+  background: color-mix(in oklch, var(--surface-1) 85%, transparent);
+  border: 1px solid var(--accent-dim);
   padding: 2px 8px;
   border-radius: 999px;
   white-space: nowrap;
@@ -1065,7 +1175,7 @@ a { color: inherit; text-decoration: none; }
   overflow: hidden;
   border: 1px solid var(--glass-border);
   box-shadow:
-    0 0 40px color-mix(in oklch, var(--plasma) 15%, transparent),
+    0 0 40px color-mix(in oklch, var(--accent) 15%, transparent),
     0 20px 60px rgba(0, 0, 0, 0.4),
     inset 0 1px 0 color-mix(in oklch, white 6%, transparent);
   transition: box-shadow 0.5s ease;
@@ -1073,7 +1183,7 @@ a { color: inherit; text-decoration: none; }
 }
 .avatar-showcase:hover .avatar-showcase__card {
   box-shadow:
-    0 0 60px color-mix(in oklch, var(--plasma) 25%, transparent),
+    0 0 60px color-mix(in oklch, var(--accent) 25%, transparent),
     0 25px 80px rgba(0, 0, 0, 0.5),
     inset 0 1px 0 color-mix(in oklch, white 8%, transparent);
 }
@@ -1088,7 +1198,7 @@ a { color: inherit; text-decoration: none; }
     180deg,
     transparent 0%,
     transparent 40%,
-    color-mix(in oklch, var(--plasma-bright) 12%, transparent) 50%,
+    color-mix(in oklch, var(--accent-bright) 12%, transparent) 50%,
     transparent 60%,
     transparent 100%
   );
@@ -1125,23 +1235,23 @@ a { color: inherit; text-decoration: none; }
 }
 .avatar-showcase__corner--tl {
   top: 6px; left: 6px;
-  border-top: 1.5px solid var(--plasma-bright);
-  border-left: 1.5px solid var(--plasma-bright);
+  border-top: 1.5px solid var(--accent-bright);
+  border-left: 1.5px solid var(--accent-bright);
 }
 .avatar-showcase__corner--tr {
   top: 6px; right: 6px;
-  border-top: 1.5px solid var(--plasma-bright);
-  border-right: 1.5px solid var(--plasma-bright);
+  border-top: 1.5px solid var(--accent-bright);
+  border-right: 1.5px solid var(--accent-bright);
 }
 .avatar-showcase__corner--bl {
   bottom: 6px; left: 6px;
-  border-bottom: 1.5px solid var(--cyan);
-  border-left: 1.5px solid var(--cyan);
+  border-bottom: 1.5px solid var(--violet);
+  border-left: 1.5px solid var(--violet);
 }
 .avatar-showcase__corner--br {
   bottom: 6px; right: 6px;
-  border-bottom: 1.5px solid var(--cyan);
-  border-right: 1.5px solid var(--cyan);
+  border-bottom: 1.5px solid var(--violet);
+  border-right: 1.5px solid var(--violet);
 }
 
 /* Status indicator */
@@ -1156,18 +1266,17 @@ a { color: inherit; text-decoration: none; }
   font-family: var(--font-mono);
   font-size: 9px;
   letter-spacing: 0.15em;
-  color: var(--plasma-bright);
-  background: color-mix(in oklch, var(--void-1) 90%, transparent);
-  backdrop-filter: blur(8px);
+  color: var(--accent-bright);
+  background: color-mix(in oklch, var(--surface-1) 94%, transparent);
   padding: 4px 10px;
   border-radius: 999px;
-  border: 1px solid var(--plasma-dim);
+  border: 1px solid var(--accent-dim);
 }
 .avatar-showcase__status-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--plasma-bright);
+  background: var(--accent-bright);
   animation: statusBlink 2s ease-in-out infinite;
 }
 @keyframes statusBlink {
@@ -1184,7 +1293,7 @@ a { color: inherit; text-decoration: none; }
   width: 3px;
   height: 3px;
   border-radius: 50%;
-  background: var(--plasma-bright);
+  background: var(--accent-bright);
   pointer-events: none;
   z-index: 0;
   opacity: 0;
@@ -1245,7 +1354,7 @@ a { color: inherit; text-decoration: none; }
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent, var(--plasma), var(--cyan), transparent);
+  background: linear-gradient(90deg, transparent, var(--accent), var(--violet), transparent);
   opacity: 0.5;
 }
 .section-divider::after {
@@ -1256,7 +1365,7 @@ a { color: inherit; text-decoration: none; }
   transform: translateX(-50%);
   width: 50%;
   height: 7px;
-  background: linear-gradient(90deg, transparent, var(--plasma-dim), transparent);
+  background: linear-gradient(90deg, transparent, var(--accent-dim), transparent);
   filter: blur(4px);
 }
 
@@ -1266,23 +1375,23 @@ a { color: inherit; text-decoration: none; }
   align-items: center;
   gap: 8px;
   padding: 4px 14px 4px 10px;
-  border: 1px solid var(--plasma-dim);
+  border: 1px solid var(--accent-dim);
   border-radius: 999px;
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
   letter-spacing: 0.25em;
-  color: var(--plasma-bright);
-  background: color-mix(in oklch, var(--plasma) 8%, transparent);
-  box-shadow: 0 0 12px color-mix(in oklch, var(--plasma) 15%, transparent),
-              inset 0 0 12px color-mix(in oklch, var(--plasma) 5%, transparent);
+  color: var(--accent-bright);
+  background: color-mix(in oklch, var(--accent) 8%, transparent);
+  box-shadow: 0 0 12px color-mix(in oklch, var(--accent) 15%, transparent),
+              inset 0 0 12px color-mix(in oklch, var(--accent) 5%, transparent);
 }
 .level-badge::before {
   content: '';
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--plasma);
-  box-shadow: 0 0 8px var(--plasma);
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
   animation: levelPulse 2s ease-in-out infinite;
 }
 @keyframes levelPulse {
@@ -1309,7 +1418,7 @@ a { color: inherit; text-decoration: none; }
   left: 0;
   width: 100%;
   height: 1.5px;
-  background: var(--plasma);
+  background: var(--accent);
   transform: scaleX(0);
   transform-origin: right;
   transition: transform 0.4s var(--ease-forge);
@@ -1327,8 +1436,8 @@ a { color: inherit; text-decoration: none; }
   transition: box-shadow 0.5s var(--ease-forge), border-color 0.5s var(--ease-forge);
 }
 .glass-glow:hover {
-  border-color: color-mix(in oklch, var(--plasma) 30%, transparent);
-  box-shadow: 0 0 32px color-mix(in oklch, var(--plasma) 12%, transparent),
+  border-color: color-mix(in oklch, var(--accent) 30%, transparent);
+  box-shadow: 0 0 32px color-mix(in oklch, var(--accent) 12%, transparent),
               inset 0 1px 0 0 rgba(255,255,255,0.06);
 }
 
@@ -1340,7 +1449,7 @@ a { color: inherit; text-decoration: none; }
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--plasma-bright);
+  background: var(--accent-bright);
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.2s;
@@ -1351,7 +1460,7 @@ a { color: inherit; text-decoration: none; }
   top: 0;
   left: 0;
   border-radius: 50%;
-  background: var(--plasma);
+  background: var(--accent);
   pointer-events: none;
   z-index: 9998;
   opacity: 0;
@@ -1379,20 +1488,20 @@ section:not(#hero) {
 
 /* === Theme-aware scrollbar === */
 ::-webkit-scrollbar { width: 11px; }
-::-webkit-scrollbar-track { background: var(--void-0); }
+::-webkit-scrollbar-track { background: var(--surface-0); }
 ::-webkit-scrollbar-thumb {
-  background: var(--void-3);
+  background: var(--surface-3);
   border-radius: 8px;
-  border: 3px solid var(--void-0);
+  border: 3px solid var(--surface-0);
 }
-::-webkit-scrollbar-thumb:hover { background: var(--plasma-dim); }
+::-webkit-scrollbar-thumb:hover { background: var(--accent-dim); }
 
 /* === Preloader â€” 00â†’100 counter, then the curtain lifts === */
 .preloader {
   position: fixed;
   inset: 0;
   z-index: var(--z-preloader);
-  background: var(--void-0);
+  background: var(--surface-0);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1412,27 +1521,27 @@ section:not(#hero) {
   width: 72px;
   height: 72px;
   border-radius: 9999px;
-  border: 1px solid var(--plasma-dim);
+  border: 1px solid var(--accent-dim);
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: 'Clash Display', sans-serif;
   font-size: 22px;
   letter-spacing: 0.08em;
-  color: var(--plasma-bright);
-  box-shadow: 0 0 32px color-mix(in oklch, var(--plasma) 22%, transparent),
-              inset 0 0 18px color-mix(in oklch, var(--plasma) 8%, transparent);
+  color: var(--accent-bright);
+  box-shadow: 0 0 32px color-mix(in oklch, var(--accent) 22%, transparent),
+              inset 0 0 18px color-mix(in oklch, var(--accent) 8%, transparent);
 }
 .preloader__bar {
   width: min(280px, 60vw);
   height: 1px;
-  background: var(--void-3);
+  background: var(--surface-3);
   overflow: hidden;
 }
 .preloader__bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--plasma), var(--cyan));
-  box-shadow: 0 0 8px var(--plasma);
+  background: linear-gradient(90deg, var(--accent), var(--violet));
+  box-shadow: 0 0 8px var(--accent);
   transform-origin: 0 50%;
 }
 .preloader__count {
@@ -1444,7 +1553,7 @@ section:not(#hero) {
   font-weight: 600;
   line-height: 1;
   color: transparent;
-  -webkit-text-stroke: 1px color-mix(in oklch, var(--plasma) 55%, transparent);
+  -webkit-text-stroke: 1px color-mix(in oklch, var(--accent) 55%, transparent);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1456,7 +1565,7 @@ section:not(#hero) {
   width: min(320px, calc(100vw - 32px));
   border-radius: 18px;
   padding: 10px;
-  background: color-mix(in oklch, var(--void-1) 88%, transparent);
+  background: color-mix(in oklch, var(--surface-1) 88%, transparent);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--glass-border);
@@ -1478,13 +1587,13 @@ section:not(#hero) {
               transform 0.35s var(--ease-forge);
 }
 .atelier-card:hover {
-  background: color-mix(in oklch, var(--card-accent, var(--plasma)) 8%, transparent);
-  border-color: color-mix(in oklch, var(--card-accent, var(--plasma)) 40%, transparent);
+  background: color-mix(in oklch, var(--card-accent, var(--accent)) 8%, transparent);
+  border-color: color-mix(in oklch, var(--card-accent, var(--accent)) 40%, transparent);
   transform: translateX(2px);
 }
 .atelier-card[aria-pressed="true"] {
-  border-color: color-mix(in oklch, var(--card-accent, var(--plasma)) 60%, transparent);
-  background: color-mix(in oklch, var(--card-accent, var(--plasma)) 10%, transparent);
+  border-color: color-mix(in oklch, var(--card-accent, var(--accent)) 60%, transparent);
+  background: color-mix(in oklch, var(--card-accent, var(--accent)) 10%, transparent);
 }
 .atelier-swatch {
   position: relative;
@@ -1551,54 +1660,7 @@ section:not(#hero) {
   .section-rhythm { animation: none; }
 }
 
-/* === Claymorphic (game UI) style === */
-.clay {
-  background: linear-gradient(145deg, var(--void-2), var(--void-1));
-  box-shadow:
-    0 4px 8px rgba(0,0,0,0.4),
-    0 8px 16px rgba(0,0,0,0.3),
-    inset 0 1px 0 rgba(255,255,255,0.1),
-    inset 0 -2px 4px rgba(0,0,0,0.3);
-  border: 1px solid var(--glass-border);
-  border-radius: 16px;
-}
-.clay--inset {
-  box-shadow:
-    inset 0 3px 8px rgba(0,0,0,0.5),
-    inset 0 1px 2px rgba(0,0,0,0.4),
-    0 1px 0 var(--glass-highlight);
-}
-.clay-btn {
-  background: linear-gradient(145deg, var(--void-1), var(--void-2));
-  box-shadow:
-    0 4px 6px rgba(0,0,0,0.4),
-    0 1px 3px rgba(0,0,0,0.3),
-    inset 0 1px 0 rgba(255,255,255,0.08);
-  border: 1px solid var(--glass-border);
-  transition: all 0.2s var(--ease-forge);
-}
-.clay-btn:hover {
-  transform: translateY(-1px);
-  box-shadow:
-    0 6px 12px rgba(0,0,0,0.5),
-    0 2px 4px rgba(0,0,0,0.3),
-    inset 0 1px 0 rgba(255,255,255,0.1);
-}
-.clay-btn:active {
-  transform: translateY(0);
-  box-shadow: inset 0 3px 8px rgba(0,0,0,0.5);
-}
 
-/* === Scanline (arcade CRT) === */
-.scanline::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.12) 2px, rgba(0,0,0,0.12) 4px);
-  pointer-events: none;
-  z-index: 1;
-  border-radius: inherit;
-}
 
 /* === Animated running-light gradient border === */
 .border-run {
@@ -1611,7 +1673,7 @@ section:not(#hero) {
   inset: 0;
   border-radius: inherit;
   padding: 1.5px;
-  background: conic-gradient(from var(--border-angle, 0deg), var(--plasma), var(--cyan), var(--ember), var(--plasma));
+  background: conic-gradient(from var(--border-angle, 0deg), var(--accent), var(--violet), var(--warm), var(--accent));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
@@ -1649,10 +1711,11 @@ section:not(#hero) {
   position: absolute;
   border-radius: 50%;
   pointer-events: none;
-  filter: blur(40px);
+  /* blur(40px) replaced by a pre-baked soft gradient edge. */
+  opacity: 0.55;
   mix-blend-mode: screen;
   animation: blobMorph 8s ease-in-out infinite;
-  will-change: transform, border-radius;
+  will-change: transform;
 }
 
 /* === Variable-font weight/width morph === */
@@ -1670,7 +1733,7 @@ section:not(#hero) {
   font-stretch: 120%;
   letter-spacing: -0.02em;
   scale: 1.02;
-  color: var(--plasma-bright);
+  color: var(--accent-bright);
 }
 
 /* === SVG self-draw animation === */
@@ -1688,7 +1751,7 @@ section:not(#hero) {
 .curtain-panel {
   position: absolute;
   inset: 0;
-  background: var(--void-0);
+  background: var(--surface-0);
   clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
   transition: clip-path 0.8s var(--ease-forge);
 }
@@ -1696,19 +1759,11 @@ section:not(#hero) {
   clip-path: polygon(0 0, 100% 0, 100% 0, 0 0);
 }
 
-/* === Insert coin blink === */
-@keyframes insertCoin {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.2; }
-}
-.insert-coin {
-  animation: insertCoin 1.6s ease-in-out infinite;
-}
 
 /* === Navbar arcade button — visible, inviting, retro-lit === */
 @keyframes arcadePulse {
-  0%, 100% { box-shadow: 0 0 8px var(--plasma-dim), 0 0 20px color-mix(in oklch, var(--plasma) 20%, transparent); border-color: var(--plasma-dim); }
-  50% { box-shadow: 0 0 14px var(--plasma), 0 0 35px color-mix(in oklch, var(--plasma) 30%, transparent); border-color: var(--plasma); }
+  0%, 100% { box-shadow: 0 0 8px var(--accent-dim), 0 0 20px color-mix(in oklch, var(--accent) 20%, transparent); border-color: var(--accent-dim); }
+  50% { box-shadow: 0 0 14px var(--accent), 0 0 35px color-mix(in oklch, var(--accent) 30%, transparent); border-color: var(--accent); }
 }
 @keyframes arcadeFlicker {
   0%, 100% { opacity: 1; }
@@ -1721,14 +1776,14 @@ section:not(#hero) {
   74% { opacity: 1; }
 }
 .arcade-nav-btn {
-  border: 1px solid var(--plasma-dim);
-  background: linear-gradient(145deg, color-mix(in oklch, var(--plasma) 8%, var(--void-2)), color-mix(in oklch, var(--plasma) 4%, var(--void-1)));
+  border: 1px solid var(--accent-dim);
+  background: linear-gradient(145deg, color-mix(in oklch, var(--accent) 8%, var(--surface-2)), color-mix(in oklch, var(--accent) 4%, var(--surface-1)));
   animation: arcadePulse 3s ease-in-out infinite;
   transition: all 0.3s var(--ease-forge);
 }
 .arcade-nav-btn:hover {
-  background: linear-gradient(145deg, color-mix(in oklch, var(--plasma) 18%, var(--void-2)), color-mix(in oklch, var(--plasma) 10%, var(--void-1)));
-  border-color: var(--plasma-bright);
+  background: linear-gradient(145deg, color-mix(in oklch, var(--accent) 18%, var(--surface-2)), color-mix(in oklch, var(--accent) 10%, var(--surface-1)));
+  border-color: var(--accent-bright);
   animation: arcadePulse 1.5s ease-in-out infinite;
   transform: scale(1.04);
 }
@@ -1749,31 +1804,7 @@ section:not(#hero) {
   animation: pulse 2s ease-in-out infinite;
 }
 
-/* === Arcade cabinet === */
-.arcade-cabinet {
-  background: linear-gradient(180deg, var(--void-1) 0%, var(--void-0) 100%);
-  border: 2px solid var(--plasma-dim);
-  box-shadow:
-    0 0 40px color-mix(in oklch, var(--plasma) 15%, transparent),
-    inset 0 0 40px rgba(0,0,0,0.5);
-  position: relative;
-  overflow: hidden;
-}
-.arcade-cabinet::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.05) 3px, rgba(0,0,0,0.05) 6px);
-  pointer-events: none;
-}
 
-/* === Arcade game area — safe rendering zone === */
-.arcade-game-area {
-  min-height: 200px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
 
 /* === Global layout grid: 12 columns, 24px gutters, max-w-1200px === */
 .layout-grid {
@@ -1817,15 +1848,15 @@ section:not(#hero) {
 .shadow-e4 { box-shadow: 0 4px 12px rgba(0,0,0,0.5), 0 48px 100px -36px rgba(0,0,0,0.65); }
 
 .well-deep {
-  background: color-mix(in oklch, var(--void-0) 65%, transparent);
+  background: color-mix(in oklch, var(--surface-0) 65%, transparent);
   box-shadow: inset 0 3px 10px rgba(0,0,0,0.55), inset 0 1px 3px rgba(0,0,0,0.5), 0 1px 0 var(--glass-highlight);
 }
 
-.glow-outer { box-shadow: 0 0 20px color-mix(in oklch, var(--plasma) 25%, transparent); }
-.glow-outer--accent { box-shadow: 0 0 28px color-mix(in oklch, var(--accent, var(--plasma)) 30%, transparent); }
+.glow-outer { box-shadow: 0 0 20px color-mix(in oklch, var(--accent) 25%, transparent); }
+.glow-outer--accent { box-shadow: 0 0 28px color-mix(in oklch, var(--accent, var(--accent)) 30%, transparent); }
 
-.glow-inner { box-shadow: inset 0 0 24px color-mix(in oklch, var(--plasma) 12%, transparent); }
-.glow-inner--active { box-shadow: inset 0 0 32px color-mix(in oklch, var(--plasma) 20%, transparent); }
+.glow-inner { box-shadow: inset 0 0 24px color-mix(in oklch, var(--accent) 12%, transparent); }
+.glow-inner--active { box-shadow: inset 0 0 32px color-mix(in oklch, var(--accent) 20%, transparent); }
 
 .bevel {
   box-shadow: inset 0 1px 0 0 var(--glass-highlight), inset 0 -1px 0 0 rgba(0,0,0,0.35);
@@ -1838,14 +1869,14 @@ section:not(#hero) {
 .color-overlay { position: relative; }
 .color-overlay::after {
   content: ''; position: absolute; inset: 0; border-radius: inherit;
-  background: color-mix(in oklch, var(--plasma) 20%, transparent);
+  background: color-mix(in oklch, var(--accent) 20%, transparent);
   mix-blend-mode: color; pointer-events: none; z-index: 1;
 }
 
 /* Conic sheen text (§5 shortlist) — a rotating light band clipped to the
    glyphs, distinct from .text-gradient's linear shift. */
 .text-gradient--sweep {
-  background: conic-gradient(from var(--sweep-angle, 0deg), var(--ink) 0%, var(--plasma-bright) 15%, var(--ink) 30%, var(--ink) 100%);
+  background: conic-gradient(from var(--sweep-angle, 0deg), var(--ink) 0%, var(--accent-bright) 15%, var(--ink) 30%, var(--ink) 100%);
   -webkit-background-clip: text; background-clip: text; color: transparent;
   animation: conicSheenRotate 4s linear infinite;
 }
@@ -1868,7 +1899,7 @@ section:not(#hero) {
 .border-gradient::before {
   content: ''; position: absolute; inset: 0; border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(135deg, var(--plasma-dim), var(--cyan-dim), var(--ember-dim));
+  background: linear-gradient(135deg, var(--accent-dim), var(--violet-dim), var(--warm-dim));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor; mask-composite: exclude;
   pointer-events: none;
@@ -1933,9 +1964,9 @@ section:not(#hero) {
 /* === Liquid-glass v2 â€” layered blur, refraction edge, hairlines === */
 .liquid-glass {
   position: relative;
-  background: color-mix(in oklch, var(--void-1) 50%, transparent);
-  backdrop-filter: blur(20px) saturate(1.2);
-  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.05), transparent 55%),
+    color-mix(in oklch, var(--surface-1) 90%, transparent);
   border: 1px solid rgba(255,255,255,0.06);
   box-shadow: 0 2px 4px rgba(0,0,0,0.3), 0 12px 32px -12px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08);
 }
@@ -1955,7 +1986,7 @@ section:not(#hero) {
 /* === Slow luxury button fill (600ms) === */
 .btn-luxury {
   position: relative; isolation: isolate; overflow: hidden;
-  background: transparent; border: 1px solid var(--plasma-dim);
+  background: transparent; border: 1px solid var(--accent-dim);
   color: var(--ink); padding: 0.6rem 1.5rem; border-radius: 9999px;
   font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.12em;
   transition: color 0.6s var(--ease-forge), border-color 0.6s var(--ease-forge);
@@ -1963,10 +1994,10 @@ section:not(#hero) {
 }
 .btn-luxury::before {
   content: ''; position: absolute; inset: 0; border-radius: inherit;
-  background: var(--plasma); transform: scaleX(0); transform-origin: left;
+  background: var(--accent); transform: scaleX(0); transform-origin: left;
   transition: transform 0.6s var(--ease-forge); z-index: -1;
 }
-.btn-luxury:hover { color: var(--void-0); border-color: var(--plasma); }
+.btn-luxury:hover { color: var(--surface-0); border-color: var(--accent); }
 .btn-luxury:hover::before { transform: scaleX(1); }
 .btn-luxury:active::before { transform: scaleX(0.95); }
 
@@ -1990,7 +2021,7 @@ section:not(#hero) {
 
 /* === Curtain page transition - strong lift with gradient === */
 .curtain--strong {
-  background: linear-gradient(180deg, var(--void-0) 0%, var(--void-1) 50%, var(--void-0) 100%);
+  background: linear-gradient(180deg, var(--surface-0) 0%, var(--surface-1) 50%, var(--surface-0) 100%);
   clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
   transition: clip-path 0.9s var(--ease-forge);
 }
@@ -2107,7 +2138,7 @@ section:not(#hero) {
   justify-content: center;
   backface-visibility: hidden;
   border-radius: 10px;
-  background: var(--void-2);
+  background: var(--surface-2);
   border: 1px solid var(--glass-border);
   box-shadow: inset 0 1px 0 var(--glass-highlight);
 }
@@ -2127,8 +2158,8 @@ section:not(#hero) {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--plasma-bright);
-  box-shadow: 0 0 6px var(--plasma);
+  background: var(--accent-bright);
+  box-shadow: 0 0 6px var(--accent);
 }
 
 /* === A11y: keyboard focus ring refinements === */
@@ -2137,21 +2168,21 @@ a:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 2px solid var(--plasma);
+  outline: 2px solid var(--accent);
   outline-offset: 3px;
   border-radius: 4px;
 }
 [role="button"]:focus-visible {
-  outline: 2px solid var(--plasma);
+  outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
 .clay-btn:focus-visible {
   outline-offset: 4px;
-  box-shadow: 0 0 0 4px color-mix(in oklch, var(--plasma) 25%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--accent) 25%, transparent);
 }
 .hero-cta:focus-visible {
   outline-offset: 4px;
-  box-shadow: 0 0 0 4px color-mix(in oklch, var(--plasma) 30%, transparent);
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--accent) 30%, transparent);
 }
 
 /* === §4.1 Spark Hunt collectible === */
@@ -2168,8 +2199,8 @@ select:focus-visible {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: var(--plasma-bright);
-  box-shadow: 0 0 10px var(--plasma), 0 0 20px var(--plasma-dim);
+  background: var(--accent-bright);
+  box-shadow: 0 0 10px var(--accent), 0 0 20px var(--accent-dim);
   animation: sparkPulse 2s ease-in-out infinite;
 }
 .spark-glow::after {
@@ -2177,7 +2208,7 @@ select:focus-visible {
   position: absolute;
   inset: -4px;
   border-radius: 50%;
-  border: 1px solid var(--plasma);
+  border: 1px solid var(--accent);
   animation: sparkRing 2s ease-out infinite;
 }
 @keyframes sparkPulse {
@@ -2192,8 +2223,8 @@ select:focus-visible {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--plasma-bright);
-  box-shadow: 0 0 6px var(--plasma);
+  background: var(--accent-bright);
+  box-shadow: 0 0 6px var(--accent);
   animation: sparkPulse 2s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -2225,21 +2256,18 @@ select:focus-visible {
   -webkit-backdrop-filter: blur(16px);
 }
 
-/* === §6.2 Color role tokens (60-30-10, consumed by components) === */
+/* === §6.2 Color role tokens (60-30-10, consumed by components) ===
+   --accent-reward is defined once, in the palette block, as var(--warm). */
 :root {
-  --surface: var(--void-0);
-  --surface-raised: var(--void-1);
+  --surface: var(--surface-0);
+  --surface-raised: var(--surface-1);
   --edge: var(--glass-border);
   --text: var(--ink);
-  --text-dim: var(--ink-dim);
-  --text-faint: var(--ink-faint);
-  --accent-primary: var(--plasma);
-  --accent-support: var(--cyan);
-  --accent-reward: oklch(82% 0.14 85);
+  --text-dim: var(--ink-mid);
+  --text-faint: var(--ink-low);
+  --accent-primary: var(--accent);
+  --accent-support: var(--violet);
 }
-[data-theme="ocean"] { --accent-reward: oklch(85% 0.08 225); }
-[data-theme="golden"] { --accent-reward: oklch(88% 0.15 80); }
-[data-theme="dawn"] { --accent-reward: oklch(65% 0.14 65); }
 
 /* === §6.4 Min font 11px sitewide === */
 body { font-size: max(11px, 1rem); }
@@ -2255,7 +2283,7 @@ body { font-size: max(11px, 1rem); }
   width: 20px;
   height: 20px;
   transition: top 0.6s var(--ease-forge);
-  filter: drop-shadow(0 0 6px var(--plasma));
+  filter: drop-shadow(0 0 6px var(--accent));
 }
 .avatar-track__node {
   transition: all 0.4s var(--ease-forge);
@@ -2266,13 +2294,13 @@ body { font-size: max(11px, 1rem); }
   box-shadow: 0 0 8px var(--accent-reward);
 }
 .avatar-track__node--active {
-  background: var(--plasma);
-  border-color: var(--plasma);
+  background: var(--accent);
+  border-color: var(--accent);
   animation: nodePulse 2s ease-in-out infinite;
 }
 @keyframes nodePulse {
-  0%, 100% { box-shadow: 0 0 6px var(--plasma); }
-  50% { box-shadow: 0 0 16px var(--plasma), 0 0 4px var(--plasma); }
+  0%, 100% { box-shadow: 0 0 6px var(--accent); }
+  50% { box-shadow: 0 0 16px var(--accent), 0 0 4px var(--accent); }
 }
 @keyframes stampIn {
   0% { transform: scale(0); opacity: 0; }
@@ -2291,12 +2319,12 @@ body { font-size: max(11px, 1rem); }
     right: 0;
     height: 4px;
     z-index: var(--z-overlay);
-    background: var(--void-2);
+    background: var(--surface-2);
   }
   .avatar-track--mobile .avatar-track__fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--plasma), var(--accent-reward));
-    box-shadow: 0 0 8px var(--plasma);
+    background: linear-gradient(90deg, var(--accent), var(--accent-reward));
+    box-shadow: 0 0 8px var(--accent);
     transition: width 0.4s var(--ease-forge);
   }
 }
@@ -2323,10 +2351,9 @@ body { font-size: max(11px, 1rem); }
   gap: 12px;
   padding: 8px 24px;
   border-radius: 999px;
-  background: color-mix(in oklch, var(--void-0) 85%, transparent);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--plasma-dim);
-  box-shadow: 0 0 24px color-mix(in oklch, var(--plasma) 20%, transparent);
+  background: color-mix(in oklch, var(--surface-0) 94%, transparent);
+  border: 1px solid var(--accent-dim);
+  box-shadow: 0 0 24px color-mix(in oklch, var(--accent) 20%, transparent);
   animation: ribbonSlide 2s var(--ease-forge) forwards;
 }
 .level-ribbon__num {
@@ -2339,7 +2366,7 @@ body { font-size: max(11px, 1rem); }
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
   letter-spacing: 0.2em;
-  color: var(--ink-dim);
+  color: var(--ink-mid);
   text-transform: uppercase;
 }
 @media (prefers-reduced-motion: reduce) {
@@ -2362,7 +2389,7 @@ body { font-size: max(11px, 1rem); }
   display: flex;
   align-items: center;
   justify-content: center;
-  background: color-mix(in oklch, var(--void-0) 92%, transparent);
+  background: color-mix(in oklch, var(--surface-0) 92%, transparent);
   backdrop-filter: blur(24px);
   animation: crtFlicker 0.6s linear forwards;
 }
@@ -2371,7 +2398,7 @@ body { font-size: max(11px, 1rem); }
   padding: 48px 40px;
   border-radius: 24px;
   border: 1px solid var(--accent-reward);
-  background: color-mix(in oklch, var(--void-1) 80%, transparent);
+  background: color-mix(in oklch, var(--surface-1) 80%, transparent);
   box-shadow: 0 0 60px color-mix(in oklch, var(--accent-reward) 20%, transparent),
               inset 0 1px 0 var(--glass-highlight);
   max-width: 440px;
@@ -2387,7 +2414,7 @@ body { font-size: max(11px, 1rem); }
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
   letter-spacing: 0.25em;
-  color: var(--ink-faint);
+  color: var(--ink-low);
   text-transform: uppercase;
   margin-bottom: 24px;
 }
@@ -2401,13 +2428,13 @@ body { font-size: max(11px, 1rem); }
   font-family: 'Clash Display', sans-serif;
   font-size: 28px;
   font-weight: 700;
-  color: var(--plasma-bright);
+  color: var(--accent-bright);
 }
 .run-complete__stat-label {
   font-family: 'JetBrains Mono', monospace;
   font-size: 9px;
   letter-spacing: 0.2em;
-  color: var(--ink-faint);
+  color: var(--ink-low);
   text-transform: uppercase;
   margin-top: 4px;
 }
@@ -2416,23 +2443,17 @@ body { font-size: max(11px, 1rem); }
 }
 
 /* === E13 Progressive blur — iOS-style graded backdrop on navbar === */
+/* The navbar genuinely floats over scrolling content, so it keeps a real
+   backdrop-filter — but as ONE masked layer, not two stacked ones. */
 .progressive-blur::before {
   content: '';
   position: absolute;
   inset: 0;
   z-index: -1;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  mask: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 100%);
-  -webkit-mask: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 100%);
-}
-.progressive-blur::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -2;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(14px) saturate(130%);
+  -webkit-backdrop-filter: blur(14px) saturate(130%);
+  mask: linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,1) 60%);
+  -webkit-mask: linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, rgba(0,0,0,1) 60%);
 }
 
 /* === E11 Text scramble decode on headings === */
@@ -2482,12 +2503,12 @@ body { font-size: max(11px, 1rem); }
   white-space: nowrap;
   padding: 6px 14px;
   border-radius: 8px;
-  background: color-mix(in oklch, var(--void-1) 90%, transparent);
+  background: color-mix(in oklch, var(--surface-1) 90%, transparent);
   backdrop-filter: blur(12px);
-  border: 1px solid var(--plasma-dim);
+  border: 1px solid var(--accent-dim);
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
-  color: var(--plasma-bright);
+  color: var(--accent-bright);
   box-shadow: 0 4px 16px rgba(0,0,0,0.4);
 }
 
@@ -2562,7 +2583,7 @@ body { font-size: max(11px, 1rem); }
 
 /* === Footer outlined wordmark === */
 .footer-wordmark {
-  -webkit-text-stroke: 1px var(--ink-faint);
+  -webkit-text-stroke: 1px var(--ink-low);
   color: transparent;
   transition: color 0.5s var(--ease-forge), -webkit-text-stroke-color 0.5s var(--ease-forge);
   cursor: default;
@@ -2615,3 +2636,330 @@ body { font-size: max(11px, 1rem); }
   background-size: 100% 3px;
   animation: matrixRain 8s linear infinite;
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   Animation budget (P1.7 §3)
+
+   Rule: an infinite animation may only run if it is (a) in the viewport and
+   (b) on a machine that can afford it. Off-screen pausing is handled by
+   src/lib/animationGate.js, which toggles [data-anim-paused] via one shared
+   IntersectionObserver; the tier rules below are the static half.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* Anything the gate has scrolled out of view stops costing frames. */
+[data-anim-paused='true'],
+[data-anim-paused='true']::before,
+[data-anim-paused='true']::after {
+  animation-play-state: paused !important;
+}
+
+/* Tier 2: drop the purely decorative loops, keep the ones that carry meaning
+   (status dots, live badges, the arcade call-to-action). */
+:where([data-gfx-tier='2'], [data-gfx-tier='1']) :is(
+  .avatar-showcase__glow,
+  .avatar-showcase__orbit--1,
+  .avatar-showcase__orbit--2,
+  .avatar-showcase__orbit--3,
+  .avatar-showcase__particle,
+  .avatar-showcase__scan,
+  .avatar-showcase__tag,
+  .blob-accent,
+  .hero-aurora__blob--c,
+  .mesh-animated,
+  .chromatic-aberration,
+  .film-grain,
+  .hero-name-ghost,
+  .text-gradient--sweep
+) {
+  animation: none !important;
+  will-change: auto;
+}
+:where([data-gfx-tier='2'], [data-gfx-tier='1']) :is(
+  .border-run::before,
+  .chromatic-hover::after,
+  .hero-cta--ghost::before,
+  .level-badge::before
+) {
+  animation: none !important;
+}
+
+/* Tier 1: nothing loops except the live/status indicators. */
+:where([data-gfx-tier='1']) :is(
+  .hero-name-iridescent,
+  .text-gradient,
+  .spark-glow,
+  .spark-mini,
+  .insert-coin,
+  .hero-cta--arcade,
+  .arcade-nav-btn,
+  .arcade-nav-text,
+  .idle-bot__body
+) {
+  animation: none !important;
+  will-change: auto;
+}
+:where([data-gfx-tier='1']) :is(
+  .spark-glow::after,
+  .hero-badge__dot::after,
+  .forge-matrix::after
+) {
+  animation: none !important;
+}
+
+/* prefers-reduced-motion is absolute: no infinite animation survives it. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   Native scroll-driven animations (P4.1)
+
+   These run on the compositor: they never block the main thread and never
+   trigger layout. Everything is behind @supports, and the Framer Motion
+   implementations stay as the fallback for engines without support, so no
+   visitor loses an effect — some just get the cheap version.
+   ════════════════════════════════════════════════════════════════════════ */
+@supports (animation-timeline: view()) {
+  html[data-sda='on'] .reveal {
+    animation: reveal-in linear both;
+    animation-timeline: view();
+    /* --reveal-shift staggers siblings the way `delay` used to. */
+    animation-range: entry calc(5% + var(--reveal-shift, 0%)) cover 30%;
+  }
+
+  @keyframes reveal-in {
+    from { opacity: 0; transform: translateY(28px) scale(0.985); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  /* The blur is the expensive part of the effect, so only capable machines
+     are asked for it. */
+  :where([data-gfx-tier='3']) html[data-sda='on'] .reveal {
+    animation-name: reveal-in-blur;
+  }
+  @keyframes reveal-in-blur {
+    from { opacity: 0; transform: translateY(28px) scale(0.985); filter: blur(6px); }
+    to   { opacity: 1; transform: none;                          filter: blur(0); }
+  }
+
+  html[data-sda='on'] .scroll-progress--css {
+    transform: scaleX(0);
+    animation: progress-grow linear both;
+    animation-timeline: scroll(root block);
+  }
+  @keyframes progress-grow {
+    from { transform: scaleX(0); }
+    to   { transform: scaleX(1); }
+  }
+
+  html[data-sda='on'] .parallax-layer--css {
+    animation: parallax-drift linear both;
+    animation-timeline: view();
+    animation-range: cover 0% cover 100%;
+    will-change: transform;
+  }
+  @keyframes parallax-drift {
+    from { transform: translate3d(0, var(--parallax-from, 20px), 0); }
+    to   { transform: translate3d(0, var(--parallax-to, -20px), 0); }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .scroll-progress--css,
+  .parallax-layer--css {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   @property registrations (P4.3)
+
+   An UNregistered custom property snaps between values; a registered one is
+   interpolated. Registering these is what makes gradient angles and glow
+   spreads animate smoothly with zero JavaScript.
+   ════════════════════════════════════════════════════════════════════════ */
+@property --angle       { syntax: '<angle>';      initial-value: 0deg;  inherits: false; }
+@property --glow-spread { syntax: '<percentage>'; initial-value: 40%;   inherits: false; }
+@property --sheen-pos   { syntax: '<percentage>'; initial-value: -100%; inherits: false; }
+
+/* Animated conic border — replaces the old .sheen keyframe hack. */
+.conic-border {
+  position: relative;
+  isolation: isolate;
+}
+.conic-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--angle),
+    var(--accent), var(--violet), var(--warm), var(--accent)
+  );
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  animation: conicSpin 6s linear infinite;
+  pointer-events: none;
+  z-index: -1;
+}
+@keyframes conicSpin { to { --angle: 360deg; } }
+
+/* CTA halo — the spread itself interpolates, so no JS drives it. */
+.halo-pulse {
+  box-shadow: 0 0 var(--glow-spread) color-mix(in oklch, var(--accent) 28%, transparent);
+  animation: haloBreathe 4s ease-in-out infinite;
+}
+@keyframes haloBreathe {
+  0%, 100% { --glow-spread: 24%; }
+  50%      { --glow-spread: 56%; }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   Three-material system (P4.4)
+
+   Replaces "glass everywhere". Layered box-shadows — four stops with
+   tightening radii — read as far more expensive than a single large blur and
+   cost considerably less to composite.
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* MATTE — page and section backgrounds. Flat surface plus film grain. */
+.matte {
+  background: var(--surface-0);
+}
+
+/* SATIN — cards and panels. The default material for almost everything. */
+.satin-panel {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.045), transparent 60%),
+    var(--surface-1);
+  border: 1px solid var(--glass-border);
+  border-radius: inherit;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.05),
+    0 1px 2px hsl(var(--shadow-color) / 0.4),
+    0 6px 12px -6px hsl(var(--shadow-color) / 0.45),
+    0 24px 48px -24px hsl(var(--shadow-color) / 0.6);
+}
+.satin-panel:hover {
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.06), transparent 60%),
+    color-mix(in oklch, var(--surface-1) 88%, var(--accent) 12%);
+}
+
+/* CHROME — reserved for ONE hero element and the primary CTA. If it appears
+   more than twice on a page it has stopped being special. */
+.chrome-text {
+  background: var(--grad-signature);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: chromeShift 8s ease-in-out infinite alternate;
+}
+@keyframes chromeShift {
+  from { background-position: 0% 50%; }
+  to   { background-position: 100% 50%; }
+}
+
+/* Elevation via color-mix rather than stacked opacity layers. */
+.card         { background: var(--surface-1); }
+.card:hover   { background: color-mix(in oklch, var(--surface-1) 88%, var(--accent) 12%); }
+.card--active { background: color-mix(in oklch, var(--surface-2) 92%, var(--accent) 8%); }
+
+:where([data-gfx-tier='1']) :is(.conic-border::before, .halo-pulse, .chrome-text) {
+  animation: none !important;
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   Container queries, fluid type tokens and micro-interaction polish
+   (P4.5 / P4.6)
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* ── Fluid type scale as tokens (1.25 modular ratio) ──────────────────────
+   Ad-hoc clamp() calls were scattered through the JSX in at least four
+   places; these are the single source of truth. */
+:root {
+  --step--2: clamp(0.625rem, 0.58rem + 0.20vw, 0.75rem);
+  --step--1: clamp(0.75rem,  0.70rem + 0.25vw, 0.875rem);
+  --step-0:  clamp(0.875rem, 0.82rem + 0.28vw, 1rem);
+  --step-1:  clamp(1rem,     0.93rem + 0.36vw, 1.25rem);
+  --step-2:  clamp(1.25rem,  1.13rem + 0.60vw, 1.75rem);
+  --step-3:  clamp(1.75rem,  1.45rem + 1.50vw, 2.75rem);
+  --step-4:  clamp(2.25rem,  1.70rem + 2.75vw, 4rem);
+  --step-5:  clamp(3rem,     2.00rem + 5.00vw, 6rem);
+}
+.text-step--2 { font-size: var(--step--2); }
+.text-step--1 { font-size: var(--step--1); }
+.text-step-0  { font-size: var(--step-0); }
+.text-step-1  { font-size: var(--step-1); }
+.text-step-2  { font-size: var(--step-2); }
+.text-step-3  { font-size: var(--step-3); }
+.text-step-4  { font-size: var(--step-4); }
+.text-step-5  { font-size: var(--step-5); }
+
+/* ── Container queries ───────────────────────────────────────────────────
+   A project card appears in the Cinema deck, in the Grid and in the Command
+   Palette preview. Viewport breakpoints cannot tell those apart; the
+   container's own width can. */
+.deck-card { container-type: inline-size; }
+
+@container (min-width: 420px) {
+  .deck-card__body { display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: start; }
+}
+@container (max-width: 340px) {
+  .deck-card__meta { display: none; }
+}
+
+/* ── Text: orphans and ragged lines, at zero cost ────────────────────── */
+h1, h2, h3, h4, .font-display { text-wrap: balance; }
+p, li, figcaption { text-wrap: pretty; }
+
+/* ── Focus: a real, visible keyboard affordance ──────────────────────────
+   The custom cursor hides the native one, which made the absence of a strong
+   focus ring both an a11y gap and a polish gap. */
+:focus-visible {
+  outline: 2px solid var(--accent-bright);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+a:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible {
+  box-shadow: 0 0 0 4px color-mix(in oklch, var(--accent-bright) 22%, transparent);
+}
+/* A keyboard user must get the native cursor back. */
+html:has(:focus-visible) { cursor: auto; }
+
+/* ── Scrollbar: standard property, no custom JS ───────────────────────── */
+html {
+  scrollbar-color: var(--accent-dim) var(--surface-1);
+  scrollbar-width: thin;
+}
+
+/* ── :has() — dim the siblings of a hovered card. No state, no re-render. */
+@media (hover: hover) and (pointer: fine) {
+  main:has(.deck-card:hover) .deck-card:not(:hover) {
+    opacity: 0.55;
+    filter: saturate(0.7);
+    transition: opacity 0.35s var(--ease-forge), filter 0.35s var(--ease-forge);
+  }
+}
+
+/* ── Spring easing on the interactions that should feel physical ──────── */
+.spring-press { transition: transform 0.45s var(--ease-spring); }
+.spring-press:active { transform: scale(0.97); }

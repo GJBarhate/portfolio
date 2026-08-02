@@ -4,6 +4,7 @@ import { useTheme } from '../../contexts/ThemeContext.jsx'
 import { useSound } from '../../contexts/SoundContext.jsx'
 import { SOCIALS } from '../../lib/content.js'
 import { EASE_FORGE } from '../../lib/motion.js'
+import { navigateToSection, withViewTransition } from '../../lib/viewTransition.js'
 
 const ACTIONS = [
   { id: 'about', label: 'Go to About', icon: '01', section: 'about' },
@@ -17,18 +18,18 @@ const ACTIONS = [
   { id: 'github', label: 'Open GitHub', icon: 'GH', href: SOCIALS.github },
   { id: 'leetcode', label: 'Open LeetCode', icon: 'LC', href: SOCIALS.leetcode },
   { id: 'linkedin', label: 'Open LinkedIn', icon: 'LI', href: SOCIALS.linkedin },
-  { id: 'theme-forest', label: 'Theme: Deep Forest', icon: 'TH', theme: 'forest' },
-  { id: 'theme-ocean', label: 'Theme: Serene Ocean', icon: 'TH', theme: 'ocean' },
-  { id: 'theme-golden', label: 'Theme: Golden Hour', icon: 'TH', theme: 'golden' },
-  { id: 'theme-dawn', label: 'Theme: Dawn', icon: 'TH', theme: 'dawn' },
-  { id: 'theme-obsidian', label: 'Theme: Obsidian', icon: 'TH', theme: 'obsidian' },
+  { id: 'theme-eclipse', label: 'Theme: Eclipse', icon: 'TH', theme: 'eclipse' },
+  { id: 'theme-ember', label: 'Theme: Ember', icon: 'TH', theme: 'ember' },
+  { id: 'theme-paper', label: 'Theme: Paper', icon: 'TH', theme: 'paper' },
   { id: 'sound', label: 'Toggle Sound', icon: 'SN', toggleSound: true },
   { id: 'game', label: 'Play Hidden Protocol', icon: 'GM', playGame: true },
   { id: 'top', label: 'Back to Top', icon: '^^', scrollTop: true },
 ]
 
-export default function CommandPalette({ onPlayGame, onOpenArcade }) {
-  const [open, setOpen] = useState(false)
+export default function CommandPalette({ onPlayGame, onOpenArcade, defaultOpen = false }) {
+  // `defaultOpen` exists because App loads this chunk lazily on the first ⌘K —
+  // by the time the component mounts, the keystroke that summoned it is gone.
+  const [open, setOpen] = useState(defaultOpen)
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState(0)
   const inputRef = useRef(null)
@@ -64,11 +65,11 @@ export default function CommandPalette({ onPlayGame, onOpenArcade }) {
     setOpen(false)
     sound?.play('click')
     if (action.section) {
-      document.getElementById(action.section)?.scrollIntoView({ behavior: 'smooth' })
+      navigateToSection(action.section)
     } else if (action.href) {
       window.open(action.href, '_blank', 'noopener,noreferrer')
     } else if (action.theme) {
-      setTheme(action.theme)
+      withViewTransition(() => setTheme(action.theme), { mode: 'nav' })
     } else if (action.toggleSound) {
       sound?.setMuted((v) => !v)
     } else if (action.scrollTop) {
@@ -113,7 +114,7 @@ export default function CommandPalette({ onPlayGame, onOpenArcade }) {
             transition={{ duration: 0.25, ease: EASE_FORGE }}
           >
             <div className="flex items-center gap-3 px-5 py-4 border-b border-[var(--glass-border)]">
-              <span className="text-[var(--ink-faint)] text-sm">&#9906;</span>
+              <span className="text-[var(--ink-low)] text-sm">&#9906;</span>
               <input
                 ref={inputRef}
                 type="text"
@@ -121,13 +122,13 @@ export default function CommandPalette({ onPlayGame, onOpenArcade }) {
                 onChange={(e) => { setQuery(e.target.value); setSelected(0) }}
                 onKeyDown={onKeyDown}
                 placeholder="Type a command…"
-                className="flex-1 bg-transparent text-sm text-[var(--ink)] outline-none placeholder:text-[var(--ink-faint)]"
+                className="flex-1 bg-transparent text-sm text-[var(--ink)] outline-none placeholder:text-[var(--ink-low)]"
               />
-              <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-[var(--glass-border)] text-[var(--ink-faint)]">ESC</kbd>
+              <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-[var(--glass-border)] text-[var(--ink-low)]">ESC</kbd>
             </div>
             <div className="max-h-[50vh] overflow-y-auto py-2">
               {filtered.length === 0 && (
-                <p className="px-5 py-6 text-sm text-[var(--ink-faint)] text-center">No results found.</p>
+                <p className="px-5 py-6 text-sm text-[var(--ink-low)] text-center">No results found.</p>
               )}
               {filtered.map((action, i) => (
                 <button
@@ -135,10 +136,10 @@ export default function CommandPalette({ onPlayGame, onOpenArcade }) {
                   onClick={() => execute(action)}
                   onMouseEnter={() => setSelected(i)}
                   className={`w-full flex items-center gap-3 px-5 py-2.5 text-left text-sm transition-colors duration-150 ${
-                    i === selected ? 'bg-[var(--void-2)] text-[var(--ink)]' : 'text-[var(--ink-dim)]'
+                    i === selected ? 'bg-[var(--surface-2)] text-[var(--ink)]' : 'text-[var(--ink-mid)]'
                   }`}
                 >
-                  <span className="w-7 h-7 rounded-lg bg-[var(--void-3)] flex items-center justify-center font-mono text-[10px] text-[var(--ink-faint)] flex-shrink-0">
+                  <span className="w-7 h-7 rounded-lg bg-[var(--surface-3)] flex items-center justify-center font-mono text-[10px] text-[var(--ink-low)] flex-shrink-0">
                     {action.icon}
                   </span>
                   <span>{action.label}</span>

@@ -6,7 +6,7 @@ const CHAPTERS = [
     title: 'Design & Plan',
     subtitle: 'Architecture first, code second',
     body: 'Every project starts with a system diagram — data flow, component tree, API contracts. I map the full state lifecycle before writing a single line of implementation code, which catches edge cases before they become bugs.',
-    accent: 'var(--plasma)',
+    accent: 'var(--accent)',
     stat: '5+ production systems shipped',
     icon: '✧',
   },
@@ -15,7 +15,7 @@ const CHAPTERS = [
     title: 'Build & Integrate',
     subtitle: 'Real-time, real-world',
     body: 'I layer in real-time features using WebSockets, WebRTC, and CRDTs for live collaboration. Each integration is tested end-to-end: auth flows, payment rails, AI pipelines, and database operations.',
-    accent: 'var(--cyan)',
+    accent: 'var(--violet)',
     stat: 'MERN + Socket.IO + Redis stack',
     icon: '⚡',
   },
@@ -24,7 +24,7 @@ const CHAPTERS = [
     title: 'Ship & Iterate',
     subtitle: 'Production is the laboratory',
     body: 'Deployed apps gather real usage data. I monitor performance, collect feedback, and ship iterative improvements. The cycle is tight: measure, adjust, deploy — repeat.',
-    accent: 'var(--ember)',
+    accent: 'var(--warm)',
     stat: 'Continuous deployment pipeline',
     icon: '🚀',
   },
@@ -66,7 +66,7 @@ export default function HowIBuild() {
                   {ch.num} · {ch.title.toUpperCase()}
                 </p>
                 <p className="font-display text-xl mb-3">{ch.subtitle}</p>
-                <p className="text-sm text-[var(--ink-dim)] leading-relaxed flex-1">
+                <p className="text-sm text-[var(--ink-mid)] leading-relaxed flex-1">
                   {ch.body}
                 </p>
                 <p className="font-mono text-[10px] mt-4 pt-4 border-t border-[var(--glass-border)]" style={{ color: ch.accent }}>

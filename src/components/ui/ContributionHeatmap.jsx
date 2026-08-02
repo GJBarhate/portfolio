@@ -29,7 +29,7 @@ export default function ContributionHeatmap() {
     return arr
   }, [])
 
-  const fills = ['var(--void-3)', 'var(--plasma-dim)', 'var(--plasma)', 'var(--plasma-bright)']
+  const fills = ['var(--surface-3)', 'var(--accent-dim)', 'var(--accent)', 'var(--accent-bright)']
 
   return (
     <div ref={ref} className="overflow-x-auto no-scrollbar">
@@ -50,7 +50,7 @@ export default function ContributionHeatmap() {
             height={CELL}
             rx={2}
             fill={fills[c.level]}
-            style={c.level === 3 ? { filter: 'drop-shadow(0 0 4px var(--plasma))' } : undefined}
+            style={c.level === 3 ? { filter: 'drop-shadow(0 0 4px var(--accent))' } : undefined}
           />
         ))}
       </motion.svg>

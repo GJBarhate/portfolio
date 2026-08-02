@@ -3,27 +3,40 @@ export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
     extend: {
+      // These map onto the CSS custom properties rather than restating hex
+      // values. The old config hardcoded a violet/cyan palette that matched
+      // none of the five themes, so any Tailwind colour utility rendered
+      // off-palette and ignored the theme switcher entirely.
       colors: {
-        void: {
-          0: 'oklch(13% 0.01 280)',
-          1: 'oklch(16% 0.015 280)',
-          2: 'oklch(20% 0.02 280)',
-          3: 'oklch(25% 0.025 280)',
+        surface: {
+          0: 'var(--surface-0)',
+          1: 'var(--surface-1)',
+          2: 'var(--surface-2)',
+          3: 'var(--surface-3)',
+          4: 'var(--surface-4)',
         },
-        plasma: {
-          DEFAULT: 'oklch(65% 0.25 290)',
-          dim: 'oklch(45% 0.18 290)',
-          bright: 'oklch(78% 0.22 290)',
+        accent: {
+          DEFAULT: 'var(--accent)',
+          dim: 'var(--accent-dim)',
+          bright: 'var(--accent-bright)',
+          ghost: 'var(--accent-ghost)',
         },
-        cyan: {
-          DEFAULT: 'oklch(75% 0.15 200)',
-          dim: 'oklch(55% 0.12 200)',
+        violet: {
+          DEFAULT: 'var(--violet)',
+          dim: 'var(--violet-dim)',
+        },
+        warm: {
+          DEFAULT: 'var(--warm)',
+          dim: 'var(--warm-dim)',
         },
         ink: {
-          DEFAULT: 'oklch(92% 0.005 280)',
-          dim: 'oklch(65% 0.01 280)',
-          faint: 'oklch(45% 0.01 280)',
+          DEFAULT: 'var(--ink)',
+          hi: 'var(--ink-hi)',
+          mid: 'var(--ink-mid)',
+          low: 'var(--ink-low)',
         },
+        success: 'var(--success)',
+        danger: 'var(--danger)',
       },
       fontFamily: {
         display: ['"Clash Display"', '"Space Grotesk"', 'sans-serif'],
@@ -34,6 +47,7 @@ export default {
         forge: 'cubic-bezier(0.16, 1, 0.3, 1)',
         snap: 'cubic-bezier(0.65, 0, 0.35, 1)',
         anticipate: 'cubic-bezier(0.68, -0.6, 0.32, 1.6)',
+        spring: 'var(--ease-spring)',
       },
     },
   },
