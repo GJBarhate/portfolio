@@ -92,6 +92,11 @@ export default [
     files: [
       'src/lib/glStage.js',
       'src/lib/threeUtils.js',
+      // The tone curve and the shared environment. It is reached only from
+      // glStage and the islands below, so it lands in the same lazy chunk they
+      // do — the rule is about keeping `three` out of the first-paint graph,
+      // and one more file inside that graph's boundary does not widen it.
+      'src/lib/filmGrade.js',
       'src/components/ui/HeroForgeObject.jsx',
       'src/components/ui/ThreeDScene.jsx',
       'src/components/ui/FluidCanvas.jsx',

@@ -44,12 +44,26 @@ export const EFFECTS = [
     kind: 'webgl',
     purpose: 'Establishes that the page is a live rendering surface rather than a document, and carries the section-to-section character shift.',
     tiers: {
-      3: 'full domain-warped fBm at up to 1.25 dpr, 30 fps (T-058)',
+      3: 'eleven per-section motifs — fog, cells, dots, net, waves, topology, trunk, halo, globe, clouds, rings — crossfading on the damped section index, at up to 1.25 dpr, 30 fps',
       2: 'same shader at 0.5 dpr, 30 fps',
       1: 'the .hero-mesh CSS gradient — compositor only',
       0: 'a static gradient',
     },
-    cost: { gpuMs: 1.6, cpuMs: 0.2, bytes: 4600 },
+    /*
+     * 1.6 -> 2.2 ms, and the number is an estimate rather than a measurement.
+     *
+     * Parked in a section the shader evaluates ONE motif and costs what the
+     * old single-field version did; the increase is the crossfade, where two
+     * are live at once, and the worst pair is net-into-waves (a 3x3 neighbour
+     * loop alongside a heightfield). 2.2 is that worst case reasoned from the
+     * old field's 1.6 for six noise calls, not a timer reading — this machine
+     * renders in software, where GPU timings mean nothing.
+     *
+     * The engine already prints its real per-frame GPU cost in dev via
+     * EXT_disjoint_timer_query. That reading, on real hardware, is what should
+     * replace this number.
+     */
+    cost: { gpuMs: 2.2, cpuMs: 0.2, bytes: 7400 },
     requires: ['webgl'],
     respects: ['reduced-motion', 'save-data', 'reduced-transparency'],
     group: 'ambient',
@@ -60,12 +74,16 @@ export const EFFECTS = [
     kind: 'webgl',
     purpose: 'One object rendered in real time in the first viewport — the claim the whole site makes, stated once where it is cheapest to prove.',
     tiers: {
-      3: 'full material, pointer-reactive',
-      2: 'low-poly, reduced dpr',
+      3: 'thin-film iridescent metal on the shared environment, AgX-graded, pointer- and scroll-velocity-reactive',
+      2: 'same material, reduced dpr',
       1: 'static poster image',
       0: 'none',
     },
-    cost: { gpuMs: 1.2, cpuMs: 0.3, bytes: 5200 },
+    // 1.2 -> 1.4 ms: iridescence is a per-channel term added to the existing
+    // shading pass (no second render, no transmission buffer), and the AgX
+    // curve is a handful of ALU ops on the output. The environment lighting
+    // that came with it is free — it replaced two of the four lamps.
+    cost: { gpuMs: 1.4, cpuMs: 0.3, bytes: 5600 },
     requires: ['webgl'],
     respects: ['reduced-motion', 'save-data'],
     group: 'hero',
@@ -235,6 +253,27 @@ export const EFFECTS = [
     respects: ['reduced-motion', 'forced-colors'],
     group: 'ambient',
     region: 'about',
+  },
+  {
+    id: 'journey-rail',
+    kind: 'scroll-driven',
+    purpose:
+      'Gives the one section that had no depth a track that recedes — each year arrives angled and set back, swings upright as it passes, and turns away behind you.',
+    tiers: {
+      3: 'cars swing on a view() timeline, year badges raised toward the camera, a light running the rail',
+      2: 'same — it is one compositor transform per car and does not scale down usefully',
+      1: 'same, and still free: the timeline is driven by the scroll, not by a frame loop',
+      0: 'static — the plain upright list, which is also what any browser without view() timelines gets',
+    },
+    // Cheap for a reason that is structural rather than lucky: there is no
+    // frame callback here at all. The compositor advances these keyframes from
+    // the scroll offset, so the cost is the same transform work it would spend
+    // scrolling the section anyway, plus one extra layer per car.
+    cost: { gpuMs: 0.3, cpuMs: 0, bytes: 1500 },
+    requires: [],
+    respects: ['reduced-motion', 'forced-colors'],
+    group: 'entrance',
+    region: 'timeline',
   },
   {
     id: 'skill-reactor',

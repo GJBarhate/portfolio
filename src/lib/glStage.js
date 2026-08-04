@@ -18,6 +18,7 @@
  */
 import { WebGLRenderer } from 'three'
 import { onFrame, getTier } from './raf.js'
+import { applyFilmGrade } from './filmGrade.js'
 
 let renderer = null
 let canvas = null
@@ -186,6 +187,10 @@ export function createAnchoredRenderer(element) {
   el.style.width = '100%'
   el.style.height = '100%'
   const r = new WebGLRenderer({ canvas: el, alpha: true, antialias: false })
+  // Every anchored scene is graded here rather than in the component, so the
+  // gem and the desk cannot end up on two different tone curves. See
+  // filmGrade.js for why this is the largest single visual change available.
+  applyFilmGrade(r)
   // Tier scales RESOLUTION, never existence. A tier-1 machine still gets the
   // scene, drawn at device pixels; it is the cheapest lever there is and the
   // visitor cannot tell the difference at this size.

@@ -4,9 +4,37 @@ import { guardContext, markGlUnavailable } from '../../lib/glResilience.js'
 import { onPalette } from '../../lib/palette.js'
 import { createBackgroundEngine, hexToVec3 } from '../../lib/bgEngine.js'
 
-// The order the shader blends between (§14.1 uSection). Anything not listed
-// resolves to "near-still".
-const SECTIONS = ['hero', 'about', 'stats', 'skills', 'projects', 'timeline', 'how-i-build', 'contact']
+// The order the shader blends between (§14.1 uSection).
+const SECTIONS = ['hero', 'about', 'stats', 'skills', 'projects', 'timeline', 'how-i-build', 'contact', 'footer']
+
+/*
+ * Which motif each section wears. Ids are the branches in `motif()`
+ * (bgEngine.js): 0 fog · 1 cells · 2 dots · 3 net · 4 waves · 5 topology
+ * 6 trunk · 7 halo · 8 globe · 9 clouds · 10 rings.
+ *
+ * This list exists because motif id used to BE the section index, and that
+ * coupling made the placement accidental: whichever motif happened to be
+ * written eighth got the last section, and three of them — clouds, globe,
+ * rings — sat past the end of the page where nobody would ever see them. A
+ * backdrop nobody reaches is not implemented, it is merely compiled.
+ *
+ *   hero        clouds     the first thing anyone sees, and the one that has
+ *                          to say "this page renders" before a word is read
+ *   about       globe      a world turning behind the story of getting here
+ *   stats       dots       a lattice receding to a horizon: data, in depth
+ *   skills      net        nodes joined to their neighbours — which is what a
+ *                          stack actually is
+ *   projects    waves      the section allowed real motion
+ *   timeline    topology   contour lines: layers laid down over years
+ *   how-i-build trunk      rings around a centre, one per pass
+ *   contact     halo       a single warm mass where the page asks for a reply
+ *   footer      rings      the finale, and the only place loud is correct
+ *
+ * fog (0) is the fallback for anything unlisted — it is the site's original
+ * field and the safest thing to be looking at. cells (1) is implemented and
+ * one edit from being used; it lost about to the globe on looks alone.
+ */
+const SECTION_MOTIF = [9, 8, 2, 3, 4, 5, 6, 7, 10]
 
 /** Framerate-independent damping, k per Research #19. */
 function damp(current, target, dt, k) {
@@ -209,6 +237,16 @@ export default function BackgroundEngine() {
       gl.uniform2f(uniforms.uMouse, smoothMouse.x, smoothMouse.y)
       gl.uniform1f(uniforms.uScrollVel, smoothVel)
       gl.uniform1f(uniforms.uSection, smoothSection)
+      /* The damped section index carries its own crossfade: the whole part
+         picks the motif, the fraction is how far it has turned into the next
+         one. Clamped rather than wrapped — past the last section there is
+         nothing to blend toward, and blending back round to the hero's clouds
+         at the footer would read as the page restarting. */
+      const lo = Math.max(0, Math.min(SECTION_MOTIF.length - 1, Math.floor(smoothSection)))
+      const hi = Math.min(SECTION_MOTIF.length - 1, lo + 1)
+      gl.uniform1f(uniforms.uMotifA, SECTION_MOTIF[lo])
+      gl.uniform1f(uniforms.uMotifB, SECTION_MOTIF[hi])
+      gl.uniform1f(uniforms.uBlend, Math.max(0, Math.min(1, smoothSection - lo)))
       gl.uniform1f(uniforms.uIntensity, tier >= 3 ? 1.0 : 0.75)
       gl.uniform3f(uniforms.uRipple, ripple.x, ripple.y, ripple.life)
       gl.drawArrays(gl.TRIANGLES, 0, 3)
@@ -221,7 +259,7 @@ export default function BackgroundEngine() {
           const ns = probe.getQueryObjectEXT(query, probe.QUERY_RESULT_EXT)
           const ms = ns / 1e6
           console.info(
-            `%cbg engine%c ${ms.toFixed(2)} ms/frame · tier ${tier} · budget 1.20 ms${ms > 1.2 ? ' ⚠ OVER' : ''}`,
+            `%cbg engine%c ${ms.toFixed(2)} ms/frame · tier ${tier} · budget 2.20 ms${ms > 2.2 ? ' ⚠ OVER' : ''}`,
             'color:#7fe3e5;font-weight:bold', 'color:inherit'
           )
           query = null

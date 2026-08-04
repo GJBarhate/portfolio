@@ -26,7 +26,29 @@ export default function Timeline() {
           </h2>
         </Reveal>
 
-        <div className="timeline-track relative max-w-3xl ml-4 md:ml-10">
+        {/*
+          The rail.
+
+          This section was a flat list beside a vertical line — the one part of
+          the page with no depth at all, in a site whose whole argument is that
+          it renders. It is now a track that recedes: each year arrives angled
+          and pushed back, swings upright as it reaches the middle of the
+          viewport, and turns away again as it leaves.
+
+          It adds **no DOM nodes**. The car motion replaces the reveal
+          animation on the element `<Reveal>` already renders — one animation
+          doing both jobs, because two scroll-driven animations cannot share
+          the `transform` property anyway — and the travelling light is a
+          `::before` on the track. That is not incidental tidiness: the page
+          sits within a few nodes of the 1800-node first-paint budget
+          (visual.spec.js), and a per-item wrapper here was enough to breach
+          it.
+
+          Compositor-only: no JS, no canvas, no scroll listener. A browser with
+          no `view()` timeline, a visitor with motion off, and forced-colors
+          all fall back to the plain upright list.
+        */}
+        <div className="timeline-track journey-rail relative max-w-3xl ml-4 md:ml-10">
           {/* Track background */}
           <div className="absolute left-0 top-0 bottom-0 w-px bg-[var(--surface-3)]" />
           {/* Gradient fill line — scrubbed by a scroll timeline where one
@@ -56,7 +78,7 @@ export default function Timeline() {
                   <span className="timeline-node__ping" data-loop="timeline-node" />
                 </span>
                 <div className="flex items-center gap-3 mb-2">
-                  <span className="font-mono text-[12px] tracking-[0.25em] px-2.5 py-1 rounded-full border border-[var(--accent-dim)] text-[var(--accent-bright)] bg-[color-mix(in_oklch,var(--accent)_6%,transparent)]">
+                  <span className="journey-rail__year font-mono text-[12px] tracking-[0.25em] px-2.5 py-1 rounded-full border border-[var(--accent-dim)] text-[var(--accent-bright)] bg-[color-mix(in_oklch,var(--accent)_6%,transparent)]">
                     {item.year}
                   </span>
                 </div>

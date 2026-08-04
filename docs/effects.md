@@ -12,9 +12,9 @@ what stops the tenth effect from being the one nobody measured.
 
 | Tier | Effects running | GPU / frame | Budget | CPU / frame | Budget |
 |---|---:|---:|---:|---:|---:|
-| 3 | 14 | 4.00 ms | 5 ms | 1.75 ms | 3 ms |
-| 2 | 13 | 1.40 ms | 2 ms | 0.61 ms | 1.5 ms |
-| 1 | 6 | 0.00 ms | 0 ms | 0.04 ms | 0.5 ms |
+| 3 | 15 | 4.80 ms | 5 ms | 1.75 ms | 3 ms |
+| 2 | 14 | 1.68 ms | 2 ms | 0.61 ms | 1.5 ms |
+| 1 | 7 | 0.00 ms | 0 ms | 0.04 ms | 0.5 ms |
 | 0 | 0 | 0.00 ms | 0 ms | 0.00 ms | 0 ms |
 
 Tier 2 and below run reduced versions rather than the full effect, so their
@@ -29,9 +29,9 @@ descriptions promise (half resolution, half frame rate).
 
 | Tier 3 | Tier 2 | Tier 1 | Tier 0 |
 |---|---|---|---|
-| full domain-warped fBm at up to 1.25 dpr, 30 fps (T-058) | same shader at 0.5 dpr, 30 fps | the .hero-mesh CSS gradient — compositor only | a static gradient |
+| eleven per-section motifs — fog, cells, dots, net, waves, topology, trunk, halo, globe, clouds, rings — crossfading on the damped section index, at up to 1.25 dpr, 30 fps | same shader at 0.5 dpr, 30 fps | the .hero-mesh CSS gradient — compositor only | a static gradient |
 
-Cost at tier 3: **1.6 ms GPU**, **0.2 ms CPU**, 4.5 KB.
+Cost at tier 3: **2.2 ms GPU**, **0.2 ms CPU**, 7.2 KB.
 Requires: `webgl`.
 Respects: `reduced-motion`, `save-data`, `reduced-transparency`.
 Group: `ambient`.
@@ -42,9 +42,9 @@ Group: `ambient`.
 
 | Tier 3 | Tier 2 | Tier 1 | Tier 0 |
 |---|---|---|---|
-| full material, pointer-reactive | low-poly, reduced dpr | static poster image | none |
+| thin-film iridescent metal on the shared environment, AgX-graded, pointer- and scroll-velocity-reactive | same material, reduced dpr | static poster image | none |
 
-Cost at tier 3: **1.2 ms GPU**, **0.3 ms CPU**, 5.1 KB.
+Cost at tier 3: **1.4 ms GPU**, **0.3 ms CPU**, 5.5 KB.
 Requires: `webgl`.
 Respects: `reduced-motion`, `save-data`.
 Group: `hero`.
@@ -178,6 +178,19 @@ Cost at tier 3: **0.5 ms GPU**, **0 ms CPU**, 2.5 KB.
 Requires: nothing.
 Respects: `reduced-motion`, `forced-colors`.
 Group: `ambient`.
+
+### `journey-rail` · scroll-driven
+
+**Purpose.** Gives the one section that had no depth a track that recedes — each year arrives angled and set back, swings upright as it passes, and turns away behind you.
+
+| Tier 3 | Tier 2 | Tier 1 | Tier 0 |
+|---|---|---|---|
+| cars swing on a view() timeline, year badges raised toward the camera, a light running the rail | same — it is one compositor transform per car and does not scale down usefully | same, and still free: the timeline is driven by the scroll, not by a frame loop | static — the plain upright list, which is also what any browser without view() timelines gets |
+
+Cost at tier 3: **0.3 ms GPU**, **0 ms CPU**, 1.5 KB.
+Requires: nothing.
+Respects: `reduced-motion`, `forced-colors`.
+Group: `entrance`.
 
 ### `skill-reactor` · css
 

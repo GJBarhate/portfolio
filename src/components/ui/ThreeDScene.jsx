@@ -10,6 +10,10 @@ import {
   BoxGeometry,
   CylinderGeometry,
   SphereGeometry,
+  PlaneGeometry,
+  MeshBasicMaterial,
+  CanvasTexture,
+  DoubleSide,
   Group,
 } from 'three'
 import { useReducedMotion } from '../../lib/useReducedMotion.js'
@@ -17,6 +21,34 @@ import { checkWebGL, getThemeColors } from '../../lib/threeUtils.js'
 import { onPalette } from '../../lib/palette.js'
 import { onFrame, getTier } from '../../lib/raf.js'
 import { createAnchoredRenderer } from '../../lib/glStage.js'
+import { makeEnvironment } from '../../lib/filmGrade.js'
+
+/**
+ * A contact shadow, drawn rather than computed.
+ *
+ * The desk dropped its shadow map years ago because the map cost more than the
+ * desk gained — and ever since, the object has been floating in a void. An
+ * object that does not touch anything reads as pasted onto the page, and no
+ * amount of material work fixes it; the eye wants the darkening directly under
+ * the thing.
+ *
+ * A radial falloff on a plane costs one textured quad and gets 90 % of the
+ * way there, which is the whole argument for it over a real shadow map.
+ */
+function makeContactShadow() {
+  const S = 128
+  const c = document.createElement('canvas')
+  c.width = S
+  c.height = S
+  const ctx = c.getContext('2d')
+  const g = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2)
+  g.addColorStop(0, 'rgba(0,0,0,0.55)')
+  g.addColorStop(0.45, 'rgba(0,0,0,0.28)')
+  g.addColorStop(1, 'rgba(0,0,0,0)')
+  ctx.fillStyle = g
+  ctx.fillRect(0, 0, S, S)
+  return new CanvasTexture(c)
+}
 
 export default function ThreeDScene({ className = '' }) {
   const containerRef = useRef(null)
@@ -61,6 +93,11 @@ export default function ThreeDScene({ className = '' }) {
     const camera = new PerspectiveCamera(35, 1, 0.1, 100)
     camera.position.set(4, 3, 6)
     camera.lookAt(0, 0, 0)
+
+    // The same room the hero gem is lit by — one environment for the site, so
+    // the two objects read as belonging to the same world.
+    let envTex = makeEnvironment(accent)
+    scene.environment = envTex
 
     const ambient = new AmbientLight(0x404060, 0.5)
     scene.add(ambient)
@@ -140,6 +177,21 @@ export default function ThreeDScene({ className = '' }) {
       plantGroup.add(sphere)
     }
     scene.add(plantGroup)
+
+    // Laid flat under the desk, just above where the legs land. It rotates
+    // with the group, so it stays under the object rather than sliding out
+    // from beneath it as the desk turns.
+    const shadowTex = makeContactShadow()
+    const shadowMat = new MeshBasicMaterial({
+      map: shadowTex,
+      transparent: true,
+      depthWrite: false,
+      side: DoubleSide,
+    })
+    const contactShadow = new Mesh(new PlaneGeometry(4.6, 2.8), shadowMat)
+    contactShadow.rotation.x = -Math.PI / 2
+    contactShadow.position.y = -1.14
+    scene.add(contactShadow)
 
     const mugMat = makeMat(new Color('#e0e0e0'), new Color('#ffffff'), 0.1)
     const mug = new Mesh(new CylinderGeometry(0.12, 0.1, 0.18, 12), mugMat)
@@ -223,6 +275,11 @@ export default function ThreeDScene({ className = '' }) {
       ro.disconnect()
       disposeRenderer()
       stopPalette()
+      // Textures are not reached by the mesh walk below — that disposes
+      // geometry and materials, and a material does not own its maps.
+      shadowTex.dispose()
+      envTex.dispose()
+      scene.environment = null
       scene.traverse((obj) => {
         if (obj.isMesh) {
           obj.geometry?.dispose()

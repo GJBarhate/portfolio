@@ -3,11 +3,9 @@ import {
   Color,
   Scene,
   PerspectiveCamera,
-  AmbientLight,
-  HemisphereLight,
   DirectionalLight,
   IcosahedronGeometry,
-  MeshStandardMaterial,
+  MeshPhysicalMaterial,
   Mesh,
   EdgesGeometry,
   LineBasicMaterial,
@@ -17,52 +15,14 @@ import {
   PointsMaterial,
   Points,
   Vector3,
-  DataTexture,
-  RGBAFormat,
-  UnsignedByteType,
-  LinearFilter,
-  EquirectangularReflectionMapping,
 } from 'three'
 import { useReducedMotion } from '../../lib/useReducedMotion.js'
 import { checkWebGL, getThemeColors } from '../../lib/threeUtils.js'
 import { onFrame, getTier } from '../../lib/raf.js'
 import { createAnchoredRenderer } from '../../lib/glStage.js'
 import { onTilt } from '../../lib/tilt.js'
-
-/**
- * A tiny procedural environment map. Two kilobytes of gradient is enough to
- * give the metal specular variation across its faces, which is what stops a
- * low-poly solid from reading as flat shaded cardboard.
- */
-function makeEnvTexture(accent) {
-  const W = 16
-  const H = 32
-  const data = new Uint8Array(W * H * 4)
-  const top = new Color('#7d90b8')
-  const bottom = new Color('#08090c')
-  const tmp = new Color()
-  for (let y = 0; y < H; y++) {
-    const t = y / (H - 1)
-    // Sky at the top, ground at the bottom, a band of accent near the horizon
-    // so the rim of the object picks up the theme colour.
-    tmp.copy(bottom).lerp(top, Math.pow(1 - t, 1.6))
-    const horizon = Math.exp(-Math.pow((t - 0.55) * 6, 2))
-    tmp.lerp(accent, horizon * 0.5)
-    for (let x = 0; x < W; x++) {
-      const i = (y * W + x) * 4
-      data[i] = Math.round(tmp.r * 255)
-      data[i + 1] = Math.round(tmp.g * 255)
-      data[i + 2] = Math.round(tmp.b * 255)
-      data[i + 3] = 255
-    }
-  }
-  const tex = new DataTexture(data, W, H, RGBAFormat, UnsignedByteType)
-  tex.mapping = EquirectangularReflectionMapping
-  tex.minFilter = LinearFilter
-  tex.magFilter = LinearFilter
-  tex.needsUpdate = true
-  return tex
-}
+import { makeEnvironment } from '../../lib/filmGrade.js'
+import { armScrollVelocity, getScrollVelocity } from '../../lib/scrollVelocity.js'
 
 // §3.2 — a floating, rotating low-poly "forge" gem with emissive edges.
 // Reacts to cursor (magnetic tilt), scroll, and mouse-down (spark burst).
@@ -89,34 +49,108 @@ export default function HeroForgeObject({ className = '' }) {
     const camera = new PerspectiveCamera(38, 1, 0.1, 100)
     camera.position.set(0, 0, 5)
 
-    let envTex = makeEnvTexture(accent)
+    let envTex = makeEnvironment(accent)
+    // The environment lights the whole scene, not just this material's
+    // reflections. That is the difference between an object with a lit side
+    // and a dead side, and an object that is *in* somewhere.
+    scene.environment = envTex
 
-    scene.add(new AmbientLight(0x404060, 0.35))
-
+    /*
+     * Two lamps, not four.
+     *
+     * The ambient and the hemisphere fill were both doing the job the
+     * environment now does properly — light arriving from every direction —
+     * and leaving them in alongside it double-counted every surface. The first
+     * pass of this change did exactly that and the gem came out as a flat
+     * teal pebble: everything lit, nothing shaped.
+     *
+     * What is left is what an environment cannot give you: one hard key for
+     * the facet edges, and the accent rim from behind that separates the
+     * silhouette from the backdrop.
+     */
     const key = new DirectionalLight(0xffffff, 1.6)
     key.position.set(3, 4, 5)
     scene.add(key)
 
-    // The rim/back light in the accent colour is the single change that turns
-    // a flat silhouette into a solid object.
-    const rim = new DirectionalLight(accent.getHex(), 2.2)
+    // 1.2, down from 2.2. The rim's job is to separate the silhouette from the
+    // backdrop, and at the old strength it was doing considerably more than
+    // that — painting every facet the accent colour and burying the white key
+    // reflection that carries the rotation.
+    const rim = new DirectionalLight(accent.getHex(), 1.2)
     rim.position.set(-4, 1, -3)
     scene.add(rim)
-
-    const fill = new HemisphereLight(0x223044, 0x0a0a0c, 0.5)
-    scene.add(fill)
 
     // 80 faces reads as a cut gem rather than the 8-triangle slab it was.
     const geo = new IcosahedronGeometry(1.05, 1)
     geo.scale(0.78, 1.18, 0.78)
-    const mat = new MeshStandardMaterial({
+    /*
+     * Thin-film interference, not a rainbow gradient.
+     *
+     * The "expensive glass" look everyone recognises is dispersion: white
+     * light splitting into its components at a surface. Doing it by
+     * refraction means a transmission pass — the scene rendered a second time
+     * into a buffer — which this frame budget does not have.
+     *
+     * Iridescence is the other real mechanism for the same phenomenon, and it
+     * is free: a film a few hundred nanometres thick makes reflections
+     * interfere with themselves, and which wavelength survives depends on the
+     * viewing angle. That is a per-channel effect computed in the existing
+     * shading pass, with no second render. On a faceted solid that is turning,
+     * every facet crosses a different part of the spectrum as it comes round.
+     */
+    const mat = new MeshPhysicalMaterial({
       color: new Color('#161616'),
       emissive: accent,
-      emissiveIntensity: 0.28,
-      roughness: 0.28,
-      metalness: 0.7,
+      /*
+       * 0.28 -> 0.10.
+       *
+       * A metal with a near-black base colour reflects almost nothing
+       * diffusely, so whatever emissive it carries is essentially the entire
+       * visible surface — at 0.28 the gem was a flat teal pebble with faint
+       * seams, and no amount of lighting could show through it. Emission is
+       * meant to be the glow in the seams and the inner heat, not the paint.
+       *
+       * Dropping it is what lets the environment, the key and the thin film
+       * actually reach the eye. The scroll-velocity boost below still lifts it
+       * back up when the visitor moves, which now reads as the object heating
+       * rather than as a lamp being switched on.
+       *
+       * 0.10 went too far in the other direction: on the light themes the gem
+       * became a dark silhouette, and this object is the single claim the
+       * whole hero makes. 0.19 is where it holds both — the facets keep the
+       * light that shows their planes, and the stone is still visibly lit from
+       * inside rather than merely dark.
+       */
+      emissiveIntensity: 0.19,
+      /*
+       * Polished stone under a clear lacquer — not metal.
+       *
+       * `metalness: 0.7` on a `#161616` base is a contradiction the renderer
+       * obeys literally: for a metal, the base colour IS the reflection
+       * colour, so a near-black metal reflects near-black. The room built
+       * above was arriving at the surface and being multiplied away to
+       * nothing, which is why the gem stayed flat however the lights moved.
+       *
+       * A dielectric with a clearcoat gets the look the material was reaching
+       * for. The body stays dark because its albedo is dark; the reflections
+       * are bright because a clear lacquer layer reflects *white*, not the
+       * colour underneath. That is the same reason a black piano and a black
+       * car look expensive and a black plastic box does not.
+       */
+      roughness: 0.55,
+      metalness: 0.15,
+      clearcoat: 1,
+      clearcoatRoughness: 0.06,
       envMap: envTex,
-      envMapIntensity: 1.1,
+      envMapIntensity: 1.25,
+      // 0.45, not 1. At full strength the film covers the metal completely and
+      // the object stops being dark polished stone with a spectral edge — it
+      // becomes one flat colour, which is the opposite of expensive.
+      iridescence: 0.6,
+      iridescenceIOR: 1.5,
+      // 180–420 nm across the facets: roughly one traverse of the visible
+      // spectrum, so adjacent faces sit on different colours.
+      iridescenceThicknessRange: [180, 420],
       flatShading: true,
     })
     const monolith = new Mesh(geo, mat)
@@ -259,6 +293,10 @@ export default function HeroForgeObject({ className = '' }) {
     }
     if (!reduced) window.addEventListener('scroll', onScroll, { passive: true })
     onScroll()
+    // The shared travel signal. Scroll position already turns the gem; this is
+    // scroll *speed*, which is what lets the object feel the movement rather
+    // than merely track it.
+    if (!reduced) armScrollVelocity()
 
     const observer = new MutationObserver(() => {
       const c = getThemeColors()
@@ -268,8 +306,9 @@ export default function HeroForgeObject({ className = '' }) {
       sparkMat.color.set(next)
       rim.color.set(next)
       const prev = envTex
-      envTex = makeEnvTexture(next)
+      envTex = makeEnvironment(next)
       mat.envMap = envTex
+      scene.environment = envTex
       mat.needsUpdate = true
       prev.dispose()
     })
@@ -312,9 +351,17 @@ export default function HeroForgeObject({ className = '' }) {
         if (dragging) {
           dragMomentum *= Math.exp(-dt * 6)
         } else {
-          spin += 1.05 * dt + dragMomentum * dt
+          // Travel speed adds to the idle spin, so a fast flick down the page
+          // whips the gem and a slow read barely touches it. Same signal the
+          // rest of the site reads — one machine, not ten widgets.
+          const travel = getScrollVelocity()
+          spin += (1.05 + travel * 2.4) * dt + dragMomentum * dt
           dragMomentum *= Math.exp(-dt * 3.2)
           if (Math.abs(dragMomentum) < 0.01) dragMomentum = 0
+          // ...and the seams brighten with it. An object that only rotates
+          // faster reads as sped up; one that also glows reads as excited.
+          mat.emissiveIntensity = 0.19 + Math.abs(travel) * 0.45
+          edgesMat.opacity = 0.55 + Math.abs(travel) * 0.35
         }
         tiltX += (targetTiltX - tiltX) * Math.min(1, dt * 3)
         tiltZ += (targetTiltZ - tiltZ) * Math.min(1, dt * 3)

@@ -44,8 +44,10 @@ function Signature() {
 export default function Footer() {
   const scrollTop = () => window.scrollTo({ top: 0, behavior: 'smooth' })
 
+  // The id is what the background engine observes to know it has reached the
+  // end of the page and can switch to the rings motif.
   return (
-    <footer className="relative border-t border-[var(--glass-border)] py-12 container-px">
+    <footer id="footer" className="relative border-t border-[var(--glass-border)] py-12 container-px">
       <Signature />
 
       {/* Outlined wordmark — letters fill with gold on hover, spark #5 hides inside */}

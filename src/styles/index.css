@@ -2682,7 +2682,10 @@ body { font-size: max(12px, 1rem); }
   border-radius: 50%;
   border: 1px solid var(--glass-border);
   color: var(--ink-low);
-  font-size: 11px;
+  /* Not 11px. The ✕ is rendered text like any other, and `no rendered text is
+     smaller than 12px` (tests/smoke.spec.js, §6.4) walks every element that
+     owns a text node — a glyph does not get an exemption for being an icon. */
+  font-size: var(--step--2);
   line-height: 1;
   transition:
     color var(--dur-fast) var(--ease-forge),
@@ -4591,6 +4594,123 @@ html[data-recruiter] .section-rhythm {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   The journey rail — the section given depth.
+
+   Everything below is additive to a plain, upright, readable list. That is
+   deliberate and it is the whole safety argument: `.journey-rail__car` has no
+   transform of its own, so a browser with no `view()` timeline, a visitor with
+   motion off, and forced-colors mode all get the list exactly as it was. Only
+   where the compositor can drive it does the track acquire depth.
+
+   One keyframe per car, on the scroll timeline, no JS.
+   ══════════════════════════════════════════════════════════════════════════ */
+.journey-rail {
+  /* Long, because the rail is tall: a short perspective on a 900px column
+     distorts the far entries into wedges instead of receding them. The origin
+     sits on the track itself, so the cars turn about the line rather than
+     about the middle of the text. */
+  perspective: 1400px;
+  perspective-origin: 0% 50%;
+}
+
+/* The car IS the reveal element. `.reveal` already animates `transform` on a
+   view() timeline, and a second animation on the same element and property
+   simply wins outright rather than composing — so the entrance and the swing
+   are one keyframe set, scoped to this section. */
+.journey-rail .reveal {
+  transform-style: preserve-3d;
+}
+
+/*
+ * Arrive angled and set back, swing upright through the middle of the
+ * viewport, turn away on the way out.
+ *
+ * The angles are small on purpose — 12 degrees and 90 pixels of Z. This sits
+ * inside a section with `overflow: hidden`, but `check-overflow.mjs` measures
+ * element rectangles against the viewport, and a card rotated hard enough
+ * reports a box wider than the screen even when nothing is visibly clipped.
+ * Depth you can feel beats depth you can measure.
+ */
+@keyframes journeyCar {
+  0% {
+    transform: translateX(1.4rem) translateZ(-90px) rotateY(-12deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  42%, 58% {
+    transform: none;
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-0.9rem) translateZ(-70px) rotateY(9deg);
+    opacity: 0.5;
+  }
+}
+
+/* The year badge rides nearer the camera than the copy it labels, so the card
+   has thickness rather than being one plane that leans. */
+.journey-rail__year {
+  display: inline-block;
+  transform: translateZ(26px);
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .journey-rail .reveal {
+      animation: journeyCar linear both;
+      animation-timeline: view();
+      animation-range: entry 10% exit 90%;
+    }
+  }
+}
+
+/* The light on the track. It runs the full height on the same scroll timeline
+   as the fill, so it reads as the thing drawing the line rather than as a
+   separate ornament looping on its own clock. */
+/*
+ * The light on the track — a pseudo-element, so it costs no DOM node.
+ *
+ * It travels by `background-position` rather than by `transform`, and that is
+ * a deliberate trade rather than an oversight. A transform in percent resolves
+ * against the ANIMATED element's own box, so a 5px dot moved to `100%` travels
+ * five pixels; the strip therefore has to be the full height of the rail, and
+ * a full-height strip cannot also be the dot. Background-position percentages
+ * resolve against (container - image), which is exactly "the length of the
+ * rail" with no second element. The repaint is a 5px-wide column, only while
+ * the section is being scrolled past.
+ */
+.journey-rail::before {
+  content: '';
+  position: absolute;
+  left: -2px;
+  top: 0;
+  width: 5px;
+  height: 100%;
+  background: radial-gradient(circle 2.5px at 50% 50%, var(--accent-bright), transparent 70%) no-repeat;
+  background-size: 5px 5px;
+  filter: drop-shadow(0 0 6px color-mix(in oklch, var(--accent) 80%, transparent));
+  opacity: 0;
+  pointer-events: none;
+}
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .journey-rail::before {
+      animation: journeyPulse linear both;
+      animation-timeline: view();
+      animation-range: entry 20% cover 60%;
+    }
+  }
+}
+@keyframes journeyPulse {
+  0%   { background-position: 50% 0%; opacity: 0; }
+  12%  { opacity: 1; }
+  88%  { opacity: 1; }
+  100% { background-position: 50% 100%; opacity: 0; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
    W4 — now / uses status pill
    ══════════════════════════════════════════════════════════════════════════ */
 .now-status {
@@ -6487,10 +6607,14 @@ header.site-header {
    at document load and share one period; that is what keeps them locked. */
 .skill-reactor__panel {
   position: absolute;
-  inline-size: 7rem;
-  block-size: 3.1rem;
-  margin-block-start: -1.55rem;
-  margin-inline-start: -3.5rem;
+  /* 7 x 3.1rem held 9.9px labels. At the 12px floor the longest category —
+     "Competitive Programming", which wraps to two lines and then wants a third
+     for its tool count — no longer fits, and a panel whose text overflows its
+     own lit face is worse than one that is slightly larger. */
+  inline-size: 7.4rem;
+  block-size: 3.7rem;
+  margin-block-start: -1.85rem;
+  margin-inline-start: -3.7rem;
   transform-style: preserve-3d;
   animation: reactorFace var(--period) linear infinite;
   animation-duration: calc(var(--period) / max(var(--motion-scale), 0.001));
@@ -6574,19 +6698,25 @@ header.site-header {
   opacity: 0.85;
 }
 
+/* Both of these were 0.62rem and 0.55rem — 9.9px and 8.8px, well under the
+   12px floor §6.4 sets and `no rendered text is smaller than 12px` asserts.
+   They survived only because the reactor used to be `hidden md:block` and the
+   smoke test does not scroll, so the panels were frequently not in the DOM
+   when it looked. Making the machine visible on phones made the violation
+   visible too — the labels are read by people now, not just by the DOM. */
 .skill-reactor__label {
   font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
-  font-size: 0.62rem;
+  font-size: var(--step--2);
   line-height: 1.2;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.06em;
   color: var(--face-bright);
   text-align: center;
-  padding-inline: 0.4rem;
+  padding-inline: 0.3rem;
 }
 .skill-reactor__count {
   font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
-  font-size: 0.55rem;
-  letter-spacing: 0.12em;
+  font-size: var(--step--2);
+  letter-spacing: 0.08em;
   color: var(--ink-low);
 }
 /* The socket the tether lands in, on the hub-facing edge. */
@@ -6668,14 +6798,16 @@ header.site-header {
     perspective: 620px;
   }
 
+  /* Grown from 5.9x2.7rem: the labels sit at the 12px floor now, and three
+     lines of 12px mono ("Competitive" / "Programming" / "5 tools") need the
+     height. The panel is still narrow enough that the machine fits a 320px
+     screen — that is what --radius, not the panel, controls. */
   .skill-reactor__panel {
-    inline-size: 5.9rem;
-    block-size: 2.7rem;
-    margin-block-start: -1.35rem;
-    margin-inline-start: -2.95rem;
+    inline-size: 6.6rem;
+    block-size: 3.3rem;
+    margin-block-start: -1.65rem;
+    margin-inline-start: -3.3rem;
   }
-  .skill-reactor__label { font-size: 0.55rem; letter-spacing: 0.06em; }
-  .skill-reactor__count { font-size: 0.48rem; }
 
   /* The hub ornaments are not touched: corona, core and both gyros are all
      under 10rem across, so they already fit a 320px phone, and shrinking them
@@ -7157,7 +7289,10 @@ header.site-header {
 
 .skill3d__count {
   font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
-  font-size: var(--step--3, 0.7rem);
+  /* --step--3 is not defined anywhere, so this was silently falling through to
+     the 0.7rem fallback — 11.2px, under the floor. --step--2 is the smallest
+     step the scale actually has, and it clamps at 12px by construction. */
+  font-size: var(--step--2);
   letter-spacing: 0.16em;
   color: var(--ink-low);
   transition: color var(--dur-base) var(--ease-forge);
