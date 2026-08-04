@@ -33,7 +33,7 @@ const CHAPTERS = [
 
 export default function HowIBuild() {
   return (
-    <section id="how-i-build" className="relative section-rhythm container-px overflow-hidden">
+    <section id="how-i-build" aria-labelledby="how-i-build-heading" className="relative section-rhythm container-px overflow-hidden">
       <span className="ghost-numeral" aria-hidden="true">06</span>
 
       <div className="relative z-[1] section-shell">
@@ -41,7 +41,7 @@ export default function HowIBuild() {
           <span className="level-badge mb-4">06 — HOW I BUILD</span>
         </Reveal>
         <Reveal delay={0.1}>
-          <h2 className="section-h2 font-display mb-12 max-w-3xl">
+          <h2 id="how-i-build-heading" className="section-h2 font-display mb-12 max-w-3xl">
             <SplitText>Three beats that define </SplitText>
             <SplitText className="text-gradient" delay={0.16}>my build process.</SplitText>
           </h2>
@@ -64,14 +64,14 @@ export default function HowIBuild() {
 
                 <span className="text-3xl mb-4">{ch.icon}</span>
 
-                <p className="font-mono text-[11px] tracking-[0.25em] mb-2" style={{ color: ch.accent }}>
+                <p className="font-mono text-[12px] tracking-[0.25em] mb-2" style={{ color: ch.accent }}>
                   {ch.num} · {ch.title.toUpperCase()}
                 </p>
                 <p className="font-display text-xl mb-3">{ch.subtitle}</p>
                 <p className="text-sm text-[var(--ink-mid)] leading-relaxed flex-1">
                   {ch.body}
                 </p>
-                <p className="font-mono text-[10px] mt-4 pt-4 border-t border-[var(--glass-border)]" style={{ color: ch.accent }}>
+                <p className="font-mono text-[12px] mt-4 pt-4 border-t border-[var(--glass-border)]" style={{ color: ch.accent }}>
                   {ch.stat}
                 </p>
               </div>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { getStore } from '../../lib/store.js'
 
 export default function ExitIntent() {
   const [show, setShow] = useState(false)
@@ -9,8 +10,7 @@ export default function ExitIntent() {
     let shown = false
     const handler = (e) => {
       if (shown || e.clientY > 5) return
-      const raw = localStorage.getItem('forge-sparks')
-      const collected = raw ? JSON.parse(raw).length : 0
+      const collected = getStore().sparks.length
       if (collected >= 5 || collected === 0) return
       shown = true
       setSparksLeft(5 - collected)

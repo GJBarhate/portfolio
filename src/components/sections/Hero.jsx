@@ -1,4 +1,4 @@
-﻿import { useRef, useState, useEffect, lazy, Suspense } from 'react'
+import { useRef, useState, useEffect, lazy, Suspense } from 'react'
 import MagneticButton from '../ui/MagneticButton.jsx'
 import MagneticTilt from '../ui/MagneticTilt.jsx'
 import { Spark } from '../ui/SparkHunt.jsx'
@@ -6,10 +6,10 @@ import HeroAurora from '../ui/HeroAurora.jsx'
 import WordRotator from '../ui/WordRotator.jsx'
 import { SOCIALS } from '../../lib/content.js'
 import { useScrollVelocity } from '../../lib/useScrollVelocity.js'
-import { useIsMobile } from '../../lib/useIsMobile.js'
 import { useReducedMotion } from '../../lib/useReducedMotion.js'
 import { onFrame, getTier, onTierChange } from '../../lib/raf.js'
 import { onScrollFrame } from '../../lib/scrollState.js'
+import { bindTilt, needsTiltPermission, requestTiltPermission, onGyroState } from '../../lib/tilt.js'
 import { useSound } from '../../contexts/SoundContext.jsx'
 
 const HeroForgeObject = lazy(() => import('../ui/HeroForgeObject.jsx'))
@@ -149,7 +149,7 @@ export default function Hero({ introDone = true }) {
 
     const onMove = (e) => {
       pointer = { x: e.clientX, y: e.clientY }
-      if (!active) { active = true; stop = onFrame(tick) }
+      if (!active) { active = true; stop = onFrame(tick, { band: 'input' }) }
     }
     const onLeave = () => { pointer = null }
     const invalidate = () => { rectDirty = true }
@@ -157,7 +157,11 @@ export default function Hero({ introDone = true }) {
     measure()
     el.addEventListener('pointermove', onMove, { passive: true })
     el.addEventListener('pointerleave', onLeave, { passive: true })
-    window.addEventListener('resize', measure, { passive: true })
+    // T-011 — observe the element, not the window. `resize` fires on every
+    // URL-bar collapse during a scroll; the observer fires when this element's
+    // box actually changed, which is the thing the cache depends on.
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
     window.addEventListener('scroll', invalidate, { passive: true })
     document.fonts?.ready.then(measure).catch(() => {})
 
@@ -166,7 +170,7 @@ export default function Hero({ introDone = true }) {
       clearAll()
       el.removeEventListener('pointermove', onMove)
       el.removeEventListener('pointerleave', onLeave)
-      window.removeEventListener('resize', measure)
+      ro.disconnect()
       window.removeEventListener('scroll', invalidate)
     }
   }, [reducedMotion])
@@ -191,12 +195,19 @@ export default function Hero({ introDone = true }) {
     // schedule, and the two fought each other.
   }, { throttleMs: 80 })
   const sectionRef = useRef(null)
-  const isMobile = useIsMobile()
 
   /*
    * The forge gem is the site's ONE heavy 3-D moment, and the only thing left
-   * that puts `three` on the first-visit graph. Gating it on tier means a
-   * phone or a weak laptop downloads zero three bytes.
+   * that puts `three` on the first-visit graph. Gating it on tier means a weak
+   * device downloads zero three bytes.
+   *
+   * It is no longer gated on being a desktop. `isMobile` and a 768px media
+   * query were both standing in for "can this thing afford WebGL", and neither
+   * of them asks that. The measured tier does, on hardware evidence, and it
+   * already returns 1 for the phones that genuinely cannot — while a modern
+   * handset renders 80 flat-shaded faces without noticing. Excluding every
+   * phone by width meant the one deliberate 3-D moment on the site was
+   * invisible to most of the people who visited it.
    *
    * The gate LATCHES. It used to re-evaluate on every tier change, so a
    * momentary drop to tier 1 unmounted the gem — disposing its GPU context —
@@ -208,10 +219,23 @@ export default function Hero({ introDone = true }) {
    */
   const [forgeAllowed, setForgeAllowed] = useState(false)
   useEffect(() => {
-    if (isMobile || reducedMotion) return
+    if (reducedMotion) return
     if (forgeAllowed) return
+
+    /*
+     * Capability is necessary but not sufficient. This gem is the one thing on
+     * the site that costs `three` — ~127 KB gzipped — and opening that to
+     * phones means opening it to phones on metered and slow connections, where
+     * a decorative download is a genuine imposition rather than a nicety. A
+     * device that has asked for less data, or that is honestly reporting a 2G
+     * link, keeps the CSS hero and loses nothing it can afford to want.
+     */
+    const conn = navigator.connection
+    if (conn?.saveData) return
+    if (conn?.effectiveType && /^(slow-)?2g$/.test(conn.effectiveType)) return
+
     const evaluate = () => {
-      if (getTier() >= 2 && window.matchMedia('(min-width: 768px)').matches) {
+      if (getTier() >= 2) {
         setForgeAllowed(true)
         return true
       }
@@ -219,7 +243,7 @@ export default function Hero({ introDone = true }) {
     }
     if (evaluate()) return
     return onTierChange(evaluate)
-  }, [isMobile, reducedMotion, forgeAllowed])
+  }, [reducedMotion, forgeAllowed])
 
   /*
    * Cinematic exit — the hero recedes into depth as the visitor scrolls: copy
@@ -232,6 +256,48 @@ export default function Hero({ introDone = true }) {
    * The CSS transition stays on the compositor; React is not involved in the
    * per-frame scroll path.
    */
+  /*
+   * Depth. The backdrop and the gem are bound to the shared lean signal at
+   * different depths, and the stylesheet moves them in opposite directions —
+   * which is what turns two flat layers into a near one and a far one.
+   *
+   * They are bound individually rather than once on the section: a custom
+   * property changing on #hero would invalidate style for the entire first
+   * viewport every frame, headline included, where two bindings invalidate two
+   * small subtrees. The headline is not bound at all, on purpose — text nudged
+   * by fractions of a pixel every frame renders soft.
+   */
+  /*
+   * iOS 13+ will not report device motion until the visitor grants it, and the
+   * grant can only be requested from inside a real gesture. Every other
+   * platform simply starts reporting, so this chip appears on exactly the
+   * devices that need it and nowhere else.
+   *
+   * It is an offer rather than a prompt on load. Firing the system dialog at
+   * an unsuspecting reader is the kind of thing that gets a page closed, and a
+   * visitor who ignores this loses only the parallax — the gem still spins,
+   * the field still moves, everything still works.
+   */
+  const [showTiltOffer, setShowTiltOffer] = useState(false)
+  useEffect(() => {
+    if (reducedMotion) return
+    if (needsTiltPermission()) setShowTiltOffer(true)
+    return onGyroState((state) => {
+      if (state === 'granted' || state === 'denied' || state === 'unsupported') {
+        setShowTiltOffer(false)
+      }
+    })
+  }, [reducedMotion])
+
+  const backRef = useRef(null)
+  const forgeSlotRef = useRef(null)
+  useEffect(() => {
+    if (reducedMotion) return
+    const unbindBack = bindTilt(backRef.current, 1)
+    const unbindForge = forgeSlotRef.current ? bindTilt(forgeSlotRef.current, 1) : null
+    return () => { unbindBack(); unbindForge?.() }
+  }, [reducedMotion, forgeAllowed])
+
   useEffect(() => {
     const el = sectionRef.current
     if (!el) return
@@ -247,7 +313,8 @@ export default function Hero({ introDone = true }) {
     <section
       ref={sectionRef}
       id="hero"
-      className="relative h-screen w-full overflow-hidden flex items-center"
+      aria-label="Introduction"
+      className="hero-section relative w-full overflow-hidden flex items-center"
       style={{ '--hero-p': 0 }}
     >
       {/* The constellation canvas that used to live here is gone: the §14
@@ -255,7 +322,8 @@ export default function Hero({ introDone = true }) {
           full-hero canvas was drawing the same idea twice. The click gesture
           it carried (and the achievement behind it) stays. */}
       <div
-        className="hero-back absolute inset-0 hero-poster cursor-pointer"
+        ref={backRef}
+        className="hero-back absolute inset-0 hero-poster"
         data-cursor="explore"
         onClick={() => {
           sound?.play('click')
@@ -265,8 +333,13 @@ export default function Hero({ introDone = true }) {
         <HeroAurora />
       </div>
 
+      {/* Geometry lives in CSS now. On a phone the gem cannot be a 420px pane
+          pinned to the right margin — there is no right margin — so it becomes
+          what it always should have been at that size: an object in the scene,
+          set behind the copy in the upper right. Same component, same shader,
+          different staging. */}
       {forgeAllowed && (
-        <div className="hero-forge-slot absolute right-[4%] top-1/2 -translate-y-1/2 z-[5] w-[340px] h-[340px] lg:w-[420px] lg:h-[420px] pointer-events-auto hidden md:block">
+        <div className="hero-forge-slot" ref={forgeSlotRef}>
           <Suspense fallback={null}>
             <HeroForgeObject />
           </Suspense>
@@ -276,7 +349,7 @@ export default function Hero({ introDone = true }) {
       <div className="hero-copy relative z-10 container-px w-full">
         <div className="hero-rise hero-badge mb-6" style={{ '--rise-delay': '0.1s' }}>
           <span className="hero-badge__dot" />
-          <span className="font-mono text-[11px] tracking-wide text-[var(--ink-mid)]">
+          <span className="font-mono text-[12px] tracking-wide text-[var(--ink-mid)]">
             Open to opportunities
           </span>
         </div>
@@ -309,14 +382,20 @@ export default function Hero({ introDone = true }) {
           </div>
         </div>
 
-        <div className="overflow-hidden mt-3 h-[1.4em]">
-          <p className="font-mono text-sm md:text-lg tracking-wide text-[var(--ink-mid)]">
+        {/* The height reservation and the text it reserves for have to share a
+            font-size, or `em` resolves against the wrong one. The size classes
+            were on the <p> and the `h-[1.4em]` on this div, so the box was
+            22px (1.4 × the inherited 16px) around 28px of `text-lg` line box —
+            the rotator's words were cropped top and bottom at every width from
+            md up. Sizing here makes the em mean what it says. */}
+        <div className="hero-rotator overflow-hidden mt-3 text-sm md:text-lg h-[1.65em]">
+          <p className="font-mono tracking-wide text-[var(--ink-mid)]">
             <WordRotator words={['Full-Stack Developer', 'Competitive Programmer', 'MERN Stack Developer', 'B.Tech CSE Graduate']} />
           </p>
         </div>
 
         <p
-          className="hero-rise mt-6 max-w-md text-[var(--ink-mid)] text-sm md:text-base"
+          className="hero-stats hero-rise mt-6 max-w-md text-[var(--ink-mid)] text-sm md:text-base"
           style={{ '--rise-delay': '0.5s' }}
         >
           <span className="hero-stat-strong">LeetCode Knight</span>, max rating{' '}
@@ -330,8 +409,27 @@ export default function Hero({ introDone = true }) {
           integrations.
         </p>
 
+        {showTiltOffer && (
+          <button
+            type="button"
+            className="hero-tilt-offer hero-rise"
+            style={{ '--rise-delay': '0.85s' }}
+            onClick={async () => {
+              const ok = await requestTiltPermission()
+              setShowTiltOffer(false)
+              if (ok) {
+                sound?.play('click')
+                window.dispatchEvent(new CustomEvent('forge:unlock', { detail: 'compiler' }))
+              }
+            }}
+          >
+            <span className="hero-tilt-offer__icon" aria-hidden="true">◧</span>
+            <span>TILT TO EXPLORE</span>
+          </button>
+        )}
+
         <div
-          className="hero-rise mt-10 flex flex-wrap items-center gap-3 md:gap-5"
+          className="hero-ctas hero-rise mt-10 flex flex-wrap items-center gap-3 md:gap-5"
           style={{ '--rise-delay': '0.7s' }}
         >
           <MagneticTilt>
@@ -377,27 +475,35 @@ export default function Hero({ introDone = true }) {
 
       <div className="absolute bottom-32 right-[12%] hidden md:flex flex-col items-center gap-3">
         <Spark id="spark-hero" />
-        <div
-          className="arcade-hero-hint group cursor-pointer"
+        {/*
+          T-040.1 — this was a `<div>` with an onClick and a pointer cursor:
+          it looked interactive, was unreachable by keyboard, and announced
+          nothing. The `md:` gate on its parent is why only the wider
+          Playwright projects caught it.
+        */}
+        <button
+          type="button"
+          className="arcade-hero-hint group"
+          aria-label="Open the arcade — five games"
           onClick={() => window.dispatchEvent(new CustomEvent('forge:open-arcade'))}
         >
           <div className="flex flex-col items-center gap-1.5 px-3 py-2 rounded-xl border border-[var(--accent-dim)]/20 hover:border-[var(--accent-dim)]/60 transition-all duration-fast"
             style={{ background: 'color-mix(in oklch, var(--accent) 4%, var(--surface-1))' }}
           >
             <div className="flex gap-1">
-              <span className="text-[9px]">🏃</span>
-              <span className="text-[9px]">🎲</span>
-              <span className="text-[9px]">🪜</span>
-              <span className="text-[9px]">🧠</span>
-              <span className="text-[9px]">🐍</span>
+              <span className="text-[12px]">🏃</span>
+              <span className="text-[12px]">🎲</span>
+              <span className="text-[12px]">🪜</span>
+              <span className="text-[12px]">🧠</span>
+              <span className="text-[12px]">🐍</span>
             </div>
-            <span className="font-mono text-[8px] tracking-[0.2em] text-[var(--ink-low)]">ARCADE · 5 GAMES</span>
+            <span className="font-mono text-[12px] tracking-[0.2em] text-[var(--ink-low)]" aria-hidden="true">ARCADE · 5 GAMES</span>
           </div>
-        </div>
+        </button>
       </div>
 
       <div className="hero-scroll-hint absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
-        <span className="font-mono text-[10px] tracking-widest text-[var(--ink-low)]">SCROLL</span>
+        <span className="font-mono text-[12px] tracking-widest text-[var(--ink-low)]">SCROLL</span>
         <div className="w-px h-10 overflow-hidden">
           <div className="w-px h-10 bg-gradient-to-b from-[var(--accent)] to-transparent animate-[scrollHint_1.8s_ease-in-out_infinite]" />
         </div>

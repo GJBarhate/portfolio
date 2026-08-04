@@ -7,24 +7,37 @@ import SnakeLaddersCV from './SnakeLaddersCV.jsx'
 import LudoRecruiter from './LudoRecruiter.jsx'
 import SnakeClassic from './SnakeClassic.jsx'
 import { useGame } from '../../contexts/GameContext.jsx'
+import { getStore } from '../../lib/store.js'
 
-function getBest(key) {
-  try { return localStorage.getItem(key) } catch { return null }
+// T-030 — the five arcade high scores were five loose localStorage keys with
+// five private try/catch blocks. They are one `scores` object now, keyed by
+// game id, and the store's migration carried the existing values across.
+const getBest = (id) => {
+  const value = getStore().scores[id]
+  return value === undefined ? null : String(value)
 }
 
 const GAMES = [
-  { id: 'runner',   label: 'FORGE RUNNER',     icon: '🏃', color: 'var(--accent)', lsKey: 'forge-runner-highscore', desc: '3-lane endless runner' },
-  { id: 'ludo',     label: 'LUDO: RECRUITER',  icon: '🎲', color: 'var(--warm)',  lsKey: 'forge-ludo-best', desc: 'Race 4 project tokens' },
-  { id: 'snakes',   label: 'SNAKES & CV',      icon: '🪜', color: 'var(--violet)',  lsKey: 'forge-snakes-best', desc: 'Career board — ladders & snakes' },
-  { id: 'memory',   label: 'MEMORY MATCH',     icon: '🧠', color: 'var(--accent)', lsKey: 'forge-memory-best', desc: 'Flip tech pairs' },
-  { id: 'snake',    label: 'SNAKE (CLASSIC)',  icon: '🐍', color: 'var(--warm)', lsKey: null, desc: 'Konami code classic' },
+  { id: 'runner',   label: 'FORGE RUNNER',     icon: '🏃', color: 'var(--accent)', scored: true, desc: '3-lane endless runner' },
+  { id: 'ludo',     label: 'LUDO: RECRUITER',  icon: '🎲', color: 'var(--warm)',  scored: true, desc: 'Race 4 project tokens' },
+  { id: 'snakes',   label: 'SNAKES & CV',      icon: '🪜', color: 'var(--violet)',  scored: true, desc: 'Career board — ladders & snakes' },
+  { id: 'memory',   label: 'MEMORY MATCH',     icon: '🧠', color: 'var(--accent)', scored: true, desc: 'Flip tech pairs' },
+  { id: 'snake',    label: 'SNAKE (CLASSIC)',  icon: '🐍', color: 'var(--warm)', scored: false, desc: 'Konami code classic' },
 ]
 
 export default function ArcadeHub({ open, onClose, initialGame = null }) {
   // The Konami code used to summon a second, near-identical Snake in its own
   // chunk (`MiniGame.jsx`). It now lands straight on this cabinet's classic.
   const [activeGame, setActiveGame] = useState(initialGame)
-  const [best, setBest] = useState(() => Object.fromEntries(GAMES.filter(g => g.lsKey).map(g => [g.id, getBest(g.lsKey)])))
+
+  // T-004.4 — the hub stays mounted between openings (App keeps it inside an
+  // <Activity>), so `useState(initialGame)` alone would only ever honour the
+  // FIRST launch. The nav dropdown's per-game rows depend on the current
+  // request winning, so the prop is synced whenever it names a game.
+  useEffect(() => {
+    if (initialGame) setActiveGame(initialGame)
+  }, [initialGame])
+  const [best] = useState(() => Object.fromEntries(GAMES.filter(g => g.scored).map(g => [g.id, getBest(g.id)])))
   const { xp, percent } = useGame()
 
   useEffect(() => {
@@ -64,7 +77,7 @@ export default function ArcadeHub({ open, onClose, initialGame = null }) {
             <motion.div key="menu" exit={{ opacity: 0, y: -10 }} initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <p className="font-mono text-[10px] tracking-[0.3em] text-[var(--accent-bright)] insert-coin">
+                  <p className="font-mono text-[12px] tracking-[0.3em] text-[var(--accent-bright)] insert-coin">
                     INSERT COIN TO PLAY
                   </p>
                   <h2 className="font-display text-2xl md:text-3xl mt-1">ARCADE</h2>
@@ -75,7 +88,7 @@ export default function ArcadeHub({ open, onClose, initialGame = null }) {
               </div>
 
               <div className="mb-6 p-3 rounded-xl clay--inset">
-                <div className="flex justify-between font-mono text-[10px] text-[var(--ink-low)] mb-1.5">
+                <div className="flex justify-between font-mono text-[12px] text-[var(--ink-low)] mb-1.5">
                   <span>PLAYER XP</span>
                   <span>{xp} / 140</span>
                 </div>
@@ -102,14 +115,14 @@ export default function ArcadeHub({ open, onClose, initialGame = null }) {
                   >
                     <span className="text-xl flex-shrink-0">{g.icon}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="font-mono text-[10px] tracking-[0.15em]" style={{ color: g.color }}>{g.label}</p>
-                      <p className="text-[10px] text-[var(--ink-low)] mt-0.5 truncate">{g.desc}</p>
+                      <p className="font-mono text-[12px] tracking-[0.15em]" style={{ color: g.color }}>{g.label}</p>
+                      <p className="text-[12px] text-[var(--ink-low)] mt-0.5 truncate">{g.desc}</p>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0">
                       {best[g.id] && (
-                        <span className="font-mono text-[8px] text-[var(--accent-bright)]">BEST: {best[g.id]}</span>
+                        <span className="font-mono text-[12px] text-[var(--accent-bright)]">BEST: {best[g.id]}</span>
                       )}
-                      <motion.span className="font-mono text-[9px] text-[var(--ink-low)] group-hover:text-[var(--ink)] transition-colors" whileHover={{ x: 3 }}>
+                      <motion.span className="font-mono text-[12px] text-[var(--ink-low)] group-hover:text-[var(--ink)] transition-colors" whileHover={{ x: 3 }}>
                         PLAY &rarr;
                       </motion.span>
                     </div>
@@ -117,17 +130,17 @@ export default function ArcadeHub({ open, onClose, initialGame = null }) {
                 ))}
               </div>
 
-              <p className="mt-4 font-mono text-[8px] tracking-[0.2em] text-[var(--ink-low)] text-center">
+              <p className="mt-4 font-mono text-[12px] tracking-[0.2em] text-[var(--ink-low)] text-center">
                 Keyboard + touch &middot; Reduced-motion: turn-based games only
               </p>
             </motion.div>
           ) : (
             <motion.div key={activeGame} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
               <div className="flex items-center justify-between mb-4">
-                <button onClick={() => setActiveGame(null)} className="font-mono text-[10px] tracking-wider text-[var(--ink-low)] hover:text-[var(--accent-bright)] transition-colors">
+                <button onClick={() => setActiveGame(null)} className="font-mono text-[12px] tracking-wider text-[var(--ink-low)] hover:text-[var(--accent-bright)] transition-colors">
                   &larr; BACK TO ARCADE
                 </button>
-                <button onClick={onClose} className="font-mono text-[10px] text-[var(--ink-low)] hover:text-[var(--ink)]">
+                <button onClick={onClose} className="font-mono text-[12px] text-[var(--ink-low)] hover:text-[var(--ink)]">
                   ESC ✕
                 </button>
               </div>

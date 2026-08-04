@@ -5,15 +5,21 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#070709" />
+    <!-- Overwritten in the same breath as the theme by the inline script
+         below, so the iOS status bar matches the palette on the first frame
+         rather than after hydration (T-033). -->
+    <meta name="theme-color" content="#05090d" />
     <title>Gaurav Barhate — Full-Stack Developer & Competitive Programmer</title>
     <meta name="description" content="Gaurav Barhate — B.Tech in Computer Science Engineering, LeetCode Knight (1972 max rating, 800+ problems solved), full-stack developer with 5+ apps in production including PeerCode, FlowShield, VoiceAns, OneCart, and a full LMS." />
     <meta property="og:title" content="Gaurav Barhate — Full-Stack Developer & Competitive Programmer" />
     <meta property="og:description" content="Portfolio of Gaurav Barhate — B.Tech CSE graduate, full-stack developer, and competitive programmer." />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://gauravbarhate.dev/" />
-    <meta property="og:image" content="/og-image.png" />
-    <link rel="canonical" href="https://gauravbarhate.dev/" />
+    <!-- %SITE_URL% is substituted at build and dev time by the `siteMeta`
+         plugin in vite.config.js from src/lib/siteConfig.js — the one place
+         the origin is written down (T-005). -->
+    <meta property="og:url" content="%SITE_URL%/" />
+    <meta property="og:image" content="%SITE_URL%/og-image.png" />
+    <link rel="canonical" href="%SITE_URL%/" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Gaurav Barhate — Full-Stack Developer & Competitive Programmer" />
     <meta name="twitter:description" content="LeetCode Knight (1972). Full-stack developer. 5+ apps live in production." />
@@ -21,27 +27,52 @@
 
     <!--
       Resolve the theme before the stylesheet is parsed, so no frame is ever
-      painted with the wrong palette. Old theme ids map onto the three that
-      survive so returning visitors keep a sensible look.
+      painted with the wrong palette.
+
+      Three jobs, in this order:
+        1. Read the unified store (`forge:v1`, src/lib/store.js), falling back
+           to the pre-v1 `forge-theme` key with its retired-id remap so a
+           returning visitor keeps the look they chose.
+        2. With no explicit choice — and only then — follow the OS via
+           `prefers-color-scheme` (T-034). Defaulting everyone to a dark theme
+           regardless of their system setting was D-27.
+        3. Publish polarity (`color-scheme`), the motion override (T-025) and
+           the recruiter flag, all of which are read by CSS in the very first
+           cascade rather than a frame later.
     -->
     <script>
       (function () {
+        var THEME_BG = { eclipse: '#05090d', ember: '#080605', paper: '#fbf6f0' };
+        var LEGACY = { forest: 'eclipse', ocean: 'eclipse', golden: 'ember', obsidian: 'ember', dawn: 'paper' };
+        var root = document.documentElement;
+        var theme = null, motion = 'system', recruiter = false;
         try {
-          var map = { forest: 'eclipse', ocean: 'eclipse', golden: 'ember', obsidian: 'ember', dawn: 'paper' };
-          var saved = localStorage.getItem('forge-theme');
-          var theme = map[saved] || saved || 'eclipse';
-          if (theme !== saved) { try { localStorage.setItem('forge-theme', theme); } catch (e) {} }
-          document.documentElement.dataset.theme = theme;
-          // §6.5 — scrollbars and form controls follow the POLARITY, and they
-          // flash the wrong one for a frame if this waits for React.
-          document.documentElement.style.colorScheme = theme === 'paper' ? 'light' : 'dark';
-          if (sessionStorage.getItem('forge-recruiter') === '1') {
-            document.documentElement.setAttribute('data-recruiter', '');
+          var raw = localStorage.getItem('forge:v1');
+          if (raw) {
+            var s = JSON.parse(raw) || {};
+            theme = s.theme || null;
+            motion = s.motion || 'system';
+            recruiter = !!(s.prefs && s.prefs.recruiter);
+          } else {
+            var old = localStorage.getItem('forge-theme');
+            if (old) theme = LEGACY[old] || old;
+            if (sessionStorage.getItem('forge-recruiter') === '1') recruiter = true;
           }
-        } catch (e) {
-          document.documentElement.dataset.theme = 'eclipse';
-          document.documentElement.style.colorScheme = 'dark';
+        } catch (e) { /* private mode, or a corrupt payload — defaults apply */ }
+
+        if (!theme || theme === 'system' || !THEME_BG[theme]) {
+          theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches)
+            ? 'paper' : 'eclipse';
         }
+
+        root.dataset.theme = theme;
+        // §6.5 — scrollbars and form controls follow the POLARITY, and they
+        // flash the wrong one for a frame if this waits for React.
+        root.style.colorScheme = theme === 'paper' ? 'light' : 'dark';
+        if (motion && motion !== 'system') root.dataset.motion = motion;
+        if (recruiter) root.setAttribute('data-recruiter', '');
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', THEME_BG[theme]);
       })();
     </script>
 
@@ -59,7 +90,7 @@
       "@context": "https://schema.org",
       "@type": "Person",
       "name": "Gaurav Barhate",
-      "url": "https://gauravbarhate.dev",
+      "url": "%SITE_URL%",
       "email": "gauravjbarhate554@gmail.com",
       "jobTitle": "Full Stack Developer & Competitive Programmer",
       "alumniOf": { "@type": "CollegeOrUniversity", "name": "IIIT Vadodara" },
@@ -159,8 +190,65 @@
     </script>
   </head>
   <body>
-    <a href="#about" class="skip-link">Skip to content</a>
+    <a href="#main" class="skip-link">Skip to content</a>
     <div id="root"></div>
+
+    <!--
+      T-036 — the no-JS floor. ~2 KB, styled entirely by the inlined
+      critical.css, and the honest test of whether the content exists
+      independently of the effects: with scripting off the page used to be a
+      blank rectangle. Crawlers that do not execute JS, a corporate proxy that
+      strips modules, or a failed chunk all land here instead of on nothing.
+    -->
+    <noscript>
+      <div class="noscript-shell">
+        <h1>Gaurav Barhate</h1>
+        <p class="noscript-role">Full-Stack Developer &amp; Competitive Programmer · B.Tech CSE, IIIT Vadodara</p>
+        <p>
+          I build real-time web systems: a peer-to-peer interview platform with a CRDT-synced
+          editor, a webhook reliability tool, and an AI voice interview coach. LeetCode Knight
+          with a 1972 peak rating and 800+ problems solved, and five applications running in
+          production. This page normally runs with JavaScript; what follows is the whole of it
+          that matters.
+        </p>
+        <h2>Selected work</h2>
+        <ul class="noscript-list">
+          <li>
+            <a href="https://peercode-iota.vercel.app/">PeerCode</a> —
+            real-time coding-interview platform: WebRTC video, a Yjs CRDT-synced Monaco editor,
+            Judge0 execution and Gemini-driven mock interviews.
+          </li>
+          <li>
+            <a href="https://flowshield-delta.vercel.app/login">FlowShield</a> —
+            webhook monitoring with per-project API keys, automatic delivery retries and a
+            real-time debugging console.
+          </li>
+          <li>
+            <a href="https://voice-ans-frontend.vercel.app/">VoiceAns</a> —
+            AI voice interview coach: in-browser speech transcription answered by Gemini as
+            structured feedback.
+          </li>
+          <li>
+            <a href="https://ai-powered-ecommerce-platform-frontendone.onrender.com/">OneCart</a> —
+            full-stack e-commerce: search, cart, checkout, order tracking, admin panel and an AI
+            shopping assistant.
+          </li>
+          <li>
+            <a href="https://learning-management-system-frontend-tx7b.onrender.com/signup">Virtual Courses</a> —
+            learning management system with student and educator roles, Google OAuth and AI course search.
+          </li>
+        </ul>
+        <h2>Contact</h2>
+        <ul class="noscript-list">
+          <li><a href="mailto:gauravjbarhate554@gmail.com">gauravjbarhate554@gmail.com</a></li>
+          <li><a href="/Gaurav_Resume.pdf">Download résumé (PDF)</a></li>
+          <li><a href="https://github.com/GJBarhate">GitHub</a></li>
+          <li><a href="https://www.linkedin.com/in/gaurav-barhate-056175271/">LinkedIn</a></li>
+          <li><a href="https://leetcode.com/u/chgyCygKwQ/">LeetCode</a></li>
+        </ul>
+      </div>
+    </noscript>
+
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

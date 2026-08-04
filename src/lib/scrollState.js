@@ -18,12 +18,14 @@ let dirty = true
 
 // scrollHeight only changes on resize or when content is added, so it is
 // re-measured on those events rather than every frame.
-if (typeof window !== 'undefined') {
-  const invalidate = () => { dirty = true }
-  window.addEventListener('resize', invalidate, { passive: true })
-  if ('ResizeObserver' in window) {
-    new ResizeObserver(invalidate).observe(document.documentElement)
-  }
+//
+// T-011: the `resize` listener that used to sit beside this observer was
+// redundant *and* harmful. Mobile browsers fire `resize` continuously as the
+// URL bar collapses during a scroll — the exact moment this module exists to
+// keep cheap — while `ResizeObserver` on the root element reports the same
+// fact once, off the scroll path, and only when the box genuinely changed.
+if (typeof window !== 'undefined' && 'ResizeObserver' in window) {
+  new ResizeObserver(() => { dirty = true }).observe(document.documentElement)
 }
 
 function tick(t, dt) {

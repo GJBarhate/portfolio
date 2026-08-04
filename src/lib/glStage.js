@@ -23,6 +23,7 @@ let renderer = null
 let canvas = null
 let stopFrame = null
 let io = null
+let ro = null
 const entries = new Set()
 
 function ensureRenderer() {
@@ -42,11 +43,30 @@ function ensureRenderer() {
   })
   document.body.appendChild(canvas)
 
+  // T-045.1 — without preventDefault on `webglcontextlost` the browser never
+  // sends `webglcontextrestored`, so a lost context here used to mean every
+  // registered scene was black for the rest of the session.
+  canvas.addEventListener('webglcontextlost', (event) => {
+    event.preventDefault()
+    stopFrame?.()
+    stopFrame = null
+  }, false)
+  canvas.addEventListener('webglcontextrestored', () => {
+    // The renderer rebuilds its own GL resources; what it cannot do is
+    // restart a frame loop it does not own.
+    resize()
+    if (!stopFrame) stopFrame = onFrame(renderAll, { band: 'ambient' })
+  }, false)
+
   renderer = new WebGLRenderer({ canvas, alpha: true, antialias: false })
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, getTier() >= 3 ? 1.75 : 1.25))
   renderer.setScissorTest(true)
   resize()
-  window.addEventListener('resize', resize)
+  // T-011 — a ResizeObserver on the root, not a `resize` listener: the canvas
+  // is `position: fixed; width: 100%`, so its size is the root box, and the
+  // observer does not fire for every URL-bar collapse mid-scroll.
+  ro = new ResizeObserver(resize)
+  ro.observe(document.documentElement)
 
   io = new IntersectionObserver(
     (records) => {
@@ -124,7 +144,8 @@ function teardown() {
   stopFrame = null
   io?.disconnect()
   io = null
-  window.removeEventListener('resize', resize)
+  ro?.disconnect()
+  ro = null
   renderer?.dispose()
   renderer = null
   canvas?.remove()
@@ -165,7 +186,11 @@ export function createAnchoredRenderer(element) {
   el.style.width = '100%'
   el.style.height = '100%'
   const r = new WebGLRenderer({ canvas: el, alpha: true, antialias: false })
-  r.setPixelRatio(Math.min(window.devicePixelRatio, getTier() >= 3 ? 1.75 : 1.25))
+  // Tier scales RESOLUTION, never existence. A tier-1 machine still gets the
+  // scene, drawn at device pixels; it is the cheapest lever there is and the
+  // visitor cannot tell the difference at this size.
+  const t = getTier()
+  r.setPixelRatio(Math.min(window.devicePixelRatio, t >= 3 ? 1.75 : t >= 2 ? 1.25 : 1))
   element.appendChild(el)
 
   return {

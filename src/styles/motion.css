@@ -1,0 +1,108 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   motion.css — T-025. Reduced motion as one scalar, not thirty-eight blocks.
+
+   `index.css` carried 38 separate `@media (prefers-reduced-motion: reduce)`
+   blocks. Every one of them was correct. Collectively they were a promise
+   that could not be kept: the 39th animation is written by someone who does
+   not know the list exists, and nothing fails when it is missed.
+
+   The inversion: motion is a *number* that every duration multiplies by.
+
+     --motion-scale     1 → 0.5 → 0    time
+     --motion-distance  1 → 0.35 → 0   travel
+
+   A zero scale produces a zero-duration transition, which is exactly "no
+   animation" — with no override to write, and no way to forget to write it.
+   A zero distance stops a slide from moving while leaving its opacity fade
+   intact, which is what most people who ask for reduced motion actually want.
+
+   Three sources set the value, in ascending priority:
+     1. nothing            → full motion
+     2. the OS preference  → `prefers-reduced-motion: reduce` → off
+     3. the visitor        → `data-motion` from the palette/drawer (T-025.4)
+
+   The visitor's explicit choice outranks the OS deliberately: someone who has
+   set reduce system-wide and then asks this page for full motion has said
+   something more specific than their OS did.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --motion-scale: 1;
+  --motion-distance: 1;
+
+  /* The duration ladder. Nothing in the codebase should type a raw ms value;
+     these five cover every case and all of them respect the scalar. */
+  --dur-instant: calc(80ms * var(--motion-scale));
+  --dur-fast: calc(160ms * var(--motion-scale));
+  --dur-base: calc(280ms * var(--motion-scale));
+  --dur-slow: calc(520ms * var(--motion-scale));
+  --dur-cinema: calc(900ms * var(--motion-scale));
+
+  /* Travel distances, scaled by the same idea. */
+  --move-xs: calc(4px * var(--motion-distance));
+  --move-s: calc(8px * var(--motion-distance));
+  --move-m: calc(16px * var(--motion-distance));
+  --move-l: calc(32px * var(--motion-distance));
+  --move-xl: calc(64px * var(--motion-distance));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-scale: 0;
+    --motion-distance: 0;
+  }
+}
+
+/* The visitor's own choice, written by src/lib/motion.js. Placed after the
+   media query so it wins in both directions. */
+:root[data-motion='full'] {
+  --motion-scale: 1;
+  --motion-distance: 1;
+}
+:root[data-motion='reduced'] {
+  --motion-scale: 0.5;
+  --motion-distance: 0.35;
+}
+:root[data-motion='off'] {
+  --motion-scale: 0;
+  --motion-distance: 0;
+}
+
+/* ── The structural cases ──────────────────────────────────────────────────
+   A scalar cannot express "do something different"; it can only express "do
+   less of the same". These four are the genuine exceptions, and each one says
+   why it is here. Everything else was deleted along with its media block. */
+
+/* 1. Infinite ambient loops. A zero-duration infinite animation is not
+      stillness — it is an animation that restarts every frame, which is
+      worse than the thing it replaced. These have to actually stop. */
+:root[data-motion='off'] *,
+:root[data-motion='off'] *::before,
+:root[data-motion='off'] *::after {
+  animation-play-state: paused !important;
+  transition-duration: 0s !important;
+  scroll-behavior: auto !important;
+}
+
+/* 2. Scroll-driven animations run on the compositor and never read
+      `--motion-scale`, because they have no duration to scale — their
+      timeline is the scrollbar. They must be switched off by name. */
+:root[data-motion='off'] [style*='animation-timeline'],
+:root[data-motion='off'] .scroll-driven {
+  animation-timeline: none !important;
+}
+
+/* 3. Parallax is a position, not a transition: scaling its duration to zero
+      leaves the layer permanently displaced. It is neutralised instead. */
+:root[data-motion='off'] .parallax-layer,
+:root[data-motion='off'] [data-parallax] {
+  transform: none !important;
+}
+
+/* 4. Smooth scrolling is a motion effect that lives outside the animation
+      system entirely. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}

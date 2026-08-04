@@ -1,84 +1,181 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useTheme } from './ThemeContext.jsx'
+import { getStore, setStore } from '../lib/store.js'
+
+/**
+ * SoundContext — T-069.
+ *
+ * Sound on a portfolio is high-risk, high-reward: unrequested audio is the
+ * fastest way to lose a visitor, and there is no undo for the first second.
+ * So the rules here are absolute rather than tuned:
+ *
+ *  1. **Default off, always.** Not "off on mobile", not "off until they
+ *     scroll" — off, until an explicit opt-in, which is then remembered.
+ *  2. **Nothing is constructed before that opt-in.** An `AudioContext` is not
+ *     created at import, at mount, or on the first hover. The T-069 test
+ *     asserts that zero contexts exist before the gesture, because a
+ *     suspended context still shows up in a browser's audio indicator and
+ *     still tells the visitor the page intends to make noise.
+ *  3. **Synthesised, never sampled.** An oscillator and an envelope are a few
+ *     hundred bytes; the equivalent in samples is ~200 KB of assets that must
+ *     be downloaded to maybe never play.
+ *  4. **Musically related.** One key, and every sound is an interval in it —
+ *     hover a fifth, click the root, achievement a triad. Sounds that share a
+ *     key feel designed; unrelated beeps feel like an alert dialog.
+ *  5. **`prefers-reduced-motion` is treated as a sensory-sensitivity signal**,
+ *     not only a motion one. It does not merely default sound off; it hides
+ *     the opt-in behind a deliberate second action.
+ */
 
 const SoundContext = createContext(null)
 
-function makeTone({ freq = 440, duration = 0.08, type = 'sine', volume = 0.05 }) {
-  return () => {
-    try {
-      const ctx = makeTone.ctx || (makeTone.ctx = new (window.AudioContext || window.webkitAudioContext)())
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = type
-      osc.frequency.value = freq
-      gain.gain.value = volume
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration)
-      osc.start()
-      osc.stop(ctx.currentTime + duration)
-    } catch {
-      /* audio context unavailable */
-    }
+/**
+ * The key: A minor, rooted at A3. Every frequency below is an interval from
+ * it, which is what makes eight unrelated UI events sound like one instrument.
+ */
+const ROOT = 220
+const INTERVAL = { root: 1, third: 6 / 5, fifth: 3 / 2, octave: 2, tenth: 12 / 5 }
+
+/** One lazily-created context for the whole app. Never before the opt-in. */
+let audioCtx = null
+
+function getContext() {
+  if (audioCtx) return audioCtx
+  try {
+    const Ctor = window.AudioContext || window.webkitAudioContext
+    if (!Ctor) return null
+    audioCtx = new Ctor()
+  } catch {
+    audioCtx = null
   }
+  return audioCtx
 }
 
-function makeSweep({ from = 200, to = 800, duration = 0.15, type = 'sine', volume = 0.04 }) {
-  return () => {
-    try {
-      const ctx = makeTone.ctx || (makeTone.ctx = new (window.AudioContext || window.webkitAudioContext)())
-      const osc = ctx.createOscillator()
-      const gain = ctx.createGain()
-      osc.type = type
-      osc.frequency.setValueAtTime(from, ctx.currentTime)
-      osc.frequency.exponentialRampToValueAtTime(to, ctx.currentTime + duration)
-      gain.gain.setValueAtTime(volume, ctx.currentTime)
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration)
-      osc.connect(gain)
-      gain.connect(ctx.destination)
-      osc.start()
-      osc.stop(ctx.currentTime + duration)
-    } catch {
-      /* audio context unavailable */
-    }
-  }
+/** A single voice: oscillator → gain envelope → out. */
+function voice(ctx, { freq, duration, type, volume, glideTo }) {
+  const osc = ctx.createOscillator()
+  const gain = ctx.createGain()
+  const now = ctx.currentTime
+
+  osc.type = type
+  osc.frequency.setValueAtTime(freq, now)
+  if (glideTo) osc.frequency.exponentialRampToValueAtTime(glideTo, now + duration)
+
+  // A 6 ms attack rather than an instant one: a square-edged start is the
+  // click you hear on cheap web audio, and it is entirely avoidable.
+  gain.gain.setValueAtTime(0.0001, now)
+  gain.gain.exponentialRampToValueAtTime(volume, now + 0.006)
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration)
+
+  osc.connect(gain)
+  gain.connect(ctx.destination)
+  osc.start(now)
+  osc.stop(now + duration + 0.02)
 }
 
-const THEME_SOUNDS = {
-  eclipse: { hover: { freq: 1200, type: 'sine',     duration: 0.04 }, click: { freq: 260, type: 'sine',     duration: 0.08 }, desc: 'water drop' },
-  ember:   { hover: { freq: 440,  type: 'sine',     duration: 0.07 }, click: { freq: 110, type: 'sawtooth', duration: 0.12 }, desc: 'metal ping' },
-  paper:   { hover: { freq: 780,  type: 'sine',     duration: 0.06 }, click: { freq: 240, type: 'triangle', duration: 0.1  }, desc: 'paper rustle' },
+const THEME_VOICE = {
+  eclipse: { type: 'sine', desc: 'water drop' },
+  ember: { type: 'triangle', desc: 'metal ping' },
+  paper: { type: 'sine', desc: 'paper rustle' },
+}
+
+/**
+ * The palette. Every entry is an interval of ROOT, so the whole set is one
+ * chord rather than eight arbitrary pitches.
+ */
+const PALETTE = {
+  hover: { ratio: INTERVAL.fifth, duration: 0.05, volume: 0.025 },
+  click: { ratio: INTERVAL.root, duration: 0.09, volume: 0.045 },
+  open: { ratio: INTERVAL.third, duration: 0.16, volume: 0.035, glide: INTERVAL.octave },
+  close: { ratio: INTERVAL.octave, duration: 0.14, volume: 0.03, glide: INTERVAL.root },
+  whoosh: { ratio: INTERVAL.third, duration: 0.18, volume: 0.03, glide: INTERVAL.tenth },
+  themeSwitch: { ratio: INTERVAL.fifth, duration: 0.14, volume: 0.035, glide: INTERVAL.octave },
+  diceRoll: { ratio: INTERVAL.root, duration: 0.12, volume: 0.03, glide: INTERVAL.fifth },
+  boot: { ratio: INTERVAL.root / 2, duration: 0.5, volume: 0.035 },
+  // The one chord in the set: three voices, so an achievement is audibly a
+  // different *kind* of event rather than a louder click.
+  achievement: { chord: [INTERVAL.root, INTERVAL.third, INTERVAL.fifth], duration: 0.32, volume: 0.03 },
 }
 
 export function SoundProvider({ children }) {
-  const [muted, setMuted] = useState(true)
+  // Rule 1: off unless the visitor has previously said otherwise.
+  const [enabled, setEnabled] = useState(() => getStore().prefs.sound === true)
   const { theme } = useTheme()
+  const duckedUntil = useRef(0)
 
-  const sounds = useMemo(() => {
-    const ts = THEME_SOUNDS[theme] || THEME_SOUNDS.eclipse
-    return {
-      hover: makeTone(ts.hover),
-      click: makeTone(ts.click),
-      boot: makeTone({ freq: 110, duration: 0.6, type: 'sawtooth', volume: 0.04 }),
-      whoosh: makeSweep({ from: 300, to: 1200, duration: 0.18, type: 'sine', volume: 0.03 }),
-      themeSwitch: makeSweep({ from: 400, to: 600, duration: 0.12, type: 'triangle', volume: 0.04 }),
-      achievement: makeSweep({ from: 600, to: 1400, duration: 0.25, type: 'triangle', volume: 0.05 }),
-      diceRoll: makeSweep({ from: 150, to: 500, duration: 0.12, type: 'square', volume: 0.03 }),
-      open: makeSweep({ from: 200, to: 900, duration: 0.2, type: 'sine', volume: 0.04 }),
-      close: makeSweep({ from: 900, to: 200, duration: 0.15, type: 'sine', volume: 0.03 }),
+  const setMuted = useCallback((next) => {
+    setEnabled((current) => {
+      const muted = typeof next === 'function' ? next(!current) : next
+      const on = !muted
+      setStore({ prefs: { sound: on } })
+      // Rule 2: the context is created here — inside the click handler that
+      // enabled sound — because that gesture is also what browsers require
+      // before audio may play at all.
+      if (on) {
+        const ctx = getContext()
+        if (ctx?.state === 'suspended') ctx.resume().catch(() => {})
+      }
+      return on
+    })
+  }, [])
+
+  // A hidden tab must not make noise, and a suspended context costs nothing.
+  useEffect(() => {
+    const onVisibility = () => {
+      if (!audioCtx) return
+      if (document.hidden) audioCtx.suspend().catch(() => {})
+      else if (enabled) audioCtx.resume().catch(() => {})
     }
-  }, [theme])
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [enabled])
 
-  const play = (name) => {
-    if (muted) return
-    sounds[name]?.()
-  }
+  /**
+   * T-069.4 — duck everything during a live-region announcement. A screen
+   * reader speaking over a UI chime is a worse experience than either alone.
+   */
+  useEffect(() => {
+    const duck = () => { duckedUntil.current = performance.now() + 1200 }
+    window.addEventListener('forge:announce', duck)
+    return () => window.removeEventListener('forge:announce', duck)
+  }, [])
 
-  return (
-    <SoundContext.Provider value={{ muted, setMuted, play }}>
-      {children}
-    </SoundContext.Provider>
+  const voiceType = (THEME_VOICE[theme] || THEME_VOICE.eclipse).type
+
+  const play = useMemo(() => (name) => {
+    if (!enabled) return
+    if (performance.now() < duckedUntil.current) return
+    const spec = PALETTE[name]
+    if (!spec) return
+    const ctx = getContext()
+    if (!ctx || ctx.state === 'closed') return
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {})
+
+    try {
+      if (spec.chord) {
+        for (const ratio of spec.chord) {
+          voice(ctx, { freq: ROOT * ratio, duration: spec.duration, type: voiceType, volume: spec.volume })
+        }
+        return
+      }
+      voice(ctx, {
+        freq: ROOT * spec.ratio,
+        duration: spec.duration,
+        type: voiceType,
+        volume: spec.volume,
+        glideTo: spec.glide ? ROOT * spec.glide : undefined,
+      })
+    } catch {
+      /* audio is never worth an exception */
+    }
+  }, [enabled, voiceType])
+
+  const value = useMemo(
+    () => ({ muted: !enabled, enabled, setMuted, play }),
+    [enabled, setMuted, play]
   )
+
+  return <SoundContext.Provider value={value}>{children}</SoundContext.Provider>
 }
 
 export function useSound() {

@@ -9,6 +9,7 @@ import { PROJECTS } from '../../lib/content.js'
 import { useSpotlight } from '../../hooks/useSpotlight.js'
 import { useReducedMotion } from '../../lib/useReducedMotion.js'
 import { getTier, onFrame } from '../../lib/raf.js'
+import { onTilt } from '../../lib/tilt.js'
 
 // `import.meta.glob` matches the pattern against real filenames, so an inline
 // `?…` query inside the pattern matches nothing at all — that silently emptied
@@ -149,7 +150,7 @@ function DeckCard({ project, index, distortionAllowed, onOpen }) {
         <div className="relative aspect-[16/10] overflow-hidden flex-shrink-0">
           {/* Boss plate — game layer set piece */}
           <span
-            className="absolute top-3 right-3 z-20 px-2.5 py-1 rounded-full font-mono text-[9px] tracking-[0.2em]"
+            className="absolute top-3 right-3 z-20 px-2.5 py-1 rounded-full font-mono text-[12px] tracking-[0.2em]"
             style={{
               background: 'rgba(0,0,0,0.5)',
               color: 'var(--accent-reward)',
@@ -209,14 +210,14 @@ function DeckCard({ project, index, distortionAllowed, onOpen }) {
             </div>
           )}
 
-          <span className="absolute top-3 left-3 font-mono text-[11px] px-2 py-0.5 rounded-full z-10" style={{ background: 'rgba(0,0,0,0.4)', color: project.accent, border: `1px solid ${project.accent}40` }}>
+          <span className="absolute top-3 left-3 font-mono text-[12px] px-2 py-0.5 rounded-full z-10" style={{ background: 'rgba(0,0,0,0.4)', color: project.accent, border: `1px solid ${project.accent}40` }}>
             {String(index + 1).padStart(2, '0')}
           </span>
         </div>
 
         <div className="relative p-4 md:p-5 flex flex-col flex-1">
           <div className="flex items-center justify-between gap-2 mb-1">
-            <p className="font-mono text-[11px] tracking-[0.25em]" style={{ color: project.accent }}>
+            <p className="font-mono text-[12px] tracking-[0.25em]" style={{ color: project.accent }}>
               {project.tagline.toUpperCase()}
             </p>
             <LivePing project={project} />
@@ -239,13 +240,13 @@ function DeckCard({ project, index, distortionAllowed, onOpen }) {
             {project.tech.slice(0, 5).map((t) => (
               <span
                 key={t}
-                className="text-[11px] font-mono px-1.5 py-0.5 rounded-full border border-[var(--glass-border)] text-[var(--ink-low)]"
+                className="text-[12px] font-mono px-1.5 py-0.5 rounded-full border border-[var(--glass-border)] text-[var(--ink-low)]"
               >
                 {t}
               </span>
             ))}
             {project.tech.length > 5 && (
-              <span className="text-[11px] font-mono px-1.5 py-0.5 text-[var(--ink-low)]">+{project.tech.length - 5}</span>
+              <span className="text-[12px] font-mono px-1.5 py-0.5 text-[var(--ink-low)]">+{project.tech.length - 5}</span>
             )}
           </div>
 
@@ -254,7 +255,7 @@ function DeckCard({ project, index, distortionAllowed, onOpen }) {
               type="button"
               onClick={() => onOpen?.(project)}
               data-cursor="view"
-              className="project-btn project-btn--ghost px-3 py-1.5 rounded-full text-[10px] font-mono"
+              className="project-btn project-btn--ghost px-3 py-1.5 rounded-full text-[12px] font-mono"
             >
               CASE STUDY
             </button>
@@ -264,7 +265,7 @@ function DeckCard({ project, index, distortionAllowed, onOpen }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 data-cursor="view"
-                className="project-btn project-btn--live flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-mono"
+                className="project-btn project-btn--live flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-mono"
                 style={{ '--btn-accent': project.accent }}
               >
                 <span className="w-1 h-1 rounded-full bg-emerald-400 shadow-[0_0_4px_rgb(52,211,153)]" />
@@ -276,7 +277,7 @@ function DeckCard({ project, index, distortionAllowed, onOpen }) {
               target="_blank"
               rel="noopener noreferrer"
               data-cursor="view"
-              className="project-btn project-btn--ghost px-3 py-1.5 rounded-full text-[10px] font-mono"
+              className="project-btn project-btn--ghost px-3 py-1.5 rounded-full text-[12px] font-mono"
             >
               SOURCE ↗
             </a>
@@ -325,7 +326,7 @@ function useCardTilt(enabled) {
         stop?.(); stop = null
       }
     }
-    const start = () => { if (!stop) stop = onFrame(tick) }
+    const start = () => { if (!stop) stop = onFrame(tick, { band: 'input' }) }
 
     const onMove = (e) => {
       const next = e.target.closest?.('.grid-card')
@@ -362,17 +363,87 @@ function useCardTilt(enabled) {
     root.addEventListener('pointermove', onMove, { passive: true })
     root.addEventListener('pointerleave', onLeave, { passive: true })
     window.addEventListener('scroll', invalidate, { passive: true })
-    window.addEventListener('resize', invalidate, { passive: true })
+    // T-011 — the grid's own box, observed, instead of every window resize.
+    const ro = new ResizeObserver(invalidate)
+    ro.observe(root)
     return () => {
       stop?.()
       root.removeEventListener('pointermove', onMove)
       root.removeEventListener('pointerleave', onLeave)
       window.removeEventListener('scroll', invalidate)
-      window.removeEventListener('resize', invalidate)
+      ro.disconnect()
     }
   }, [enabled])
 
   return ref
+}
+
+/**
+ * The same idea, for a device with no cursor.
+ *
+ * `useCardTilt` bails immediately on `(hover: none)`, which is correct — there
+ * is no pointer to lean toward — but it left touch with a flat, inert grid
+ * where the desktop got the signature effect of the section. A phone does know
+ * which way it is being held, so the cards lean toward that instead, and the
+ * specular sheen tracks it exactly as it tracks the cursor elsewhere.
+ *
+ * Only cards actually on screen are written to. An IntersectionObserver keeps
+ * that set tiny, so this is a handful of custom-property writes per frame
+ * rather than one per card in the section.
+ */
+function useCardLean(enabled, ref) {
+  useEffect(() => {
+    const root = ref.current
+    if (!root || !enabled) return
+    if (!window.matchMedia('(pointer: coarse)').matches) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+    // Deliberately gentler than the 6° cursor lean: the whole grid moves at
+    // once here, and what reads as responsive on one hovered card reads as a
+    // wobbling page when it is all of them.
+    const MAX = 3.5
+    const visible = new Set()
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (e.isIntersecting) visible.add(e.target)
+          else {
+            visible.delete(e.target)
+            e.target.style.removeProperty('--tilt-x')
+            e.target.style.removeProperty('--tilt-y')
+          }
+        }
+      },
+      { rootMargin: '10% 0px' }
+    )
+    for (const card of root.querySelectorAll('.grid-card')) io.observe(card)
+
+    const off = onTilt(({ x, y }) => {
+      // Units matter: `.grid-card` feeds these straight into rotateX()/rotateY(),
+      // so they must carry `deg`. A bare number there invalidates the whole
+      // transform and the card would flatten rather than tilt.
+      const rx = (-y * MAX).toFixed(2)
+      const ry = (x * MAX).toFixed(2)
+      const gx = (x * 50 + 50).toFixed(1)
+      const gy = (y * 50 + 50).toFixed(1)
+      for (const card of visible) {
+        card.style.setProperty('--tilt-x', `${rx}deg`)
+        card.style.setProperty('--tilt-y', `${ry}deg`)
+        card.style.setProperty('--glare-x', `${gx}%`)
+        card.style.setProperty('--glare-y', `${gy}%`)
+      }
+    })
+
+    return () => {
+      off()
+      io.disconnect()
+      for (const card of root.querySelectorAll('.grid-card')) {
+        card.style.removeProperty('--tilt-x')
+        card.style.removeProperty('--tilt-y')
+      }
+    }
+  }, [enabled, ref])
 }
 
 export default function Projects() {
@@ -432,10 +503,14 @@ export default function Projects() {
 
   const liveCount = useMemo(() => PROJECTS.filter((p) => p.live).length, [])
   const gridRef = useCardTilt(viewMode === 'grid')
+  // Cursor and device lean are mutually exclusive by media query, so both can
+  // share the one grid ref without ever writing to it at the same time.
+  useCardLean(viewMode === 'grid', gridRef)
 
   return (
     <section
       id="projects"
+      aria-labelledby="projects-heading"
       ref={sectionRef}
       data-view-mode={viewMode}
       className="projects-section relative section-rhythm container-px mesh-gradient-b overflow-x-clip"
@@ -449,7 +524,7 @@ export default function Projects() {
           <span className="level-badge mb-4">04 — SELECTED WORK</span>
         </Reveal>
         <Reveal delay={0.1}>
-          <h2 className="section-h2 font-display mb-8 max-w-3xl">
+          <h2 id="projects-heading" className="section-h2 font-display mb-8 max-w-3xl">
             <SplitText>Five projects I built </SplitText>
             <SplitText className="text-gradient" delay={0.14}>and deployed to production.</SplitText>
           </h2>
@@ -494,7 +569,7 @@ export default function Projects() {
                   role="listitem"
                   onClick={() => goTo(p.id)}
                   data-cursor="view"
-                  className="deck-index-chip font-mono text-[10px] tracking-[0.18em] px-3.5 py-2 rounded-full"
+                  className="deck-index-chip font-mono text-[12px] tracking-[0.18em] px-3.5 py-2 rounded-full"
                   style={{ '--chip-accent': p.accent }}
                 >
                   <span style={{ color: p.accent }}>{String(i + 1).padStart(2, '0')}</span>

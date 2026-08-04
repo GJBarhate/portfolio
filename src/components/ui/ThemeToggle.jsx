@@ -92,7 +92,7 @@ export default function ThemeToggle() {
   }
 
   return (
-    <div ref={rootRef} className="relative flex items-center gap-2">
+    <div ref={rootRef} className="nav-theme relative flex items-center gap-2">
       <button
         onClick={() => setOpen((v) => !v)}
         data-cursor="view"
@@ -144,7 +144,7 @@ export default function ThemeToggle() {
             aria-label="Theme atelier"
             className="atelier-panel atelier-panel--in"
           >
-            <p className="font-mono text-[9px] tracking-[0.3em] text-[var(--ink-low)] px-3 pt-2 pb-2">
+            <p className="font-mono text-[12px] tracking-[0.3em] text-[var(--ink-low)] px-3 pt-2 pb-2">
               THEME ATELIER
             </p>
             {themes.map((t) => (
@@ -169,13 +169,13 @@ export default function ThemeToggle() {
                   />
                 </span>
                 <span className="flex-1 min-w-0">
-                  <span className="block font-mono text-[10px] tracking-[0.2em] text-[var(--ink)]">
+                  <span className="block font-mono text-[12px] tracking-[0.2em] text-[var(--ink)]">
                     {t.label.toUpperCase()}
                     {t.id === theme && (
                       <span className="ml-2" style={{ color: t.accent }}>●</span>
                     )}
                   </span>
-                  <span className="block text-[11px] text-[var(--ink-low)] truncate mt-0.5">
+                  <span className="block text-[12px] text-[var(--ink-low)] truncate mt-0.5">
                     {t.meaning}
                   </span>
                 </span>

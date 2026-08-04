@@ -1,6 +1,7 @@
 import js from '@eslint/js'
 import react from 'eslint-plugin-react'
 import reactHooks from 'eslint-plugin-react-hooks'
+import reactCompiler from 'eslint-plugin-react-compiler'
 import globals from 'globals'
 
 export default [
@@ -15,8 +16,8 @@ export default [
       globals: { ...globals.browser, ...globals.es2021, __BUILD_DATE__: 'readonly' },
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
-    settings: { react: { version: '18.3' } },
-    plugins: { react, 'react-hooks': reactHooks },
+    settings: { react: { version: '19.2' } },
+    plugins: { react, 'react-hooks': reactHooks, 'react-compiler': reactCompiler },
     rules: {
       ...react.configs.flat.recommended.rules,
       ...reactHooks.configs.recommended.rules,
@@ -26,6 +27,7 @@ export default [
       'react/prop-types': 'off',
       'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       'no-empty': ['error', { allowEmptyCatch: true }],
+      'react-compiler/react-compiler': 'warn',
 
       // ── Guardrails from PLAN.md §7.4 ──────────────────────────────────
       // The whole point of src/lib/raf.js and src/lib/glStage.js is that
@@ -108,19 +110,38 @@ export default [
   },
   {
     // Build-time config runs in Node, not the browser.
-    files: ['*.config.js', 'vite.config.js', 'tailwind.config.js', 'postcss.config.js', 'eslint.config.js'],
+    files: ['*.config.js', 'vite.config.js', 'eslint.config.js'],
     languageOptions: { globals: { ...globals.node } },
   },
   {
-    // Build/CI scripts run in Node.
+    // Build/CI scripts run in Node — but several of them (check-overflow)
+    // carry functions that are SERIALISED into a browser via
+    // `page.evaluate`, so browser globals are legitimate there too.
     files: ['scripts/**/*.mjs'],
-    languageOptions: { globals: { ...globals.node } },
+    languageOptions: { globals: { ...globals.node, ...globals.browser } },
     rules: { 'no-restricted-syntax': 'off', 'no-restricted-imports': 'off' },
   },
   {
-    // Playwright specs and its config run in Node too.
-    files: ['tests/**/*.js', 'playwright.config.js'],
-    languageOptions: { globals: { ...globals.node } },
+    // Playwright specs and its config run in Node, and their `evaluate`
+    // callbacks run in the page. Vitest specs get its globals.
+    files: ['tests/**/*.{js,jsx}', 'playwright.config.js', 'vitest.config.js'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.browser,
+        describe: 'readonly', it: 'readonly', test: 'readonly',
+        expect: 'readonly', vi: 'readonly',
+        beforeEach: 'readonly', afterEach: 'readonly',
+        beforeAll: 'readonly', afterAll: 'readonly',
+      },
+    },
     rules: { 'no-restricted-syntax': 'off', 'no-restricted-imports': 'off' },
+  },
+  {
+    // The service worker has its own global scope — no window, no document,
+    // and a `self` that is a ServiceWorkerGlobalScope.
+    files: ['public/sw.js'],
+    languageOptions: { globals: { ...globals.serviceworker } },
+    rules: { 'no-restricted-syntax': 'off' },
   },
 ]

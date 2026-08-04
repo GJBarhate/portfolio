@@ -1,0 +1,108 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   type.css — T-022. One type scale, clamped on both axes.
+
+   Three type systems used to coexist: `--fs-hero`/`--fs-display`/… at
+   index.css:253, `--step--2 … --step-5` at :2891, and ad-hoc `clamp()` inside
+   the `.text-*` utilities at :1893. Three systems doing one job means a
+   heading's size depends on which one its author happened to know about.
+
+   Worse, all three were **width-only**. `--fs-hero: clamp(3rem, 12vw, 10rem)`
+   on a 844 × 390 landscape phone resolves to about 6.3rem — 101px of type
+   inside a 390px-tall viewport, which is a quarter of the screen for one
+   word. `12vw` is not a size; it is a bet that the viewport is portrait.
+
+   The fix is one term: `min(9vw, 11vh)`. Whichever axis is scarcer wins. On a
+   phone in portrait that is the width, exactly as before; in landscape it is
+   the height, and the hero fits. Every step from --step-4 upward — the sizes
+   large enough to overflow vertically — carries it.
+
+   The ratio is documented rather than hand-typed: 1.25 (major third) at the
+   small end, opening to 1.333 (perfect fourth) at the large end, so display
+   sizes separate on a big screen without body copy drifting apart on a small
+   one.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── The scale ──────────────────────────────────────────────────────────
+     min          preferred                       max
+     320px        fluid                           1536px                    */
+  --step--2: clamp(0.75rem, 0.73rem + 0.12vw, 0.8125rem);   /* 12px floor — T-013 asserts it */
+  --step--1: clamp(0.8125rem, 0.79rem + 0.17vw, 0.875rem);
+  --step-0: clamp(1rem, 0.96rem + 0.20vw, 1.125rem);
+  --step-1: clamp(1.2rem, 1.14rem + 0.30vw, 1.5rem);
+  --step-2: clamp(1.44rem, 1.34rem + 0.50vw, 2rem);
+  --step-3: clamp(1.728rem, 1.55rem + 0.89vw, 2.67rem);
+  /* From here up, both axes. */
+  --step-4: clamp(2.074rem, min(5vw, 6vh) + 0.5rem, 3.55rem);
+  --step-5: clamp(2.488rem, min(7vw, 8vh) + 0.5rem, 4.74rem);
+  --step-6: clamp(2.986rem, min(9vw, 11vh) + 0.5rem, 6.31rem);
+
+  /* ── Line height: a ratio that falls as the step rises ──────────────────
+     Body copy needs air between lines; a display size does not, and 1.6 on a
+     6rem headline looks like two separate headlines. Driven by the step
+     rather than typed per class so a new size cannot get it wrong. */
+  --lh-body: 1.6;
+  --lh-prose: 1.55;
+  --lh-heading: 1.15;
+  --lh-display: 1.02;
+
+  /* Optical tracking: large type needs negative tracking to look even. */
+  --tracking-display: -0.02em;
+  --tracking-heading: -0.01em;
+  --tracking-mono: 0.02em;
+}
+
+/* The compatibility bridge. `--fs-*` is referenced from ~40 places in
+   index.css; rather than a 40-site find-and-replace in one commit, the old
+   names are now *aliases* of the one scale. There is still exactly one set of
+   numbers — these names just point at it. New code uses `--step-*`. */
+:root {
+  --fs-hero: var(--step-6);
+  --fs-display: var(--step-5);
+  --fs-h1: var(--step-4);
+  --fs-h2: var(--step-3);
+  --fs-h3: var(--step-2);
+  --fs-lead: var(--step-1);
+  --fs-body: var(--step-0);
+  --fs-small: var(--step--1);
+  --fs-micro: var(--step--2);
+}
+
+/* ── Wrapping ──────────────────────────────────────────────────────────────
+   `balance` on headings evens the line lengths of a short block — it is what
+   removes the single-word orphan on the hero subtitle at 375px. `pretty` on
+   body copy prevents the last-line orphan without re-flowing the whole
+   paragraph. Both are Baseline, both cost nothing, and the browser does the
+   work at layout time. */
+:where(h1, h2, h3, h4, h5, h6, .text-balance, figcaption, legend) {
+  text-wrap: balance;
+}
+
+:where(p, li, dd, blockquote, .text-pretty) {
+  text-wrap: pretty;
+}
+
+:where(h1, h2, h3, h4, h5, h6) {
+  line-height: var(--lh-heading);
+  letter-spacing: var(--tracking-heading);
+}
+
+:where(p, li, dd, dt) {
+  line-height: var(--lh-body);
+}
+
+/* ── The floor ─────────────────────────────────────────────────────────────
+   Nothing may render below 12px. The test in T-013 asserts it; this makes it
+   true by construction for the utility classes that used to reach 9px in
+   pursuit of a "technical" look. Legibility is not a style choice. */
+:where(.font-mono, code, kbd, samp, pre) {
+  font-size: max(0.75rem, 1em);
+  letter-spacing: var(--tracking-mono);
+}
+
+/* Form controls at 16px minimum: below that, iOS Safari zooms the entire page
+   when the field receives focus, and the visitor has to pinch back out
+   afterwards. This is the single most common iOS form bug (T-033). */
+:where(input, select, textarea) {
+  font-size: max(16px, 1rem);
+}

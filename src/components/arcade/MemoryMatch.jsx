@@ -1,5 +1,6 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { getStore, setStore } from '../../lib/store.js'
 
 const TECH = [
   { name: 'React',    hint: 'Component-based UI library I use for every frontend' },
@@ -59,14 +60,14 @@ export default function MemoryMatch() {
   useEffect(() => {
     if (!won) return
     try {
-      const prev = parseInt(localStorage.getItem('forge-memory-best')) || Infinity
-      if (moves < prev) localStorage.setItem('forge-memory-best', String(moves))
+      const prev = getStore().scores.memory ?? Infinity
+      if (moves < prev) setStore({ scores: { memory: moves } })
     } catch {}
   }, [won, moves])
 
   return (
     <div className="flex flex-col items-center gap-4">
-      <div className="flex items-center gap-4 font-mono text-[10px] tracking-wider text-[var(--ink-low)]">
+      <div className="flex items-center gap-4 font-mono text-[12px] tracking-wider text-[var(--ink-low)]">
         <span>MOVES: <span className="text-[var(--ink)]">{moves}</span></span>
         <span>PAIRS: <span className="text-[var(--accent-bright)]">{matched.length}/{TECH.length}</span></span>
         <button
@@ -118,7 +119,7 @@ export default function MemoryMatch() {
             className="p-3 rounded-xl bg-[var(--surface-2)] border border-[var(--accent-dim)] text-center max-w-xs"
           >
             <p className="font-mono text-xs text-[var(--accent-bright)] mb-1">{showHint.name}</p>
-            <p className="text-[11px] text-[var(--ink-mid)]">{showHint.hint}</p>
+            <p className="text-[12px] text-[var(--ink-mid)]">{showHint.hint}</p>
           </motion.div>
         )}
       </AnimatePresence>

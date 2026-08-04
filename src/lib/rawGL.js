@@ -96,6 +96,14 @@ export function getDistortionGL() {
     return instance
   }
 
+  // T-045.1 — a lost distortion context must not leave every project card
+  // showing a dead canvas. Dropping the cached instance means the next hover
+  // rebuilds it from scratch; the plain <picture> underneath covers the gap.
+  canvas.addEventListener('webglcontextlost', (event) => {
+    event.preventDefault()
+    instance = null
+  }, false)
+
   const vs = compile(gl, gl.VERTEX_SHADER, VERT)
   const fs = compile(gl, gl.FRAGMENT_SHADER, FRAG)
   if (!vs || !fs) {

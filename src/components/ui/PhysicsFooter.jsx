@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
-import { useIsMobile } from '../../lib/useIsMobile.js'
+import { usePointer, useBelow } from '../../lib/useMedia.js'
 import { useReducedMotion } from '../../lib/useReducedMotion.js'
 import { onFrame } from '../../lib/raf.js'
 
@@ -11,15 +11,18 @@ export default function PhysicsFooter() {
   const engineRef = useRef(null)
   const bodiesRef = useRef([])
   const mouseConstraintRef = useRef(null)
-  const isMobile = useIsMobile()
+  // Two different questions the old hook answered with one boolean: how big
+  // the letters should be (width) and whether there is a mouse to drag them
+  // with (pointer). T-011.
+  const isNarrow = useBelow('md')
+  const { coarse } = usePointer()
   const reduced = useReducedMotion()
   const [loaded, setLoaded] = useState(false)
-  const letterEls = useRef([])
 
   const init = useCallback(async () => {
     if (reduced) return
     const Matter = await import('matter-js')
-    const { Engine, Render, Runner, Bodies, Composite, Mouse, MouseConstraint, Events } = Matter
+    const { Engine, _Render, Runner, Bodies, Composite, Mouse, MouseConstraint, _Events } = Matter
 
     const container = containerRef.current
     if (!container) return
@@ -45,7 +48,7 @@ export default function PhysicsFooter() {
 
     Composite.add(engine.world, [floor, wallL, wallR])
 
-    const fontSize = isMobile ? 28 : 48
+    const fontSize = isNarrow ? 28 : 48
     const bodies = []
     const totalWidth = LETTER_CHARS.reduce((acc, c) => acc + (c === ' ' || c === ' ' ? fontSize * 0.3 : fontSize * 0.65), 0)
     let xOffset = (w - totalWidth) / 2
@@ -79,7 +82,7 @@ export default function PhysicsFooter() {
 
     bodiesRef.current = bodies
 
-    if (!isMobile) {
+    if (!coarse) {
       const mouse = Mouse.create(canvas)
       mouse.pixelRatio = 2
       const mouseConstraint = MouseConstraint.create(engine, {
@@ -124,7 +127,7 @@ export default function PhysicsFooter() {
       })
 
     }
-    const stopFrame = onFrame(render)
+    const stopFrame = onFrame(render, { band: 'ambient' })
     setLoaded(true)
 
     return () => {
@@ -132,7 +135,7 @@ export default function PhysicsFooter() {
       Runner.stop(runner)
       Engine.clear(engine)
     }
-  }, [isMobile, reduced])
+  }, [isNarrow, coarse, reduced])
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -152,7 +155,7 @@ export default function PhysicsFooter() {
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full"
-        style={{ cursor: isMobile ? 'default' : 'grab' }}
+        style={{ cursor: coarse ? 'default' : 'grab' }}
       />
       {!loaded && (
         <p className="absolute inset-0 flex items-center justify-center font-display text-[clamp(1.5rem,5vw,3rem)] text-[var(--ink-low)]">

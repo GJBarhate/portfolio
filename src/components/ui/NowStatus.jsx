@@ -28,7 +28,7 @@ export default function NowStatus() {
 
   return (
     <div
-      className="now-status hero-rise fixed bottom-6 left-6 z-50 hidden lg:flex flex-col gap-1.5 px-4 py-2.5 rounded-full glass font-mono text-[10px] tracking-wider text-[var(--ink-low)]"
+      className="now-status hero-rise fixed bottom-6 left-6 z-50 hidden lg:flex flex-col gap-1.5 px-4 py-2.5 rounded-full glass font-mono text-[12px] tracking-wider text-[var(--ink-low)]"
       style={{ '--rise-delay': '1.5s' }}
       data-open={detail}
       onMouseEnter={() => setDetail(true)}

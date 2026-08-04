@@ -1,22 +1,17 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { ACHIEVEMENTS, TOTAL_XP, getAchievement } from '../lib/achievements.js'
+import { getStore, setStore } from '../lib/store.js'
 
 const GameContext = createContext(null)
-const STORAGE_KEY = 'forge-progress'
 const SECTION_IDS = ['about', 'stats', 'skills', 'projects', 'timeline', 'how-i-build', 'contact']
 
-function loadProgress() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return JSON.parse(raw)
-  } catch {
-    /* ignore */
-  }
-  return { unlocked: [] }
-}
+// T-030 — progress lives in the one versioned store. The `forge-progress`
+// key and its private try/catch(JSON.parse) are gone; a corrupt payload now
+// yields the documented default instead of throwing inside a state
+// initialiser, which is the one place a throw takes the whole app down.
 
 export function GameProvider({ children }) {
-  const [unlocked, setUnlocked] = useState(() => loadProgress().unlocked || [])
+  const [unlocked, setUnlocked] = useState(() => getStore().progress.unlocked)
   const [toasts, setToasts] = useState([])
   const unlockedRef = useRef(unlocked)
   unlockedRef.current = unlocked
@@ -27,7 +22,7 @@ export function GameProvider({ children }) {
     if (!achievement) return
     const next = [...unlockedRef.current, id]
     setUnlocked(next)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ unlocked: next }))
+    setStore({ progress: { unlocked: next } })
     const toastId = `${id}-${Date.now()}`
     setToasts((t) => [...t, { ...achievement, toastId }])
     setTimeout(() => {

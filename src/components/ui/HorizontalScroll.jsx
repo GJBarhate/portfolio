@@ -92,13 +92,12 @@ function PinnedDeck({ children, className }) {
     }
 
     measure()
+    // T-011 — the track's own width and the root box are the two things this
+    // measurement depends on; neither is a `resize` event.
     const ro = new ResizeObserver(measure)
     ro.observe(track)
-    window.addEventListener('resize', measure, { passive: true })
-    return () => {
-      ro.disconnect()
-      window.removeEventListener('resize', measure)
-    }
+    ro.observe(document.documentElement)
+    return () => ro.disconnect()
   }, [])
 
   // `will-change: transform` forces a permanent compositor layer if it is left
@@ -230,7 +229,7 @@ function ProgressRail({ count, current }) {
           data-active={i === current ? 'true' : 'false'}
         />
       ))}
-      <span className="ml-2 font-mono text-[9px] tracking-wider text-[var(--ink-low)]">
+      <span className="ml-2 font-mono text-[12px] tracking-wider text-[var(--ink-low)]">
         {String(current + 1).padStart(2, '0')}/{String(count).padStart(2, '0')}
       </span>
     </div>

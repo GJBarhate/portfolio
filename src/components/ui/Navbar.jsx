@@ -1,12 +1,16 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { onFrame } from '../../lib/raf.js'
+import { onScrollFrame } from '../../lib/scrollState.js'
 import { useSmoothScroll } from '../../contexts/SmoothScrollContext.jsx'
 import { useSound } from '../../contexts/SoundContext.jsx'
+import { usePointer } from '../../lib/useMedia.js'
 import MagneticButton from './MagneticButton.jsx'
 import ThemeToggle from './ThemeToggle.jsx'
 import RecruiterMode from './RecruiterMode.jsx'
 import MorphLink from './MorphLink.jsx'
+import Drawer from './Drawer.jsx'
 import { SparkCounter } from './SparkHunt.jsx'
+import { RESUME_PATH } from '../../lib/siteConfig.js'
 
 const LINKS = [
   { id: 'about', label: 'About' },
@@ -18,15 +22,32 @@ const LINKS = [
   { id: 'contact', label: 'Contact' },
 ]
 
+/** The five games, each launchable in its own right (T-004.4). */
+const GAMES = [
+  { id: 'runner', icon: '🏃', label: 'Forge Runner' },
+  { id: 'ludo', icon: '🎲', label: 'Ludo: Recruiter' },
+  { id: 'snakes', icon: '🪜', label: 'Snakes & CV' },
+  { id: 'memory', icon: '🧠', label: 'Memory Match' },
+  { id: 'snake', icon: '🐍', label: 'Snake Classic' },
+]
+
 const RING_R = 18
 const RING_C = 2 * Math.PI * RING_R
+
+/** The gap between the header's bottom edge and a scrolled-to heading. */
+const ANCHOR_GAP = 12
+
+const openPalette = () => window.dispatchEvent(new CustomEvent('forge:open-palette'))
 
 export default function Navbar() {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState('')
   const scroll = useSmoothScroll()
   const sound = useSound()
+  const { hover } = usePointer()
   const ringRef = useRef(null)
+  const headerRef = useRef(null)
+  const headerHeightRef = useRef(80)
 
   // The progress ring is written straight onto the SVG attribute from the
   // shared ticker — no React re-render per scroll frame, and no spring engine
@@ -43,109 +64,250 @@ export default function Navbar() {
     })
   }, [])
 
+  /**
+   * T-012.1 — publish the real header height as `--header-h`.
+   *
+   * `goTo()` used to hardcode `offset: -80`. The mobile header is not 80px
+   * tall, so anchor navigation landed with the heading tucked underneath it.
+   * A ResizeObserver writes the measured value once per actual change — not
+   * once per frame, and not once per `resize` event, which fires constantly
+   * during a mobile scroll.
+   */
   useEffect(() => {
-    const sections = LINKS.map((l) => document.getElementById(l.id)).filter(Boolean)
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) setActive(entry.target.id)
-        })
-      },
-      { rootMargin: '-45% 0px -45% 0px' }
-    )
-    sections.forEach((s) => observer.observe(s))
-    return () => observer.disconnect()
+    const header = headerRef.current
+    if (!header) return
+    const publish = () => {
+      const h = header.getBoundingClientRect().height
+      headerHeightRef.current = h
+      document.documentElement.style.setProperty('--header-h', `${Math.round(h)}px`)
+    }
+    publish()
+    const ro = new ResizeObserver(publish)
+    ro.observe(header)
+    return () => ro.disconnect()
   }, [])
 
-  const goTo = (id) => {
+  /**
+   * T-012.4 — active section detection.
+   *
+   * The `IntersectionObserver` this replaces used `rootMargin: '-45% 0px -45%
+   * 0px'`, which leaves a 10 %-tall detection band: 67px on a 667px phone. A
+   * section shorter than that band never intersects it at all, so the nav
+   * highlight silently died on every short section.
+   *
+   * The standard algorithm has no such failure mode: the active section is
+   * the last one whose top has crossed the header line. It is correct for
+   * sections of any height, including ones shorter than the viewport, costs
+   * O(sections) per frame with zero observers, and rides the scroll read that
+   * `scrollState.js` is already doing once per frame for everybody.
+   */
+  useEffect(() => {
+    let tops = []
+    const measure = () => {
+      tops = LINKS.map((l) => {
+        const el = document.getElementById(l.id)
+        return el ? { id: l.id, top: el.getBoundingClientRect().top + window.scrollY } : null
+      }).filter(Boolean)
+    }
+    measure()
+
+    const ro = new ResizeObserver(measure)
+    ro.observe(document.documentElement)
+
+    let current = ''
+    let lastHashWrite = 0
+    const stop = onScrollFrame((state) => {
+      const line = state.y + headerHeightRef.current + ANCHOR_GAP + 1
+      let found = ''
+      for (const section of tops) {
+        if (section.top <= line) found = section.id
+        else break
+      }
+      // The last section can be too short to ever reach the line on a tall
+      // screen; being at the bottom of the document means being in it.
+      if (state.max > 0 && state.y >= state.max - 2 && tops.length) {
+        found = tops[tops.length - 1].id
+      }
+      if (found === current) return
+      current = found
+      setActive(found)
+
+      // T-012.5 — reflect the active section in the URL, throttled, with
+      // `replaceState` so the back button still means "the previous page"
+      // rather than "the previous heading".
+      const now = performance.now()
+      if (found && now - lastHashWrite > 500) {
+        lastHashWrite = now
+        try { history.replaceState(null, '', `#${found}`) } catch { /* file:// */ }
+      }
+    })
+
+    return () => { ro.disconnect(); stop() }
+  }, [])
+
+  const goTo = useCallback((id) => {
     setOpen(false)
     const el = document.getElementById(id)
     if (!el) return
+    // T-012.2 — the measured header, not 80.
+    const offset = -(headerHeightRef.current + ANCHOR_GAP)
     if (scroll?.lenis?.current) {
-      scroll.lenis.current.scrollTo(el, { offset: -80 })
+      scroll.lenis.current.scrollTo(el, { offset })
     } else {
       el.scrollIntoView({ behavior: 'smooth' })
     }
-  }
+  }, [scroll])
 
   const toggleMute = () => {
     sound?.setMuted((v) => !v)
   }
 
+  const launchGame = (gameId) => {
+    setOpen(false)
+    window.dispatchEvent(new CustomEvent('forge:open-arcade', { detail: gameId }))
+  }
+
   return (
     <header
-      className="fixed top-0 left-0 right-0 container-px py-4 flex items-center justify-between progressive-blur bg-[color-mix(in_oklch,var(--surface-0)_70%,transparent)] border-b border-[var(--glass-border)]"
+      ref={headerRef}
+      className="site-header fixed top-0 left-0 right-0 container-px py-4 flex items-center justify-between progressive-blur bg-[color-mix(in_oklch,var(--surface-0)_70%,transparent)] border-b border-[var(--glass-border)]"
       style={{ zIndex: 'var(--z-nav)' }}
     >
-      <a href="#hero" data-cursor="view" className="font-display text-sm tracking-wide text-[var(--ink)]">
+      <a href="#hero" data-cursor="view" className="nav-wordmark font-display text-sm tracking-wide text-[var(--ink)]">
         Gaurav Barhate
       </a>
 
-      <nav className="hidden md:flex items-center gap-8 font-mono text-xs tracking-wider">
+      <nav className="hidden lg:flex items-center gap-8 font-mono text-xs tracking-wider" aria-label="Sections">
         {LINKS.map((l) => (
           <button
             key={l.id}
+            type="button"
             data-cursor="view"
             onClick={() => goTo(l.id)}
             onMouseEnter={() => sound?.play('hover')}
-            className={`uppercase ${
-              active === l.id ? 'text-[var(--accent-bright)]' : ''
-            }`}
+            aria-current={active === l.id ? 'true' : undefined}
+            className={`uppercase ${active === l.id ? 'text-[var(--accent-bright)]' : ''}`}
           >
             <MorphLink className={active === l.id ? 'text-[var(--accent-bright)]' : ''}>
               {l.label}
             </MorphLink>
           </button>
         ))}
-        <div className="relative">
+
+        {/*
+          T-004 / D-03 — the dropdown that had never rendered.
+
+          The wrapper was `<div className="relative">` and the panel below used
+          `group-hover:opacity-100 group-hover:visible`. Tailwind's `group-*`
+          variants only resolve against an ancestor carrying the literal class
+          `group`, which was absent — so a five-item panel sat in the bundle
+          and in the DOM and was never once visible in production.
+
+          Fixed, and then made real: `group` is present; `focus-within` opens
+          it too, because hover is not a contract and a keyboard user needs a
+          way in; `pointer-events` are enabled only while it is open, since a
+          permanently `pointer-events-none` panel would stay inert even once
+          visible; and the five rows are `<button role="menuitem">` elements
+          that each launch their own game rather than five decorative `<div>`s
+          that merely look like a menu.
+
+          The whole panel is gated on a fine pointer — on touch the drawer's
+          ARCADE row is already the correct affordance, and a hover panel that
+          can only be opened by a tap that also triggers the button behind it
+          is a trap.
+        */}
+        <div className="relative group">
           <button
-            onClick={() => window.dispatchEvent(new CustomEvent('forge:open-arcade'))}
+            type="button"
+            onClick={() => launchGame(null)}
             data-cursor="view"
-            className="arcade-nav-btn group relative px-3 py-1.5 rounded-full font-mono text-[11px] tracking-wider flex items-center gap-1.5 transition-all duration-fast"
+            aria-haspopup={hover ? 'menu' : undefined}
+            className="arcade-nav-btn relative px-3 py-1.5 rounded-full font-mono text-[12px] tracking-wider flex items-center gap-1.5 transition-all duration-fast"
           >
             <span className="relative z-10 flex items-center gap-1.5">
-              <span className="arcade-nav-icon text-[13px]">🎮</span>
+              <span className="arcade-nav-icon text-[13px]" aria-hidden="true">🎮</span>
               <span className="arcade-nav-text">ARCADE</span>
-              <span className="arcade-nav-dot w-1 h-1 rounded-full bg-emerald-400 shadow-[0_0_6px_rgb(52,211,153)]" />
+              <span className="arcade-nav-dot w-1 h-1 rounded-full bg-emerald-400 shadow-[0_0_6px_rgb(52,211,153)]" aria-hidden="true" />
             </span>
           </button>
-          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-fast pointer-events-none">
-            <div className="bg-[var(--surface-1)] border border-[var(--accent-dim)] rounded-xl p-3 shadow-2xl min-w-[180px]">
-              <p className="font-mono text-[8px] tracking-[0.25em] text-[var(--accent-bright)] mb-2 text-center">5 GAMES</p>
-              <div className="space-y-1">
-                {[
-                  { icon: '🏃', label: 'Forge Runner' },
-                  { icon: '🎲', label: 'Ludo: Recruiter' },
-                  { icon: '🪜', label: 'Snakes & CV' },
-                  { icon: '🧠', label: 'Memory Match' },
-                  { icon: '🐍', label: 'Snake Classic' },
-                ].map((g) => (
-                  <div key={g.label} className="flex items-center gap-2 px-2 py-1 rounded-lg hover:bg-[var(--surface-2)] transition-colors">
-                    <span className="text-[11px]">{g.icon}</span>
-                    <span className="font-mono text-[9px] text-[var(--ink-mid)]">{g.label}</span>
-                  </div>
-                ))}
+
+          {hover && (
+            <div
+              className="arcade-menu absolute top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 invisible pointer-events-none
+                         group-hover:opacity-100 group-hover:visible group-hover:pointer-events-auto
+                         group-focus-within:opacity-100 group-focus-within:visible group-focus-within:pointer-events-auto
+                         transition-all duration-fast"
+            >
+              <div className="bg-[var(--surface-1)] border border-[var(--accent-dim)] rounded-xl p-3 shadow-2xl min-w-[190px]" role="menu" aria-label="Arcade games">
+                <p className="font-mono text-[12px] tracking-[0.25em] text-[var(--accent-bright)] mb-2 text-center">5 GAMES</p>
+                <div className="space-y-1">
+                  {GAMES.map((g) => (
+                    <button
+                      key={g.id}
+                      type="button"
+                      role="menuitem"
+                      onClick={() => launchGame(g.id)}
+                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left hover:bg-[var(--surface-2)] focus-visible:bg-[var(--surface-2)] transition-colors"
+                    >
+                      <span className="text-[12px]" aria-hidden="true">{g.icon}</span>
+                      <span className="font-mono text-[12px] text-[var(--ink-mid)]">{g.label}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </nav>
 
-      <div className="flex items-center gap-4">
+      <div className="nav-cluster flex items-center gap-3 sm:gap-4">
+        {/*
+          T-002.4 — the search affordance, visible at EVERY width.
+
+          This is the door that did not exist. Below `lg` it is the only way
+          into the palette in the header; at `lg`+ it carries the ⌘K hint.
+        */}
+        <button
+          type="button"
+          onClick={openPalette}
+          data-cursor="view"
+          aria-label="Open search and commands"
+          aria-keyshortcuts="Meta+K Control+K"
+          className="nav-search w-8 h-8 rounded-full border border-[var(--glass-border)] bg-[var(--surface-2)] flex items-center justify-center hover:border-[var(--accent-dim)] transition-colors duration-fast text-[var(--ink-mid)]"
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.6" />
+            <path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+          </svg>
+          <span className="nav-search__hint font-mono" aria-hidden="true">⌘K</span>
+        </button>
+
         <RecruiterMode />
         <SparkCounter />
         <ThemeToggle />
 
+        {/* Below 1024px this moves into the drawer. Six controls and a wordmark
+            do not fit across a 320px phone, and the sound switch is the one
+            with the least claim on permanent screen real estate. It is a
+            stateless button reading context, so the two render sites are
+            interchangeable — only ever one of them is visible.
+
+            The whole nav switches at `lg`, not `md`: the horizontal link list
+            needs ~620px, and between 768 and 1024 it wrapped onto a second row
+            and drove the fixed header to 145px tall — a landscape phone lost a
+            third of its viewport to the navigation. */}
         <button
+          type="button"
           onClick={toggleMute}
           data-cursor="view"
           aria-label={sound?.muted ? 'Unmute sound' : 'Mute sound'}
-          className="w-8 h-8 rounded-full border border-[var(--glass-border)] bg-[var(--surface-2)] flex items-center justify-center hover:border-[var(--accent-dim)] transition-colors duration-fast font-mono text-[9px] text-[var(--ink-mid)]"
+          aria-pressed={!sound?.muted}
+          className="nav-sound hidden lg:flex w-8 h-8 rounded-full border border-[var(--glass-border)] bg-[var(--surface-2)] items-center justify-center hover:border-[var(--accent-dim)] transition-colors duration-fast font-mono text-[12px] text-[var(--ink-mid)]"
         >
           {sound?.muted ? 'OFF' : 'ON'}
         </button>
 
-        <svg width="40" height="40" className="hidden md:block">
+        <svg width="40" height="40" className="hidden lg:block" aria-hidden="true">
           <circle cx="20" cy="20" r={RING_R} fill="none" stroke="var(--surface-3)" strokeWidth="2" />
           <circle
             ref={ringRef}
@@ -163,12 +325,14 @@ export default function Navbar() {
         </svg>
 
         <button
+          type="button"
           data-cursor="menu"
           onClick={() => setOpen((v) => !v)}
-          className="nav-burger md:hidden flex flex-col gap-1.5 w-7 h-7 justify-center"
+          className="nav-burger lg:hidden flex flex-col gap-1.5 w-7 h-7 justify-center"
           data-open={open}
-          aria-label="Toggle menu"
+          aria-label={open ? 'Close menu' : 'Open menu'}
           aria-expanded={open}
+          aria-controls="nav-drawer"
         >
           <span className="nav-burger__bar" />
           <span className="nav-burger__bar" />
@@ -177,7 +341,7 @@ export default function Navbar() {
 
         <MagneticButton
           as="a"
-          href="/Gaurav_Resume.pdf"
+          href={RESUME_PATH}
           target="_blank"
           rel="noopener noreferrer"
           data-cursor="view"
@@ -187,24 +351,96 @@ export default function Navbar() {
         </MagneticButton>
       </div>
 
-      {/* `height: auto` cannot be animated by CSS, but `grid-template-rows`
-          can — the standard zero-JS accordion. */}
-      <div className="nav-drawer md:hidden" data-open={open}>
-        <div className="nav-drawer__inner">
-          <div className="flex flex-col p-6 gap-4">
+      <Drawer open={open} onClose={() => setOpen(false)} id="nav-drawer">
+        <div className="drawer__body l-stack" style={{ '--gap': 'var(--space-s)' }}>
+          {/*
+            T-002.3 — the first row in the drawer is the way into the palette.
+            On a phone this and the header button are the only two doors, and
+            a visitor who opened the menu looking for "search" finds it at the
+            top rather than after seven section links.
+          */}
+          <button
+            type="button"
+            onClick={() => { setOpen(false); openPalette() }}
+            className="drawer__search"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.6" />
+              <path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
+            <span>SEARCH / COMMANDS</span>
+            <kbd className="drawer__kbd" aria-hidden="true">⌘K</kbd>
+          </button>
+
+          {/* Not "Sections": the header nav already claims that name, and two
+              landmarks with one label are ambiguous to a screen reader
+              reading the landmark list — and to anything else looking for one
+              of them. */}
+          <nav className="drawer__links" aria-label="Sections (menu)">
             {LINKS.map((l, i) => (
               <button
                 key={l.id}
+                type="button"
                 onClick={() => goTo(l.id)}
                 style={{ '--i': i }}
+                aria-current={active === l.id ? 'true' : undefined}
                 className="nav-drawer__link text-left font-display text-2xl text-[var(--ink-mid)] hover:text-[var(--accent-bright)]"
               >
                 {l.label}
               </button>
             ))}
+          </nav>
+
+          <div className="nav-drawer__tools">
+            <button type="button" onClick={() => launchGame(null)} className="nav-drawer__tool">
+              <span aria-hidden="true">🎮</span>
+              <span>ARCADE · 5 GAMES</span>
+            </button>
+            <button
+              type="button"
+              onClick={toggleMute}
+              aria-label={sound?.muted ? 'Unmute sound' : 'Mute sound'}
+              className="nav-drawer__tool"
+            >
+              <span aria-hidden="true">{sound?.muted ? '🔇' : '🔊'}</span>
+              <span>SOUND {sound?.muted ? 'OFF' : 'ON'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const order = ['eclipse', 'ember', 'paper']
+                const current = document.documentElement.dataset.theme
+                const next = order[(order.indexOf(current) + 1) % order.length]
+                window.dispatchEvent(new CustomEvent('forge:set-theme', { detail: next }))
+              }}
+              className="nav-drawer__tool"
+            >
+              <span aria-hidden="true">◐</span>
+              <span>THEME · NEXT</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                window.dispatchEvent(new CustomEvent('forge:toggle-recruiter'))
+              }}
+              className="nav-drawer__tool"
+            >
+              <span aria-hidden="true">◉</span>
+              <span>RECRUITER MODE</span>
+            </button>
+            <a
+              href={RESUME_PATH}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="nav-drawer__tool nav-drawer__tool--accent"
+            >
+              <span aria-hidden="true">↗</span>
+              <span>RESUME</span>
+            </a>
           </div>
         </div>
-      </div>
+      </Drawer>
     </header>
   )
 }

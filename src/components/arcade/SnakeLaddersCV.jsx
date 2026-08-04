@@ -1,8 +1,8 @@
 import { useCallback, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
 import { TIMELINE } from '../../lib/content.js'
 import { useSound } from '../../contexts/SoundContext.jsx'
 import Dice3D from '../ui/Dice3D.jsx'
+import { setStore } from '../../lib/store.js'
 
 const BOARD_SIZE = 25
 const SNAKES = { 16: 6, 21: 12, 24: 5, 19: 8, 11: 2 }
@@ -52,10 +52,10 @@ export default function SnakeLaddersCV() {
       setPosition(next)
       setMoveCount(moveCountRef.current)
       setHistory((h) => [{ from: position, to: next, val: r.val, snake: !!snake, ladder: !!ladder, fact: r.fact }, ...h].slice(0, 10))
-      if (next >= BOARD_SIZE) { setWon(true); try { localStorage.setItem('forge-snakes-best', String(moveCountRef.current)) } catch {} }
+      if (next >= BOARD_SIZE) { setWon(true); setStore({ scores: { snakes: moveCountRef.current } }) }
       setRolling(false)
     }, 600)
-  }, [position, rolling, won])
+  }, [position, rolling, won, sound])
 
   const reset = () => {
     if (rollTimer.current) clearTimeout(rollTimer.current)
@@ -74,7 +74,7 @@ export default function SnakeLaddersCV() {
 
   return (
     <div className="flex flex-col items-center gap-4">
-      <div className="flex items-center gap-4 font-mono text-[10px] tracking-wider text-[var(--ink-low)]">
+      <div className="flex items-center gap-4 font-mono text-[12px] tracking-wider text-[var(--ink-low)]">
         <span>POSITION: <span className="text-[var(--ink)]">{position}</span> / 25</span>
         <span>MOVES: <span className="text-[var(--accent-bright)]">{moveCount}</span></span>
       </div>
@@ -91,7 +91,7 @@ export default function SnakeLaddersCV() {
           return (
             <div
               key={cellNum}
-              className="relative w-10 h-10 rounded-lg flex items-center justify-center text-[10px] font-mono transition-all duration-fast"
+              className="relative w-10 h-10 rounded-lg flex items-center justify-center text-[12px] font-mono transition-all duration-fast"
               style={{
                 background: isCurrent ? 'var(--accent)' : isSnake ? 'color-mix(in oklch, var(--warm) 20%, var(--surface-2))' : isLadder ? 'color-mix(in oklch, var(--accent) 20%, var(--surface-2))' : 'var(--surface-1)',
                 border: `1px solid ${isCurrent ? 'var(--accent-bright)' : isSnake ? 'var(--warm-dim)' : isLadder ? 'var(--accent-dim)' : 'var(--glass-border)'}`,
@@ -102,7 +102,7 @@ export default function SnakeLaddersCV() {
             >
               <span className={isCurrent ? 'font-bold' : ''}>{cellNum}</span>
               {event && (
-                <span className="absolute -top-1 -right-1 text-[7px]">{isSnake ? '🐍' : '🪜'}</span>
+                <span className="absolute -top-1 -right-1 text-[12px]">{isSnake ? '🐍' : '🪜'}</span>
               )}
             </div>
           )
@@ -120,25 +120,25 @@ export default function SnakeLaddersCV() {
         >
           {won ? 'WON!' : rolling ? 'ROLLING...' : 'ROLL DICE'}
         </button>
-        <button onClick={reset} className="px-3 py-1.5 rounded-full border border-[var(--glass-border)] text-[10px] font-mono text-[var(--ink-low)] hover:text-[var(--ink)]">
+        <button onClick={reset} className="px-3 py-1.5 rounded-full border border-[var(--glass-border)] text-[12px] font-mono text-[var(--ink-low)] hover:text-[var(--ink)]">
           RESET
         </button>
       </div>
 
       {/* Dice fact */}
       {dice && (
-        <p className="text-[11px] text-[var(--ink-mid)] text-center max-w-xs italic">
+        <p className="text-[12px] text-[var(--ink-mid)] text-center max-w-xs italic">
           &ldquo;{dice.fact}&rdquo;
         </p>
       )}
 
       {/* Career events on each cell */}
       <div className="w-full max-w-xs">
-        <p className="font-mono text-[9px] tracking-wider text-[var(--ink-low)] mb-2">CAREER MILESTONES</p>
+        <p className="font-mono text-[12px] tracking-wider text-[var(--ink-low)] mb-2">CAREER MILESTONES</p>
         <div className="space-y-1">
           {history.slice(0, 5).map((h, i) => (
-            <div key={i} className="flex items-start gap-2 text-[10px] font-mono">
-              <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[8px]" style={{ background: h.snake ? 'var(--warm-dim)' : h.ladder ? 'var(--accent-dim)' : 'var(--surface-3)' }}>
+            <div key={i} className="flex items-start gap-2 text-[12px] font-mono">
+              <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[12px]" style={{ background: h.snake ? 'var(--warm-dim)' : h.ladder ? 'var(--accent-dim)' : 'var(--surface-3)' }}>
                 {h.snake ? '🐍' : h.ladder ? '🪜' : h.val}
               </span>
               <span className="text-[var(--ink-mid)]">{h.fact}</span>

@@ -1,0 +1,183 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   a11y.css — T-024 and T-041. Touch targets and focus rings by construction.
+
+   The technique this replaces was right and its *enumeration* was the flaw:
+   `index.css:4614` hand-listed ten selectors that get a 44px hit area on
+   coarse pointers. That list is a snapshot of one audit. The eleventh control
+   added after it was not covered, and nothing said so.
+
+   Inverted here: the expansion applies to element *categories*. Adding a
+   `<button>` anywhere in the codebase now gets a compliant hit area with no
+   further thought, which is the only version of this that survives contact
+   with a growing codebase.
+
+   `:where()` throughout keeps specificity at zero, so nothing downstream ever
+   has to fight these rules to style a component.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Touch targets ─────────────────────────────────────────────────────────
+   WCAG 2.2 SC 2.5.8 asks for 24x24 CSS px; 44x44 is Apple's HIG figure and
+   the one this site targets, because a portfolio that claims craft should not
+   scrape the legal minimum.
+
+   The expansion is a pseudo-element rather than padding so it cannot change
+   layout: a 32px visual control keeps its 32px box and gains a 44px
+   *touchable* box centred on it. */
+@media (pointer: coarse) {
+  :where(
+    a[href], button, [role='button'], [role='menuitem'], [role='tab'],
+    [role='option'], [role='switch'], summary, label,
+    input[type='checkbox'], input[type='radio'], input[type='range'],
+    select, [tabindex]:not([tabindex='-1'])
+  ):not(.hit-exempt) {
+    position: relative;
+  }
+
+  :where(
+    a[href], button, [role='button'], [role='menuitem'], [role='tab'],
+    [role='option'], [role='switch'], summary, label,
+    input[type='checkbox'], input[type='radio'], input[type='range'],
+    select, [tabindex]:not([tabindex='-1'])
+  ):not(.hit-exempt)::after {
+    content: '';
+    position: absolute;
+    inset-block: 50%;
+    inset-inline: 50%;
+    /* `translate` centres the expanded box on the control regardless of the
+       control's own size. */
+    translate: -50% -50%;
+    inline-size: max(100%, 44px);
+    block-size: max(100%, 44px);
+    /* WCAG 2.2 also asks for clear space between adjacent targets. Shrinking
+       the touchable box by 4px on each side guarantees 8px between two
+       neighbours that are themselves touching. */
+    padding: 0;
+    margin: 2px;
+    /* Never visible, never a layout influence, never a hit-test blocker for
+       anything that is not this control. */
+    outline: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* The pseudo-element must be *the control's* hit area, not a shield over
+     its neighbours: pointer-events are re-enabled only on the element side. */
+  :where(
+    a[href], button, [role='button'], [role='menuitem'], summary, label, select
+  ):not(.hit-exempt)::after {
+    pointer-events: auto;
+  }
+
+  /* Text inputs are the one control where the pseudo-element trick does not
+     apply: the target IS the field, and a 26px-tall field with a 44px
+     invisible box around it is still a 26px place to put the caret. They get
+     real height instead. Found on the tablet-portrait project, where the
+     contact form's border-bottom inputs measured 197x26. */
+  :where(input:not([type='checkbox']):not([type='radio']), textarea, select) {
+    min-block-size: 44px;
+  }
+
+  /* Inline links inside running text are the genuine exception: a 44px box
+     around a word inside a paragraph overlaps the lines above and below it,
+     which makes the *paragraph* harder to use, not easier. Every other use of
+     `.hit-exempt` needs a comment saying why. */
+  :where(p, li, dd, blockquote, figcaption) a[href]::after {
+    content: none;
+  }
+}
+
+/* ── Focus ─────────────────────────────────────────────────────────────────
+   One treatment, applied globally, visible against every surface in all three
+   themes. The double ring is the point: a single accent outline disappears
+   against an accent-coloured button, and a single dark outline disappears on
+   the dark theme. An inner ring in the accent plus an outer ring in the
+   surface colour is legible on both.
+
+   `:focus-visible`, never `:focus`: a mouse click on a button should not
+   leave a ring behind, which is the reason people reach for `outline: none`
+   and then never put anything back. */
+:where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent-bright, #7dd3fc);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--surface-0, #05090d), 0 0 0 6px var(--accent-dim, #0369a1);
+  border-radius: var(--radius-s, 0.375rem);
+}
+
+/* A custom cursor makes an invisible focus ring very easy to ship without
+   noticing, so the ring is forced back on wherever the cursor is hidden. */
+:root[data-cursor-hidden] :focus-visible {
+  outline-style: solid !important;
+}
+
+/* Never remove the ring without a replacement. This overrides the Tailwind
+   reset's `outline: 2px solid transparent` on focus. */
+:focus-visible {
+  outline-color: var(--accent-bright, #7dd3fc);
+}
+
+/* ── Skip link ────────────────────────────────────────────────────────────
+   Defined once, in index.css, where it already lived. Two definitions of the
+   same control in two files is exactly the drift this phase exists to remove;
+   what T-024 adds there is the safe-area inset and a hit area that clears
+   44px, not a second copy of the rule. */
+
+/* ── Screen-reader-only text ───────────────────────────────────────────────
+   The 1px-clip technique rather than `display: none`, which removes the text
+   from the accessibility tree entirely. */
+.sr-only:not(:focus):not(:active) {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+  padding: 0;
+  margin: -1px;
+}
+
+/* ── Touch feedback ────────────────────────────────────────────────────────
+   Removing the tap highlight without replacing it makes every tap feel dead —
+   the visitor gets no confirmation that the press registered. The pair is
+   non-negotiable: highlight off, `:active` state on (T-033.3). */
+@media (pointer: coarse) {
+  :where(a, button, [role='button'], summary, label, select, input) {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  :where(a[href], button, [role='button'], [role='menuitem']):active {
+    scale: 0.97;
+    transition: scale var(--dur-instant, 80ms) ease-out;
+  }
+}
+
+/* ── Forced colours ────────────────────────────────────────────────────────
+   In Windows High Contrast mode the palette is replaced wholesale. Decorative
+   canvases carry no information, so they are hidden rather than left as
+   unreadable rectangles; controls get a real border so their boundaries
+   survive the loss of the background colours that used to define them. */
+@media (forced-colors: active) {
+  :where(canvas, .film-grain, .grade-wash, .hero-mesh, [aria-hidden='true'][class*='glow']) {
+    display: none;
+  }
+
+  :where(button, [role='button'], a[href], input, select, textarea) {
+    border: 1px solid currentColor;
+    forced-color-adjust: auto;
+  }
+
+  :focus-visible {
+    outline: 3px solid Highlight;
+    outline-offset: 2px;
+  }
+}
+
+/* ── Reduced transparency ──────────────────────────────────────────────────
+   Backdrop blur is expensive *and* a readability problem for the people who
+   ask for this. Opaque surfaces, same layout. */
+@media (prefers-reduced-transparency: reduce) {
+  :where(.glass, .cmdpal__panel, .nav-drawer__inner, .site-header) {
+    backdrop-filter: none !important;
+    background: var(--surface-1) !important;
+  }
+}

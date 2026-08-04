@@ -27,6 +27,7 @@ import { useReducedMotion } from '../../lib/useReducedMotion.js'
 import { checkWebGL, getThemeColors } from '../../lib/threeUtils.js'
 import { onFrame, getTier } from '../../lib/raf.js'
 import { createAnchoredRenderer } from '../../lib/glStage.js'
+import { onTilt } from '../../lib/tilt.js'
 
 /**
  * A tiny procedural environment map. Two kilobytes of gradient is enough to
@@ -153,7 +154,10 @@ export default function HeroForgeObject({ className = '' }) {
         sparkPositions[i * 3 + 2] = 0
       }
     }
-    container.addEventListener('mousedown', burstSparks)
+    // Fired from the pointerdown handler below rather than a `mousedown`
+    // listener: touch only synthesises `mousedown` after the gesture resolves
+    // as a tap, so a drag — the thing most worth rewarding with sparks — never
+    // produced any on a phone.
 
     // Rotation state is composed each frame from tilt + scroll + spin, so a
     // poke has to add an impulse rather than assign rotation directly.
@@ -178,16 +182,74 @@ export default function HeroForgeObject({ className = '' }) {
     }
     container.addEventListener('click', pokeHandler)
 
-    // Magnetic tilt toward cursor (eased, GPU-cheap — plain rotation lerp).
-    const onMove = (e) => {
-      const rect = container.getBoundingClientRect()
-      if (!rect.width || !rect.height) return
-      const nx = (e.clientX - rect.left) / rect.width - 0.5
-      const ny = (e.clientY - rect.top) / rect.height - 0.5
-      targetTiltZ = nx * 0.5 * 0.6
-      targetTiltX = -ny * 0.35
+    /*
+     * Magnetic lean.
+     *
+     * This used to read the cursor directly, which meant it did nothing at all
+     * on a phone — the object sat perfectly upright, spinning, ignoring the
+     * viewer. It now reads the shared lean signal, which is the cursor on a
+     * desktop and the gyroscope on a handset. Tilting the phone leans the gem,
+     * and it is the same code path either way.
+     */
+    let offTilt = null
+    if (!reduced) {
+      offTilt = onTilt(({ x, y }) => {
+        targetTiltZ = x * 0.30
+        targetTiltX = -y * 0.26
+      })
     }
-    if (!reduced) window.addEventListener('pointermove', onMove, { passive: true })
+
+    /*
+     * Drag to spin. `touch-action: pan-y` on the container is what makes this
+     * safe: the browser keeps ownership of vertical scrolling, so a drag down
+     * the page still scrolls the page even when it starts on the gem, and only
+     * the horizontal component reaches us. Taking the whole gesture would have
+     * turned a 300px-wide region of the hero into a scroll dead zone.
+     */
+    let dragging = false
+    let dragId = null
+    let lastX = 0
+    let lastMoveT = 0
+    /* Angular velocity in radians per SECOND, so the throw that survives a
+       release does not depend on how often the device happened to sample the
+       finger. Storing a per-event delta instead would make the same gesture
+       spin twice as far on a 120 Hz screen. */
+    let dragMomentum = 0
+    const MAX_MOMENTUM = 12
+
+    const onDragStart = (e) => {
+      if (reduced) return
+      dragging = true
+      dragId = e.pointerId
+      lastX = e.clientX
+      lastMoveT = e.timeStamp || performance.now()
+      dragMomentum = 0
+      burstSparks()
+      container.setPointerCapture?.(e.pointerId)
+    }
+    const onDragMove = (e) => {
+      if (!dragging || e.pointerId !== dragId) return
+      const now = e.timeStamp || performance.now()
+      const elapsed = Math.max(8, now - lastMoveT)
+      lastMoveT = now
+      const dx = e.clientX - lastX
+      lastX = e.clientX
+      // Radians per pixel — a full drag across a phone spins it roughly twice.
+      const delta = dx * 0.012
+      spin += delta
+      dragMomentum = Math.max(-MAX_MOMENTUM, Math.min(MAX_MOMENTUM, (delta / elapsed) * 1000))
+    }
+    const onDragEnd = (e) => {
+      if (!dragging || (dragId !== null && e.pointerId !== dragId)) return
+      dragging = false
+      dragId = null
+      container.releasePointerCapture?.(e.pointerId)
+    }
+
+    container.addEventListener('pointerdown', onDragStart, { passive: true })
+    container.addEventListener('pointermove', onDragMove, { passive: true })
+    container.addEventListener('pointerup', onDragEnd, { passive: true })
+    container.addEventListener('pointercancel', onDragEnd, { passive: true })
 
     // Scroll-linked rotation makes the hero feel authored rather than
     // decorative — the object does something as the visitor moves down.
@@ -230,19 +292,30 @@ export default function HeroForgeObject({ className = '' }) {
     resize()
 
     let time = 0
+    // Whether this object exists at all is decided once, at mount, from the
+    // tier. Re-asking every frame meant a tier change mid-session froze it in
+    // mid-air — and a solid object stopped dead reads as a broken page, which
+    // is a worse outcome than the frames it was trying to save.
     const stop = onFrame((_, rawDt) => {
       if (!inView) return
-      // If the machine later struggles, stop DRAWING rather than unmounting.
-      // Tearing the GPU context down and rebuilding it is both more expensive
-      // and visible; skipping the render is neither.
-      if (getTier() < 2) return
       // Radians per *second*, so the object looks identical on 60 Hz and
       // 144 Hz displays. Clamped so a stalled tab cannot spin it wildly.
       const dt = Math.min(rawDt / 1000, 0.05)
       time += dt
 
       if (!reduced) {
-        spin += 1.05 * dt              // ~6 s per revolution
+        // Idle drift is ~6 s per revolution. While a finger is down the move
+        // handler owns the rotation outright — adding anything here as well
+        // would double-count it, and a finger resting mid-drag would keep the
+        // gem spinning on its last delta forever. The stored velocity is only
+        // decayed, so letting go after holding still throws nothing.
+        if (dragging) {
+          dragMomentum *= Math.exp(-dt * 6)
+        } else {
+          spin += 1.05 * dt + dragMomentum * dt
+          dragMomentum *= Math.exp(-dt * 3.2)
+          if (Math.abs(dragMomentum) < 0.01) dragMomentum = 0
+        }
         tiltX += (targetTiltX - tiltX) * Math.min(1, dt * 3)
         tiltZ += (targetTiltZ - tiltZ) * Math.min(1, dt * 3)
         monolith.rotation.y = spin
@@ -264,16 +337,19 @@ export default function HeroForgeObject({ className = '' }) {
       }
 
       renderer.render(scene, camera)
-    })
+    }, { band: 'ambient', critical: true })
 
     return () => {
       stop()
       ivObserver.disconnect()
       ro.disconnect()
       disposeRenderer()
-      window.removeEventListener('pointermove', onMove)
+      offTilt?.()
       window.removeEventListener('scroll', onScroll)
-      container.removeEventListener('mousedown', burstSparks)
+      container.removeEventListener('pointerdown', onDragStart)
+      container.removeEventListener('pointermove', onDragMove)
+      container.removeEventListener('pointerup', onDragEnd)
+      container.removeEventListener('pointercancel', onDragEnd)
       container.removeEventListener('click', pokeHandler)
       observer.disconnect()
       geo.dispose()
@@ -289,7 +365,7 @@ export default function HeroForgeObject({ className = '' }) {
   return (
     <div
       ref={containerRef}
-      className={'w-full h-full ' + className}
+      className={'hero-forge-object w-full h-full ' + className}
       data-cursor="crosshair"
       aria-hidden="true"
     />

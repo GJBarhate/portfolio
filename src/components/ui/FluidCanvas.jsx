@@ -10,6 +10,7 @@ import {
 } from 'three'
 import { checkWebGL, getThemeColors, makePingPongRT } from '../../lib/threeUtils.js'
 import { onFrame, getTier } from '../../lib/raf.js'
+import { guardContext } from '../../lib/glResilience.js'
 import { createDedicatedRenderer } from '../../lib/glStage.js'
 
 const advectVert = `
@@ -145,8 +146,14 @@ const clearFrag = `
 
 // 96² with 12 Jacobi iterations is visually indistinguishable from 128²/20 at
 // this scale — pressure converges fast on a small grid — and costs about half.
+//
+// T-058.2 takes it further and makes the pass count a function of the tier.
+// The stylesheet's own comment recorded the original cost as "~24 shader
+// passes per frame", which is a great deal of GPU for a background: pressure
+// convergence is asymptotic, so the last iterations change almost nothing
+// visible while costing exactly as much as the first ones.
 const SIMM_RES = 96
-const JACOBI_ITERS = 12
+const JACOBI_BY_TIER = { 3: 8, 2: 4, 1: 0, 0: 0 }
 const SIM_HZ = 30
 
 export default function FluidCanvas() {
@@ -166,6 +173,16 @@ export default function FluidCanvas() {
     // pipeline cannot be expressed as a viewport into the shared stage.
     const renderer = createDedicatedRenderer(canvas)
     renderer.setPixelRatio(1)
+
+    // T-045.1 — the fluid sim holds a dozen framebuffers, all of which are
+    // gone with the context. There is nothing to restore and nothing worth
+    // rebuilding for a decorative layer, so the honest response is to stop:
+    // the hero's own gradient is the fallback, and it is already painted.
+    let contextLost = false
+    const detachGuard = guardContext(canvas, {
+      label: 'fluid-canvas',
+      onLost: () => { contextLost = true },
+    })
 
     const quadGeo = new PlaneGeometry(2, 2)
     const camera = new OrthographicCamera(-1, 1, 1, -1, 0.1, 10)
@@ -287,7 +304,11 @@ export default function FluidCanvas() {
       aspect = w / Math.max(1, h)
       splatMat.uniforms.uAspect.value = aspect
     }
-    window.addEventListener('resize', onResize)
+    // T-011 — root-box observation rather than a `resize` listener; resizing
+    // a fluid simulation reallocates every framebuffer it owns, so doing it on
+    // URL-bar collapse was both pointless and expensive.
+    const ro = new ResizeObserver(onResize)
+    ro.observe(document.documentElement)
     onResize()
 
     const observer = new MutationObserver(() => {
@@ -338,7 +359,8 @@ export default function FluidCanvas() {
       blit(clearMesh, pressureRT.current)
       pressureRT.swap()
 
-      for (let i = 0; i < JACOBI_ITERS; i++) {
+      const iterations = JACOBI_BY_TIER[getTier()] ?? 4
+      for (let i = 0; i < iterations; i++) {
         pressureMat.uniforms.uPressure.value = pressureRT.alternate.texture
         pressureMat.uniforms.uDivergence.value = divergenceRT.current.texture
         blit(pressureMesh, pressureRT.current)
@@ -362,7 +384,7 @@ export default function FluidCanvas() {
     const frameBudget = 1000 / SIM_HZ
     let acc = 0
     const stop = onFrame((_, dt) => {
-      if (!inView || getTier() < 3) return
+      if (contextLost || !inView || getTier() < 3) return
       acc += dt
       if (acc < frameBudget) return
       acc = Math.min(acc - frameBudget, frameBudget)
@@ -373,13 +395,14 @@ export default function FluidCanvas() {
       displayMat.uniforms.uDye.value = dyeRT.alternate.texture
       renderer.render(displayMesh, camera)
       cursor.moved = false
-    })
+    }, { band: 'ambient' })
 
     return () => {
+      detachGuard()
       stop()
       ivObserver.disconnect()
       window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('resize', onResize)
+      ro.disconnect()
       observer.disconnect()
       for (const rt of [velRT, dyeRT, pressureRT, divergenceRT]) {
         rt.rt1.dispose()

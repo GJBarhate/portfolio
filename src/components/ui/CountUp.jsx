@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useInView } from 'framer-motion'
 import { onFrame } from '../../lib/raf.js'
+import { motionOff } from '../../lib/motion.js'
 
 export default function CountUp({ value, duration = 1.6, suffix = '' }) {
   const ref = useRef(null)
@@ -9,6 +10,13 @@ export default function CountUp({ value, duration = 1.6, suffix = '' }) {
   const [key, setKey] = useState(0)
 
   const animate = useCallback(() => {
+    // T-025 — a number counting up is motion. With the scalar at zero the
+    // honest rendering is the final value, immediately: not a slower count,
+    // and not a zero-duration animation that still schedules a frame.
+    if (motionOff()) {
+      setDisplay(value)
+      return () => {}
+    }
     const start = performance.now()
     let stop = null
     stop = onFrame((now) => {
@@ -30,15 +38,19 @@ export default function CountUp({ value, duration = 1.6, suffix = '' }) {
     setKey((k) => k + 1)
   }
 
+  // T-040.1 — this was a `<span>` with an onClick and a pointer cursor: it
+  // looked interactive, was not reachable by keyboard, and announced nothing.
+  // A real button costs one element and fixes all three.
   return (
-    <span
+    <button
+      type="button"
       ref={ref}
-      className="tabular cursor-pointer"
+      className="tabular count-up"
       onClick={reroll}
-      title="Click to re-roll"
+      title="Re-roll this number"
+      aria-label={`${display}${suffix} — re-roll`}
     >
-      {display}
-      {suffix}
-    </span>
+      <span aria-hidden="true">{display}{suffix}</span>
+    </button>
   )
 }

@@ -1,0 +1,49 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   breakpoints.css — T-010. ONE breakpoint source of truth.
+
+   Before this file, `767px`, `768px`, `1023px`, `1024px` and `640px` were
+   typed as literals across 4,755 lines of CSS and separately as Tailwind
+   variants in 60 components. `max-width: 767px` and `min-width: 768px` are a
+   matched pair only by convention, and a device reporting a fractional width
+   (any zoom level, any Windows scaling factor other than 100 %) falls into
+   the 1 px gap between them and matches neither.
+
+   Two decisions make that structurally impossible from here on:
+
+   1. **Range syntax, never bare min/max.** `(width < 48rem)` and
+      `(width >= 48rem)` are exact complements. There is no gap to fall into
+      and no off-by-one to get wrong. Range syntax is Baseline.
+
+   2. **rem, not px.** The whole layout then responds to the browser's font
+      size, which is a real accessibility win at zero cost: a visitor who has
+      set 20px as their default body size gets the phone layout at a
+      proportionally larger window, which is what they asked for.
+
+   The numbers below are Tailwind 4's own scale, deliberately. "One source of
+   truth" only means something if the CSS and the `sm:`/`lg:` variants already
+   written across 64 components resolve to the same numbers — moving the CSS
+   to the PLAN's suggested 24rem/384px `sm` while Tailwind kept 40rem would
+   have created two sources of truth wearing one name. The floor (`xs`, 320px)
+   is the addition: it is not a Tailwind breakpoint, it is the device matrix's
+   smallest entry, and nothing may overflow there.
+
+   `src/lib/breakpoints.js` exports the same numbers for JS consumers.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* Documentation and JS-readable mirror. CSS custom properties cannot be
+     used inside a media prelude — the values below are re-typed once, in the
+     range queries throughout the stylesheets, and `npm run check:breakpoints`
+     asserts that no raw px value appears in any prelude. */
+  --bp-xs: 20rem;    /* 320px — the floor; nothing may overflow here */
+  --bp-sm: 40rem;    /* 640px — Tailwind `sm` */
+  --bp-md: 48rem;    /* 768px — Tailwind `md`; the layout switch */
+  --bp-lg: 64rem;    /* 1024px — Tailwind `lg`; the navigation switch */
+  --bp-xl: 80rem;    /* 1280px — Tailwind `xl` */
+  --bp-2xl: 96rem;   /* 1536px — Tailwind `2xl` */
+
+  /* The landscape ceiling. A phone on its side is ~390px tall; a hero built
+     for 844px of height has no defined behaviour there, which is why every
+     "100vh hero" breaks in landscape. Height is a first-class axis here. */
+  --bp-short: 30rem; /* 480px of height — below this, compose for height */
+}

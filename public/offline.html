@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Offline — Gaurav Barhate</title>
+    <meta name="theme-color" content="#05090d" />
+    <!--
+      T-057.2 — an offline page that is genuinely useful.
+
+      The default alternative is the browser's dinosaur, which tells the
+      visitor nothing about who they were trying to reach. This is deliberately
+      self-contained: no stylesheet, no font file, no script, because every one
+      of those is a request that by definition cannot be served right now.
+    -->
+    <style>
+      :root { color-scheme: dark; }
+      body {
+        margin: 0;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        padding: 2rem;
+        background: #05090d;
+        color: #e6edf5;
+        font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+        line-height: 1.6;
+      }
+      main { max-width: 32rem; }
+      h1 { font-size: clamp(1.75rem, 6vw, 2.5rem); margin: 0 0 0.25rem; }
+      p.role { color: #8fa3b8; margin: 0 0 1.5rem; }
+      ul { list-style: none; padding: 0; display: grid; gap: 0.6rem; }
+      li { padding: 0.75rem 1rem; border: 1px solid #1d2733; border-radius: 0.75rem; }
+      a { color: #6fd6e0; }
+      .note { margin-top: 1.5rem; font-size: 0.875rem; color: #8fa3b8; }
+      button {
+        margin-top: 1rem; min-height: 44px; padding: 0 1.25rem;
+        border-radius: 999px; border: 1px solid #2b3a4a;
+        background: #0d141c; color: #e6edf5; font: inherit; cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>You’re offline</h1>
+      <p class="role">Gaurav Barhate — Full-Stack Developer &amp; Competitive Programmer</p>
+      <p>
+        The portfolio needs a connection to load in full. Here is what it says, in short:
+        LeetCode Knight (1972 peak, 800+ solved), five applications running in production,
+        and a focus on real-time systems — WebRTC, CRDT sync, webhook reliability.
+      </p>
+      <ul>
+        <li><strong>PeerCode</strong> — real-time interview platform, CRDT-synced editor</li>
+        <li><strong>FlowShield</strong> — webhook monitoring with automatic retries</li>
+        <li><strong>VoiceAns</strong> — AI voice interview coach</li>
+        <li><strong>OneCart</strong> — full-stack e-commerce with an AI assistant</li>
+        <li><strong>Virtual Courses</strong> — LMS with student and educator roles</li>
+      </ul>
+      <p class="note">
+        Reach me at <a href="mailto:gauravjbarhate554@gmail.com">gauravjbarhate554@gmail.com</a> —
+        an email will send as soon as you are back online.
+      </p>
+      <button type="button" onclick="location.reload()">Try again</button>
+    </main>
+  </body>
+</html>

@@ -1,4 +1,4 @@
-﻿import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import emailjs from '@emailjs/browser'
 import Reveal from '../ui/Reveal.jsx'
@@ -8,6 +8,10 @@ import { SOCIALS } from '../../lib/content.js'
 import { useSound } from '../../contexts/SoundContext.jsx'
 import { useSpotlight } from '../../hooks/useSpotlight.js'
 import { EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, EMAILJS_PUBLIC_KEY } from '../../lib/emailConfig.js'
+import {
+  HONEYPOT_FIELD, checkSubmission, recordSubmission,
+  saveDraft, loadDraft, clearDraft, mailtoFallback,
+} from '../../lib/formGuard.js'
 import SplitText from '../ui/SplitText.jsx'
 // Spark moved to footer wordmark per plan §3.3
 // AVIF-first, two widths. These previews render at ~420px wide but shipped at
@@ -31,8 +35,12 @@ const PLATFORMS = [
 // Field names match the variables already wired into the EmailJS template
 // ({{from_name}}, {{from_email}}, {{from_message}}, {{to_name}}, {{title}}).
 const FIELDS = [
-  { name: 'from_name', label: 'Your Name', type: 'text' },
-  { name: 'from_email', label: 'Your Email', type: 'email' },
+  // T-044.1 — native constraint validation FIRST. `required`, `type="email"`
+  // and `minLength` work before a single byte of JavaScript has run, and the
+  // browser's own messages are localised, announced and familiar. The custom
+  // layer below adds context; it does not replace this.
+  { name: 'from_name', label: 'Your Name', type: 'text', autoComplete: 'name', minLength: 2, hint: 'So I know who I am replying to.' },
+  { name: 'from_email', label: 'Your Email', type: 'email', autoComplete: 'email', hint: 'Where the reply goes. Nothing else is sent here.' },
 ]
 
 function PlatformCard({ platform, index }) {
@@ -65,7 +73,7 @@ function PlatformCard({ platform, index }) {
         className="group relative rounded-[26px] overflow-hidden block p-[1.5px]"
         style={{ transformStyle: 'preserve-3d' }}
       >
-        {/* Rotating gradient ring border â€” revealed on hover */}
+        {/* Rotating gradient ring border — revealed on hover */}
         <span
           className="absolute -inset-[40%] opacity-0 group-hover:opacity-100 transition-opacity duration-base animate-[spin_4s_linear_infinite]"
           style={{
@@ -93,7 +101,7 @@ function PlatformCard({ platform, index }) {
               style={{ background: `linear-gradient(140deg, ${platform.color}60, transparent 65%)` }}
             />
             <span
-              className="absolute top-3 left-3 px-2.5 py-1 rounded-full font-mono text-[9px] tracking-[0.2em]"
+              className="absolute top-3 left-3 px-2.5 py-1 rounded-full font-mono text-[12px] tracking-[0.2em]"
               style={{
                 color: platform.color,
                 background: 'rgba(0,0,0,0.4)',
@@ -108,7 +116,7 @@ function PlatformCard({ platform, index }) {
           </div>
 
           <div className="relative z-10 p-5">
-            <p className="font-mono text-[10px] tracking-widest text-[var(--ink-low)] mb-1">{platform.label.toUpperCase()}</p>
+            <p className="font-mono text-[12px] tracking-widest text-[var(--ink-low)] mb-1">{platform.label.toUpperCase()}</p>
             <p className="font-display text-lg md:text-xl text-[var(--ink)] truncate">{platform.value}</p>
           </div>
 
@@ -124,26 +132,90 @@ function PlatformCard({ platform, index }) {
 
 export default function Contact() {
   const formRef = useRef(null)
-  const [values, setValues] = useState({ from_name: '', from_email: '', from_message: '' })
-  const [status, setStatus] = useState('idle') // idle · sending · success · error
+  const [values, setValues] = useState(() => loadDraft() || { from_name: '', from_email: '', from_message: '' })
+  /*
+   * T-044.4 — five explicit states, each with visible copy:
+   *   idle → validating → sending → sent → failed
+   * The version this replaces had three, and "failed" said only that
+   * something went wrong. A visitor who has typed a paragraph and been told
+   * "error" has lost their paragraph; here the message survives and the
+   * mailto fallback carries it.
+   */
+  const [status, setStatus] = useState('idle')
+  const [error, setError] = useState('')
+  // T-044.3 — a human cannot fill this in under two seconds. The clock starts
+  // when the section mounts, not when the first key is pressed, because a bot
+  // does not focus fields before filling them.
+  const startedAt = useRef(Date.now())
+
+  // T-044.5 — the draft survives an accidental navigation.
+  useEffect(() => {
+    const id = setTimeout(() => saveDraft(values), 400)
+    return () => clearTimeout(id)
+  }, [values])
+
+  /*
+   * Typing again after a send starts a NEW message.
+   *
+   * The state machine had no edge out of `sent`, so the button kept reading
+   * "Sent — thank you!" and the success line kept sitting under a form the
+   * visitor had already begun refilling — which reads as "it did not take my
+   * second message". The first keystroke after a success is unambiguous
+   * intent to send another one, so it returns the form to `idle` and restarts
+   * the anti-bot clock, since this is genuinely a new submission.
+   */
+  const beginNewMessage = () => {
+    if (status !== 'sent' && status !== 'failed') return
+    setStatus('idle')
+    setError('')
+    startedAt.current = Date.now()
+  }
 
   const onSubmit = async (e) => {
     e.preventDefault()
+    const form = formRef.current
+
+    // Let the browser speak first.
+    setStatus('validating')
+    if (!form.checkValidity()) {
+      form.reportValidity()
+      setStatus('idle')
+      return
+    }
+
+    const guard = checkSubmission({
+      honeypot: form.elements[HONEYPOT_FIELD]?.value || '',
+      startedAt: startedAt.current,
+    })
+    if (!guard.ok) {
+      setError(guard.message)
+      setStatus('failed')
+      return
+    }
+
     setStatus('sending')
+    setError('')
     try {
-      await emailjs.sendForm(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, formRef.current, {
+      await emailjs.sendForm(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, form, {
         publicKey: EMAILJS_PUBLIC_KEY,
       })
-      setStatus('success')
+      recordSubmission()
+      clearDraft()
+      setStatus('sent')
       setValues({ from_name: '', from_email: '', from_message: '' })
     } catch (err) {
+      // The message is NOT cleared: it is the visitor's work, and the mailto
+      // fallback below is about to need it.
       console.error('EmailJS send failed:', err)
-      setStatus('error')
+      setError('The send failed. Your message is still here — this link opens it in your mail app.')
+      setStatus('failed')
     }
   }
 
+  const sending = status === 'sending' || status === 'validating'
+
   return (
-    <section id="contact" className="relative section-rhythm container-px mesh-gradient-b overflow-hidden">
+    <section id="contact" aria-labelledby="contact-heading" className="relative section-rhythm container-px mesh-gradient-b overflow-hidden">
       <span className="ghost-numeral" aria-hidden="true">07</span>
       {/* Spark moved to footer wordmark */}
 
@@ -152,7 +224,7 @@ export default function Contact() {
           <span className="level-badge mb-4">07 — CONTACT</span>
         </Reveal>
         <Reveal delay={0.1}>
-          <h2 className="font-display text-[clamp(2.5rem,8vw,6rem)] leading-[0.95] mb-12 max-w-4xl">
+          <h2 id="contact-heading" className="font-display text-[var(--step-5)] leading-[0.95] mb-12 max-w-4xl">
             <SplitText>Get in </SplitText>
             <SplitText className="text-gradient" delay={0.1}>touch.</SplitText>
           </h2>
@@ -175,8 +247,27 @@ export default function Contact() {
           </Reveal>
 
           <Reveal delay={0.25}>
-            <form ref={formRef} onSubmit={onSubmit} className="p-8 rounded-3xl glass glass-glow sheen">
+            <form ref={formRef} onSubmit={onSubmit} noValidate={false} className="contact-form p-8 rounded-3xl glass glass-glow sheen">
               <input type="hidden" name="to_name" value="Gaurav" />
+
+              {/*
+                T-044.3 — the honeypot. Hidden with CSS rather than
+                `type="hidden"`, because a bot skips hidden inputs and fills
+                visible ones; `aria-hidden` and `tabIndex={-1}` keep it out of
+                the reach of anyone using the keyboard or a screen reader, and
+                `autoComplete="off"` stops a browser filling it in helpfully.
+              */}
+              <div className="form-honeypot" aria-hidden="true">
+                <label htmlFor={HONEYPOT_FIELD}>Company website (leave this empty)</label>
+                <input
+                  id={HONEYPOT_FIELD}
+                  name={HONEYPOT_FIELD}
+                  type="text"
+                  tabIndex={-1}
+                  autoComplete="off"
+                  defaultValue=""
+                />
+              </div>
               <input
                 type="hidden"
                 name="title"
@@ -186,34 +277,54 @@ export default function Contact() {
               {FIELDS.map((f) => (
                 <div key={f.name} className="relative mb-6 group">
                   <input
+                    id={f.name}
                     name={f.name}
                     type={f.type}
                     required
-                    disabled={status === 'sending'}
+                    minLength={f.minLength}
+                    autoComplete={f.autoComplete}
+                    disabled={sending}
                     value={values[f.name]}
-                    onChange={(e) => setValues((v) => ({ ...v, [f.name]: e.target.value }))}
+                    onChange={(e) => { beginNewMessage(); setValues((v) => ({ ...v, [f.name]: e.target.value })) }}
                     placeholder=" "
+                    /* T-044.2 — the hint is tied to the field, so it is read
+                       out with it rather than being decoration a screen reader
+                       never encounters. */
+                    aria-describedby={f.name + "-hint"}
                     className="w-full bg-transparent border-b border-[var(--glass-border)] py-3 outline-none focus:border-[var(--accent)] transition-colors duration-fast peer disabled:opacity-50"
                   />
-                  <label className="absolute left-0 top-3 text-[var(--ink-low)] text-sm pointer-events-none transition-all duration-fast peer-focus:-translate-y-5 peer-focus:text-xs peer-focus:text-[var(--accent-bright)] peer-[&:not(:placeholder-shown)]:-translate-y-5 peer-[&:not(:placeholder-shown)]:text-xs">
+                  <label
+                    htmlFor={f.name}
+                    className="absolute left-0 top-3 text-[var(--ink-low)] text-sm pointer-events-none transition-all duration-fast peer-focus:-translate-y-5 peer-focus:text-xs peer-focus:text-[var(--accent-bright)] peer-[&:not(:placeholder-shown)]:-translate-y-5 peer-[&:not(:placeholder-shown)]:text-xs"
+                  >
                     {f.label}
                   </label>
+                  <p id={f.name + "-hint"} className="form-hint">{f.hint}</p>
                 </div>
               ))}
               <div className="relative mb-8 group">
                 <textarea
+                  id="from_message"
                   name="from_message"
                   required
+                  minLength={10}
                   rows={3}
-                  disabled={status === 'sending'}
+                  disabled={sending}
                   value={values.from_message}
-                  onChange={(e) => setValues((v) => ({ ...v, from_message: e.target.value }))}
+                  onChange={(e) => { beginNewMessage(); setValues((v) => ({ ...v, from_message: e.target.value })) }}
                   placeholder=" "
+                  aria-describedby="from_message-hint"
                   className="w-full bg-transparent border-b border-[var(--glass-border)] py-3 outline-none focus:border-[var(--accent)] transition-colors duration-fast resize-none peer disabled:opacity-50"
                 />
-                <label className="absolute left-0 top-3 text-[var(--ink-low)] text-sm pointer-events-none transition-all duration-fast peer-focus:-translate-y-5 peer-focus:text-xs peer-focus:text-[var(--accent-bright)] peer-[&:not(:placeholder-shown)]:-translate-y-5 peer-[&:not(:placeholder-shown)]:text-xs">
+                <label
+                  htmlFor="from_message"
+                  className="absolute left-0 top-3 text-[var(--ink-low)] text-sm pointer-events-none transition-all duration-fast peer-focus:-translate-y-5 peer-focus:text-xs peer-focus:text-[var(--accent-bright)] peer-[&:not(:placeholder-shown)]:-translate-y-5 peer-[&:not(:placeholder-shown)]:text-xs"
+                >
                   Message
                 </label>
+                <p id="from_message-hint" className="form-hint">
+                  What you are building, or what you are hiring for. A few lines is plenty.
+                </p>
               </div>
 
               <MagneticTilt>
@@ -221,18 +332,28 @@ export default function Contact() {
                   as="button"
                   type="submit"
                   data-cursor="send"
-                  disabled={status === 'sending'}
+                  disabled={sending}
                   className="w-full px-7 py-4 rounded-full bg-[var(--accent)] text-[var(--surface-0)] font-medium shadow-[0_0_32px_color-mix(in_oklch,var(--accent)_40%,transparent)] hover:shadow-[0_0_56px_color-mix(in_oklch,var(--accent)_50%,transparent)] transition-shadow duration-base disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  {status === 'sending' && (
+                  {sending && (
                     <span className="w-4 h-4 rounded-full border-2 border-[var(--surface-0)]/30 border-t-[var(--surface-0)] animate-spin" aria-hidden="true" />
                   )}
-                  {status === 'sending' ? 'Sending…' : status === 'success' ? 'Sent — thank you!' : 'Send Message'}
+                  {sending ? 'Sending…' : status === 'sent' ? 'Sent — thank you!' : 'Send Message'}
                 </MagneticButton>
               </MagneticTilt>
 
+              {/*
+                T-044.2 — one live region for the outcome. `polite` rather
+                than `assertive`: the visitor has just pressed a button and is
+                already looking at it, so interrupting them is unnecessary.
+                Errors get role="alert" on their own paragraph below.
+              */}
+              <p className="sr-only" aria-live="polite">
+                {status === 'sending' ? 'Sending your message' : status === 'sent' ? 'Message sent' : ''}
+              </p>
+
               <AnimatePresence mode="wait">
-                {status === 'success' && (
+                {status === 'sent' && (
                   <motion.p
                     key="ok"
                     initial={{ opacity: 0, y: -6 }}
@@ -244,17 +365,28 @@ export default function Contact() {
                     Your message has been sent. I&rsquo;ll get back to you soon.
                   </motion.p>
                 )}
-                {status === 'error' && (
+                {status === 'failed' && (
                   <motion.p
                     key="err"
+                    role="alert"
                     initial={{ opacity: 0, y: -6 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
                     className="mt-4 text-sm text-[var(--warm)]"
                   >
-                    Something went wrong sending that. Please email me directly at{' '}
-                    <a href={`mailto:${SOCIALS.email}`} className="underline hover:text-[var(--warm-dim)]">
-                      {SOCIALS.email}
+                    {error || 'Something went wrong sending that.'}{' '}
+                    {/* T-044.4 — the fallback carries the visitor's own text
+                        into their mail client, so nothing they wrote is lost
+                        to a third-party outage. */}
+                    <a
+                      href={mailtoFallback({
+                        email: SOCIALS.email,
+                        name: values.from_name,
+                        message: values.from_message,
+                      })}
+                      className="underline hover:text-[var(--warm-dim)]"
+                    >
+                      Email it to {SOCIALS.email} instead
                     </a>
                     .
                   </motion.p>
@@ -304,7 +436,7 @@ function CopyEmail() {
         type="button"
         onClick={copy}
         data-cursor="view"
-        className="project-btn project-btn--ghost px-4 py-2 rounded-full text-[11px] font-mono"
+        className="project-btn project-btn--ghost px-4 py-2 rounded-full text-[12px] font-mono"
       >
         COPY EMAIL
       </button>

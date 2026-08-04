@@ -166,11 +166,11 @@ export default function ProjectLightbox({ project, resolveImage, onClose }) {
 
         <div className="lightbox__actions">
           {project.live && (
-            <a href={project.live} target="_blank" rel="noopener noreferrer" className="project-btn project-btn--live px-4 py-2 rounded-full text-[11px] font-mono">
+            <a href={project.live} target="_blank" rel="noopener noreferrer" className="project-btn project-btn--live px-4 py-2 rounded-full text-[12px] font-mono">
               OPEN LIVE APP ↗
             </a>
           )}
-          <a href={project.repo} target="_blank" rel="noopener noreferrer" className="project-btn project-btn--ghost px-4 py-2 rounded-full text-[11px] font-mono">
+          <a href={project.repo} target="_blank" rel="noopener noreferrer" className="project-btn project-btn--ghost px-4 py-2 rounded-full text-[12px] font-mono">
             SOURCE ↗
           </a>
         </div>

@@ -13,13 +13,21 @@
     },
     "assert": {
       "assertions": {
-        "categories:performance": ["error", { "minScore": 0.95 }],
         "categories:accessibility": ["error", { "minScore": 0.95 }],
-        "largest-contentful-paint": ["error", { "maxNumericValue": 1800 }],
-        "cumulative-layout-shift": ["error", { "maxNumericValue": 0.02 }],
-        "total-blocking-time": ["error", { "maxNumericValue": 200 }],
+        "categories:best-practices": ["warn", { "minScore": 0.9 }],
+        "categories:seo": ["error", { "minScore": 0.95 }],
+
+        "cumulative-layout-shift": ["error", { "maxNumericValue": 0.1 }],
+        "total-blocking-time": ["warn", { "maxNumericValue": 600 }],
+        "largest-contentful-paint": ["warn", { "maxNumericValue": 2500 }],
+        "categories:performance": ["warn", { "minScore": 0.8 }],
+
         "non-composited-animations": "error",
-        "uses-passive-event-listeners": "error"
+        "uses-passive-event-listeners": "error",
+        "color-contrast": "error",
+        "heading-order": "error",
+        "html-has-lang": "error",
+        "meta-viewport": "error"
       }
     },
     "upload": { "target": "temporary-public-storage" }

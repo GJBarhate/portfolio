@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useIsMobile } from '../../lib/useIsMobile.js'
+import { usePointer } from '../../lib/useMedia.js'
 import { onFrame } from '../../lib/raf.js'
 
 const TRAIL_COUNT = 5
@@ -7,7 +7,9 @@ const TRAIL_COUNT = 5
 export default function CustomCursor() {
   const dotRef = useRef(null)
   const trailRefs = useRef([])
-  const isMobile = useIsMobile()
+  // Capability, not size: a 1440px touchscreen has no cursor to replace,
+  // and a 600px window with a mouse does (T-011).
+  const { coarse } = usePointer()
 
   const reducedMotion =
     typeof window !== 'undefined' &&
@@ -19,7 +21,7 @@ export default function CustomCursor() {
       document.documentElement.hasAttribute('data-no-custom-cursor'))
 
   useEffect(() => {
-    if (isMobile || disabled || reducedMotion) return
+    if (coarse || disabled || reducedMotion) return
 
     const dot = dotRef.current
     const trails = trailRefs.current
@@ -74,7 +76,7 @@ export default function CustomCursor() {
 
     const start = () => {
       idle = 0
-      if (!stop) stop = onFrame(tick)
+      if (!stop) stop = onFrame(tick, { band: 'input' })
     }
 
     const onMove = (e) => {
@@ -102,9 +104,9 @@ export default function CustomCursor() {
       document.removeEventListener('mouseenter', onEnter)
       document.documentElement.style.cursor = ''
     }
-  }, [isMobile, disabled, reducedMotion])
+  }, [coarse, disabled, reducedMotion])
 
-  if (isMobile || disabled || reducedMotion) return null
+  if (coarse || disabled || reducedMotion) return null
 
   return (
     <div className="pointer-events-none fixed inset-0" style={{ zIndex: 'var(--z-cursor)' }}>

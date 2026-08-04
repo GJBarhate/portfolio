@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useIsMobile } from '../../lib/useIsMobile.js'
+import { usePointer } from '../../lib/useMedia.js'
 
 export default function ArcadeFAB() {
   const [visible, setVisible] = useState(false)
   const [dismissed, setDismissed] = useState(false)
-  const isMobile = useIsMobile()
+  // A floating cursor target is a pointer affordance, not a width one: on a
+  // coarse pointer the drawer's ARCADE row is already the right door (T-011).
+  const { coarse } = usePointer()
 
   useEffect(() => {
     if (dismissed) return
@@ -22,7 +24,7 @@ export default function ArcadeFAB() {
     setDismissed(true)
   }
 
-  if (isMobile) return null
+  if (coarse) return null
 
   return (
     <AnimatePresence>

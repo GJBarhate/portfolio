@@ -1,0 +1,169 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   print.css — T-035. Because recruiters print things.
+
+   Before this, ⌘P produced a black rectangle: a dark theme printed as-is
+   wastes an entire toner cartridge and renders light text on a dark field
+   that most printers reproduce as grey-on-grey. What comes out now is a clean
+   three-to-four page document that reads as a résumé supplement.
+
+   The rules, in order of how much they matter:
+     1. force the light palette — a print is always dark-on-light
+     2. drop everything decorative — canvases, cursors, nav, toasts, FABs
+     3. expand `content-visibility: auto`, or the printer gets empty boxes
+        where the un-rendered sections were
+     4. print link destinations, since a paper link is otherwise a dead end
+   ══════════════════════════════════════════════════════════════════════════ */
+
+@media print {
+  /* 1. The paper palette, forced regardless of the visitor's theme. These are
+        the `paper` theme's tokens, restated rather than referenced, because
+        `[data-theme]` is on <html> and a print stylesheet cannot change an
+        attribute. */
+  :root,
+  :root[data-theme='eclipse'],
+  :root[data-theme='ember'],
+  :root[data-theme='paper'] {
+    --surface-0: #ffffff;
+    --surface-1: #ffffff;
+    --surface-2: #f4f4f5;
+    --surface-3: #e4e4e7;
+    --surface-4: #d4d4d8;
+    --ink-hi: #000000;
+    --ink: #18181b;
+    --ink-mid: #3f3f46;
+    --ink-low: #52525b;
+    --accent: #0f766e;
+    --accent-bright: #115e59;
+    --accent-dim: #99f6e4;
+    --glass-border: #d4d4d8;
+    --motion-scale: 0;
+    --motion-distance: 0;
+    color-scheme: light;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #18181b !important;
+  }
+
+  /* 2. Decoration and chrome. None of this means anything on paper, and
+        several of them (the fixed header, the cursor) actively damage the
+        output by reserving space on every page. */
+  canvas,
+  video,
+  iframe,
+  .site-header,
+  .nav-drawer,
+  .cmdpal,
+  .skip-link,
+  .film-grain,
+  .grade-wash,
+  .hero-mesh,
+  .scroll-progress,
+  .cursor-dot,
+  .cursor-trail,
+  .avatar-track,
+  .avatar-track--mobile,
+  .arcade-fab,
+  .xp-bar,
+  .level-ribbon,
+  .achievement-toast,
+  .spark,
+  [data-print='hide'],
+  [aria-hidden='true'] {
+    display: none !important;
+  }
+
+  /* 3. Sections that were never scrolled to have not been rendered. Printing
+        them requires undoing the optimisation for the print pass only. */
+  * {
+    content-visibility: visible !important;
+    contain-intrinsic-size: auto !important;
+    animation: none !important;
+    transition: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  /* Anything that was hidden pending a scroll reveal must be visible. */
+  [data-reveal],
+  .reveal,
+  .is-hidden-until-inview {
+    opacity: 1 !important;
+    transform: none !important;
+    visibility: visible !important;
+  }
+
+  /* 4. A link on paper needs its destination. Internal anchors do not — the
+        target is in the same document. */
+  a[href^='http']::after {
+    content: ' (' attr(href) ')';
+    font-size: 0.75em;
+    color: #52525b;
+    word-break: break-all;
+  }
+  a[href^='mailto']::after {
+    content: ' (' attr(href) ')';
+    font-size: 0.75em;
+  }
+
+  /* Page setup. 18mm is a comfortable binding-safe margin on both A4 and
+     US Letter, which is the only pair that matters. */
+  @page {
+    margin: 18mm;
+  }
+
+  /* Card-shaped content must not be split across a page break, and a heading
+     must never be the last thing on a page. */
+  .grid-card,
+  .deck-card,
+  .stat-tile,
+  .timeline-item,
+  figure,
+  blockquote,
+  pre {
+    break-inside: avoid;
+    border: 1px solid #d4d4d8;
+    background: #fff !important;
+  }
+
+  h1, h2, h3 {
+    break-after: avoid;
+    color: #000 !important;
+  }
+
+  section {
+    break-before: auto;
+    padding-block: 0.5rem !important;
+    min-block-size: 0 !important;
+  }
+
+  /* Print type: physical units, because a print has a physical size. */
+  body {
+    font-size: 10.5pt;
+    line-height: 1.45;
+  }
+  h1 { font-size: 20pt; }
+  h2 { font-size: 15pt; }
+  h3 { font-size: 12pt; }
+
+  img {
+    max-inline-size: 100% !important;
+    break-inside: avoid;
+    /* Screenshots print acceptably at 150dpi; larger wastes ink and time. */
+    image-rendering: auto;
+  }
+
+  /* The URL of the site itself, once, at the end — so a printed page can be
+     traced back to where it came from. */
+  footer::after {
+    content: 'gauravportfolio-beryl.vercel.app';
+    display: block;
+    margin-block-start: 1rem;
+    font-size: 9pt;
+    color: #52525b;
+  }
+}

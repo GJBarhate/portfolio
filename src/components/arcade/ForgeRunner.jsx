@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
 import { useGame } from '../../contexts/GameContext.jsx'
 import { onFrame } from '../../lib/raf.js'
+import { getStore, setStore } from '../../lib/store.js'
 
 const LANES = [0, 1, 2]
 const LANE_WIDTH = 70
@@ -15,11 +15,8 @@ const JUMP_VEL = -9
 const BASE_SPEED = 3
 const SLIDE_DURATION = 20
 
-const LS_KEY = 'forge-runner-highscore'
-
-function getHighScore() {
-  try { return parseInt(localStorage.getItem(LS_KEY)) || 0 } catch { return 0 }
-}
+// T-030 — `scores.runner` in the unified store.
+const getHighScore = () => getStore().scores.runner || 0
 
 export default function ForgeRunner() {
   const canvasRef = useRef(null)
@@ -110,7 +107,7 @@ export default function ForgeRunner() {
           if (playerTop + pH > obstacleTop) {
             const finalScore = s.score
             if (finalScore > getHighScore()) {
-              localStorage.setItem(LS_KEY, String(finalScore))
+              setStore({ scores: { runner: finalScore } })
               setHighScore(finalScore)
             }
             setGameOver(true)
@@ -308,12 +305,12 @@ export default function ForgeRunner() {
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
             {gameOver && (
               <div className="text-center mb-2">
-                <p className="font-mono text-[10px] tracking-wider text-[rgba(255,255,255,0.5)]">GAME OVER</p>
+                <p className="font-mono text-[12px] tracking-wider text-[rgba(255,255,255,0.5)]">GAME OVER</p>
                 <p className="font-display text-2xl mt-1" style={{ color: 'oklch(80% 0.14 145)' }}>
                   {score} coins
                 </p>
                 {score >= highScore && score > 0 && (
-                  <p className="font-mono text-[9px] tracking-wider mt-1" style={{ color: 'oklch(80% 0.16 85)' }}>
+                  <p className="font-mono text-[12px] tracking-wider mt-1" style={{ color: 'oklch(80% 0.16 85)' }}>
                     NEW HIGH SCORE
                   </p>
                 )}
@@ -329,7 +326,7 @@ export default function ForgeRunner() {
           </div>
         )}
       </div>
-      <div className="flex flex-wrap justify-center gap-3 font-mono text-[9px] tracking-wider text-[var(--ink-low)]">
+      <div className="flex flex-wrap justify-center gap-3 font-mono text-[12px] tracking-wider text-[var(--ink-low)]">
         <span className="hidden sm:inline">← → LANE</span>
         <span className="hidden sm:inline">↑ / SPACE JUMP</span>
         <span className="hidden sm:inline">↓ SLIDE</span>

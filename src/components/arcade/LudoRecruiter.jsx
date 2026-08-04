@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { PROJECTS } from '../../lib/content.js'
 import { useSound } from '../../contexts/SoundContext.jsx'
 import Dice3D from '../ui/Dice3D.jsx'
+import { setStore } from '../../lib/store.js'
 
 const TOKENS = PROJECTS.slice(0, 4).map((p, i) => ({
   id: p.id,
@@ -52,7 +53,7 @@ export default function LudoRecruiter() {
         setWon(idx)
         setLog((l) => [`🏆 ${TOKENS[idx].label} reached home! Case study unlocked.`, ...l].slice(0, 10))
         window.dispatchEvent(new CustomEvent('forge:unlock', { detail: 'high-scorer' }))
-        try { localStorage.setItem('forge-ludo-best', TOKENS[idx].label) } catch {}
+        setStore({ scores: { ludo: TOKENS[idx].label } })
       } else {
         setPositions((p) => { const n = [...p]; n[idx] = next; return n })
         setLog((l) => [`${TOKENS[idx].label} → ${next} (rolled ${r.val})`, ...l].slice(0, 10))
@@ -60,7 +61,7 @@ export default function LudoRecruiter() {
       }
       setRolling(false)
     }, 500)
-  }, [activeToken, positions, rolling, won])
+  }, [activeToken, positions, rolling, won, sound])
 
   const reset = () => {
     if (rollTimer.current) clearTimeout(rollTimer.current)
@@ -72,11 +73,11 @@ export default function LudoRecruiter() {
     setLog([])
   }
 
-  const maxPos = Math.max(...TOKENS.map((t) => t.pathLen))
+  const _maxPos = Math.max(...TOKENS.map((t) => t.pathLen))
 
   return (
     <div className="flex flex-col items-center gap-4 w-full max-w-sm mx-auto">
-      <div className="flex items-center gap-3 font-mono text-[10px] tracking-wider text-[var(--ink-low)]">
+      <div className="flex items-center gap-3 font-mono text-[12px] tracking-wider text-[var(--ink-low)]">
         <span>ACTIVE: <span style={{ color: TOKENS[activeToken].color }}>{TOKENS[activeToken].label}</span></span>
         <button onClick={reset} className="px-2 py-1 rounded border border-[var(--glass-border)] hover:text-[var(--ink)] transition-colors">
           RESET
@@ -87,7 +88,7 @@ export default function LudoRecruiter() {
       <div className="w-full p-3 rounded-xl clay--inset space-y-2">
         {TOKENS.map((token, i) => (
           <div key={token.id} className="relative flex items-center gap-2">
-            <span className="w-16 font-mono text-[8px] tracking-wider flex-shrink-0 truncate" style={{ color: token.color }}>
+            <span className="w-16 font-mono text-[12px] tracking-wider flex-shrink-0 truncate" style={{ color: token.color }}>
               {token.label}
             </span>
             <div className="flex-1 h-5 rounded-full overflow-hidden" style={{ background: 'var(--surface-3)' }}>
@@ -99,7 +100,7 @@ export default function LudoRecruiter() {
                 transition={{ type: 'spring', stiffness: 80, damping: 14 }}
               />
             </div>
-            <span className="w-6 text-right font-mono text-[9px] text-[var(--ink-low)]">{positions[i]}/{token.pathLen}</span>
+            <span className="w-6 text-right font-mono text-[12px] text-[var(--ink-low)]">{positions[i]}/{token.pathLen}</span>
           </div>
         ))}
       </div>
@@ -119,17 +120,17 @@ export default function LudoRecruiter() {
 
       {/* Dice fact */}
       {dice && (
-        <p className="text-[11px] text-[var(--ink-mid)] text-center max-w-xs italic">
+        <p className="text-[12px] text-[var(--ink-mid)] text-center max-w-xs italic">
           &ldquo;{dice.fact}&rdquo;
         </p>
       )}
 
       {/* Event log */}
       <div className="w-full max-w-xs">
-        <p className="font-mono text-[9px] tracking-wider text-[var(--ink-low)] mb-1">RACE LOG</p>
+        <p className="font-mono text-[12px] tracking-wider text-[var(--ink-low)] mb-1">RACE LOG</p>
         <div className="space-y-0.5 max-h-24 overflow-y-auto">
           {log.map((entry, i) => (
-            <p key={i} className="text-[9px] font-mono text-[var(--ink-mid)]">{entry}</p>
+            <p key={i} className="text-[12px] font-mono text-[var(--ink-mid)]">{entry}</p>
           ))}
         </div>
       </div>

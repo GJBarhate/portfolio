@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
 
-const charsRx = /[\s\S]/gu
+const _charsRx = /[\s\S]/gu
 
 export default function MorphLink({ children, className = '', ...props }) {
   const [hovered, setHovered] = useState(false)

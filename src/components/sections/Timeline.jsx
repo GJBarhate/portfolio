@@ -11,7 +11,7 @@ import SplitText from '../ui/SplitText.jsx'
  */
 export default function Timeline() {
   return (
-    <section id="timeline" className="relative section-rhythm container-px mesh-gradient-a overflow-hidden melt-enter">
+    <section id="timeline" aria-labelledby="timeline-heading" className="relative section-rhythm container-px mesh-gradient-a overflow-hidden melt-enter">
       <span className="ghost-numeral" aria-hidden="true">05</span>
       <div className="absolute top-[30%] right-[6%]"><Spark id="spark-timeline" /></div>
 
@@ -20,7 +20,7 @@ export default function Timeline() {
           <span className="level-badge mb-4">05 — EXPERIENCE</span>
         </Reveal>
         <Reveal delay={0.1}>
-          <h2 className="section-h2 font-display mb-20 max-w-3xl">
+          <h2 id="timeline-heading" className="section-h2 font-display mb-20 max-w-3xl">
             <SplitText>My path from </SplitText>
             <SplitText className="text-gradient" delay={0.12}>learning to code to shipping software.</SplitText>
           </h2>
@@ -56,7 +56,7 @@ export default function Timeline() {
                   <span className="timeline-node__ping" data-loop="timeline-node" />
                 </span>
                 <div className="flex items-center gap-3 mb-2">
-                  <span className="font-mono text-[10px] tracking-[0.25em] px-2.5 py-1 rounded-full border border-[var(--accent-dim)] text-[var(--accent-bright)] bg-[color-mix(in_oklch,var(--accent)_6%,transparent)]">
+                  <span className="font-mono text-[12px] tracking-[0.25em] px-2.5 py-1 rounded-full border border-[var(--accent-dim)] text-[var(--accent-bright)] bg-[color-mix(in_oklch,var(--accent)_6%,transparent)]">
                     {item.year}
                   </span>
                 </div>

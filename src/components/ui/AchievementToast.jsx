@@ -16,7 +16,7 @@ export default function AchievementToast() {
         sound?.play('achievement')
       }
     })
-  }, [game?.toasts, sound])
+  }, [game, sound])
 
   if (!game) return null
 
@@ -32,11 +32,11 @@ export default function AchievementToast() {
             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
             className="glass sheen rounded-2xl px-4 py-3 w-64 border border-[var(--accent-dim)] shadow-[0_0_28px_color-mix(in_oklch,var(--accent)_35%,transparent)]"
           >
-            <p className="font-mono text-[9px] tracking-[0.25em] text-[var(--warm)] mb-1">ACHIEVEMENT UNLOCKED</p>
+            <p className="font-mono text-[12px] tracking-[0.25em] text-[var(--warm)] mb-1">ACHIEVEMENT UNLOCKED</p>
             <p className="font-display text-sm text-[var(--ink)] mb-0.5">{t.title}</p>
             <div className="flex items-center justify-between">
-              <p className="text-[11px] text-[var(--ink-low)]">{t.desc}</p>
-              <span className="font-mono text-[10px] text-[var(--accent-bright)] flex-shrink-0 ml-2">+{t.xp}xp</span>
+              <p className="text-[12px] text-[var(--ink-low)]">{t.desc}</p>
+              <span className="font-mono text-[12px] text-[var(--accent-bright)] flex-shrink-0 ml-2">+{t.xp}xp</span>
             </div>
           </motion.div>
         ))}

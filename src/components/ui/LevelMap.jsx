@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion, useScroll, useSpring, useTransform } from 'framer-motion'
-import { useIsMobile } from '../../lib/useIsMobile.js'
+import { useBelow } from '../../lib/useMedia.js'
 
 const LEVELS = [
   { id: 'hero', label: 'START', num: '00' },
@@ -29,7 +29,9 @@ function PixelAvatar({ className = '' }) {
 export default function LevelMap() {
   const [active, setActive] = useState('hero')
   const [passed, setPassed] = useState(new Set())
-  const isMobile = useIsMobile()
+  // A vertical rail needs vertical room beside the content — a layout
+  // question, so it asks the layout axis (T-011).
+  const isNarrow = useBelow('md')
   const { scrollYProgress } = useScroll()
   const smooth = useSpring(scrollYProgress, { stiffness: 260, damping: 38, mass: 0.3 })
   const fillHeight = useTransform(smooth, (v) => `${(v * 100).toFixed(2)}%`)
@@ -56,9 +58,8 @@ export default function LevelMap() {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
   }
 
-  const activeIdx = LEVELS.findIndex((l) => l.id === active)
 
-  if (isMobile) {
+  if (isNarrow) {
     return (
       <div className="avatar-track--mobile">
         <motion.div className="avatar-track__fill" style={{ width: mobileWidth }} />
@@ -87,7 +88,7 @@ export default function LevelMap() {
           }}
         />
 
-        {LEVELS.map((level, i) => {
+        {LEVELS.map((level) => {
           const isActive = level.id === active
           const isPast = passed.has(level.id)
           return (
@@ -136,14 +137,14 @@ export default function LevelMap() {
 
               <div className="absolute right-7 top-1/2 -translate-y-1/2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-fast">
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[var(--surface-1)] border border-[var(--glass-border)] whitespace-nowrap">
-                  <span className="font-mono text-[9px] tracking-widest" style={{ color: isPast ? 'var(--accent-reward)' : 'var(--accent-bright)' }}>
+                  <span className="font-mono text-[12px] tracking-widest" style={{ color: isPast ? 'var(--accent-reward)' : 'var(--accent-bright)' }}>
                     {level.num}
                   </span>
-                  <span className="font-mono text-[10px] tracking-wider text-[var(--ink-mid)]">
+                  <span className="font-mono text-[12px] tracking-wider text-[var(--ink-mid)]">
                     {level.label}
                   </span>
                   {isPast && !isActive && (
-                    <span className="text-[9px]" style={{ color: 'var(--accent-reward)' }}>✓</span>
+                    <span className="text-[12px]" style={{ color: 'var(--accent-reward)' }}>✓</span>
                   )}
                 </div>
               </div>

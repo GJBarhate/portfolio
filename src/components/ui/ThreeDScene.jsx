@@ -32,8 +32,19 @@ export default function ThreeDScene({ className = '' }) {
 
     const webgl = checkWebGL()
     if (!webgl.supported) { setStatus('unsupported'); return }
-    // Tier 1 machines get no WebGL at all.
-    if (getTier() < 2) { setStatus('unsupported'); return }
+
+    // This scene is NEVER refused for being expensive.
+    //
+    // It used to bail at tier 1 with "3-D skipped — your device is busy",
+    // which is the wrong answer to the only question being asked: somebody
+    // pressed a button that says SPIN THE DESK. Nothing here loads unless
+    // they do. Telling a visitor who explicitly asked for the one interactive
+    // object on the page that their machine is too busy is a worse experience
+    // than a slightly coarser render, and on a laptop with a browser, an
+    // editor and a chat client open — the ordinary case — it fired constantly.
+    //
+    // The tier now decides how GOOD it looks, not whether it exists.
+    const tier = getTier()
 
     const colors = getThemeColors()
     const accent = new Color(colors.accent)
@@ -44,6 +55,8 @@ export default function ThreeDScene({ className = '' }) {
     // background, so the behind-content scissor stage cannot draw it.
     // Shadows stay dropped: the shadow map cost more than the desk gained.
     const { renderer, dispose: disposeRenderer } = createAnchoredRenderer(container)
+    // Same rule as the renderer factory: tier buys resolution, not existence.
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, tier >= 3 ? 1.75 : tier >= 2 ? 1.25 : 1))
 
     const scene = new Scene()
     const camera = new PerspectiveCamera(35, 1, 0.1, 100)
@@ -160,11 +173,40 @@ export default function ThreeDScene({ className = '' }) {
 
     setStatus('live')
 
+    /*
+     * Re-parent everything that is not a light into one group, so the desk
+     * can be rotated as a single object.
+     *
+     * Building it this way — rather than adding each mesh to a group as it is
+     * created — keeps the twelve `scene.add()` calls above readable as a
+     * parts list, and re-parenting in three.js is a pointer move, not a copy.
+     * Lights stay on the scene: rotating them with the desk would carry the
+     * highlights around with it and the object would look flat.
+     */
+    const deskGroup = new Group()
+    for (const child of [...scene.children]) {
+      if (child.isLight) continue
+      deskGroup.add(child)
+    }
+    scene.add(deskGroup)
+
     let time = 0
     const stop = onFrame((_, dt) => {
       if (!inView) return
       if (!reduced) {
-        time += 0.005 * (dt / 16.7)
+        // Seconds, not frames. `dt / 16.7` made the orbit rate depend on the
+        // display: the desk crawled on a 120 Hz screen relative to a 60 Hz
+        // one, which is the dt-correctness rule `raf.js` documents.
+        const step = Math.min(dt / 1000, 0.05)
+        time += step
+
+        // The button says SPIN THE DESK, so the desk spins. The camera orbit
+        // alone reads as a slow drift — it is a 33-second revolution — and on
+        // a 340px card the parallax is small enough that several people have
+        // reported the scene as static. A visible rotation of the group is
+        // the thing the control promises.
+        deskGroup.rotation.y += step * 0.45
+
         camera.position.x = 4 * Math.cos(time * 0.2)
         camera.position.z = 4 * Math.sin(time * 0.2)
         camera.lookAt(0, 0, 0)
@@ -174,7 +216,7 @@ export default function ThreeDScene({ className = '' }) {
       }
 
       renderer.render(scene, camera)
-    })
+    }, { band: 'ambient', critical: true })
 
     return () => {
       stop()

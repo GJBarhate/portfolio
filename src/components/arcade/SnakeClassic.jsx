@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
+import { getStore, setStore } from '../../lib/store.js'
 
 const COLS = 20
 const ROWS = 20
 const CELL = 14
 const TICK_MS = 140
-const LS_KEY = 'forge-snake-best'
 
 const DIR = {
   ArrowUp: { x: 0, y: -1 },
@@ -23,9 +22,8 @@ function randomFood(snake) {
   return pos
 }
 
-function getBest() {
-  try { return parseInt(localStorage.getItem(LS_KEY)) || 0 } catch { return 0 }
-}
+// T-030 — `scores.snake` in the unified store.
+const getBest = () => getStore().scores.snake || 0
 
 export default function SnakeClassic() {
   const canvasRef = useRef(null)
@@ -56,7 +54,7 @@ export default function SnakeClassic() {
     setPlaying(false)
     setGameOver(true)
     if (finalScore > getBest()) {
-      localStorage.setItem(LS_KEY, String(finalScore))
+      setStore({ scores: { snake: finalScore } })
       setBest(finalScore)
     }
   }, [])
@@ -190,12 +188,12 @@ export default function SnakeClassic() {
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center gap-3">
             {gameOver && (
               <div className="text-center mb-2">
-                <p className="font-mono text-[10px] tracking-wider text-[rgba(255,255,255,0.5)]">GAME OVER</p>
+                <p className="font-mono text-[12px] tracking-wider text-[rgba(255,255,255,0.5)]">GAME OVER</p>
                 <p className="font-display text-2xl mt-1" style={{ color: '#d946ef' }}>
                   {score}
                 </p>
                 {score >= best && score > 0 && (
-                  <p className="font-mono text-[9px] tracking-wider mt-1" style={{ color: '#f97316' }}>
+                  <p className="font-mono text-[12px] tracking-wider mt-1" style={{ color: '#f97316' }}>
                     NEW HIGH SCORE
                   </p>
                 )}
@@ -211,7 +209,7 @@ export default function SnakeClassic() {
           </div>
         )}
       </div>
-      <div className="flex flex-wrap justify-center gap-3 font-mono text-[9px] tracking-wider text-[var(--ink-low)]">
+      <div className="flex flex-wrap justify-center gap-3 font-mono text-[12px] tracking-wider text-[var(--ink-low)]">
         <span className="hidden sm:inline">WASD / ARROWS MOVE</span>
         <span className="sm:hidden">SWIPE TO MOVE</span>
         <span>EAT 🟠 GROW</span>

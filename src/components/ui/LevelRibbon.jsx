@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 
 const LEVEL_NAMES = {
@@ -13,14 +13,18 @@ const LEVEL_NAMES = {
 
 export default function LevelRibbon() {
   const [ribbon, setRibbon] = useState(null)
-  const shown = new Set()
+  // A plain `new Set()` here was recreated on every render — and since showing
+  // a ribbon sets state, the "only once per level" guard was cleared by the
+  // very thing it was guarding. A ref survives the re-render, which is what
+  // "once" requires.
+  const shown = useRef(new Set())
 
   useEffect(() => {
     const handler = (e) => {
       const id = e.detail
       const level = LEVEL_NAMES[id]
-      if (!level || shown.has(id)) return
-      shown.add(id)
+      if (!level || shown.current.has(id)) return
+      shown.current.add(id)
       setRibbon({ ...level, key: id + Date.now() })
       setTimeout(() => setRibbon(null), 2000)
     }

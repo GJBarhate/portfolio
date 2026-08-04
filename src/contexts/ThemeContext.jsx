@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { onFrame } from '../lib/raf.js'
+import { getStore, setStore } from '../lib/store.js'
 
 // bg / accent / glow are used by the Theme Atelier swatches and the
 // <meta name="theme-color"> sync — keep them in step with index.css.
@@ -43,17 +44,58 @@ function getTimeSuggestion() {
 
 const ThemeContext = createContext(null)
 
+/** The OS answer, for `system` and for a first visit with nothing stored. */
+const systemTheme = () =>
+  window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'paper' : 'eclipse'
+
 export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState(() => {
-    const saved = localStorage.getItem('forge-theme')
-    if (THEMES.some((t) => t.id === saved)) return saved
-    const migrated = LEGACY_THEME_MAP[saved]
+  /*
+   * T-034 / D-27 — three states, not two.
+   *
+   *   an explicit choice  → that theme, always, and it is remembered
+   *   `system`            → follows prefers-color-scheme, live
+   *   nothing stored yet  → follows prefers-color-scheme (this is the fix:
+   *                         everyone used to get `eclipse` regardless of
+   *                         their OS setting, so a visitor whose system is in
+   *                         light mode was handed a dark site with no
+   *                         explanation and no obvious way back)
+   *
+   * The value lives in the unified store (T-030); `index.html` reads the same
+   * key before first paint so there is no flash of the wrong palette.
+   */
+  const [preference, setPreference] = useState(() => {
+    const stored = getStore().theme
+    if (stored === 'system') return 'system'
+    if (THEMES.some((t) => t.id === stored)) return stored
+    const migrated = LEGACY_THEME_MAP[stored]
     if (migrated) return migrated
-    // Eclipse is the default first impression; first-time light-mode users
-    // land on Paper instead.
-    const prefersLight = window.matchMedia?.('(prefers-color-scheme: light)').matches
-    return prefersLight ? 'paper' : 'eclipse'
+    return 'system'
   })
+
+  const [theme, setResolved] = useState(() =>
+    preference === 'system' ? systemTheme() : preference
+  )
+
+  /** `setTheme('system')` is a first-class choice, not an absence of one. */
+  const setTheme = (next) => {
+    const id = LEGACY_THEME_MAP[next] || next
+    if (id !== 'system' && !THEMES.some((t) => t.id === id)) return
+    setPreference(id)
+    setResolved(id === 'system' ? systemTheme() : id)
+    setStore({ theme: id })
+  }
+
+  // Following the OS means following it *live* — a visitor whose machine
+  // switches to dark mode at sunset should see the site follow, without a
+  // reload, if that is what they asked for.
+  useEffect(() => {
+    if (preference !== 'system') return
+    const mql = window.matchMedia('(prefers-color-scheme: light)')
+    const sync = () => setResolved(systemTheme())
+    sync()
+    mql.addEventListener('change', sync)
+    return () => mql.removeEventListener('change', sync)
+  }, [preference])
   const [suggestion, setSuggestion] = useState(null)
   const suggestedRef = useRef(null)
 
@@ -63,7 +105,6 @@ export function ThemeProvider({ children }) {
     // Scrollbars and form controls need the polarity, not the palette, and
     // they flash the wrong one for a frame without this (§6.5).
     root.style.colorScheme = theme === 'paper' ? 'light' : 'dark'
-    localStorage.setItem('forge-theme', theme)
 
     /*
      * §6.1 — the canvas blind spot.
@@ -132,7 +173,7 @@ export function ThemeProvider({ children }) {
   }
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, themes: THEMES, suggestion, acceptSuggestion, dismissSuggestion }}>
+    <ThemeContext.Provider value={{ theme, preference, setTheme, themes: THEMES, suggestion, acceptSuggestion, dismissSuggestion }}>
       {children}
     </ThemeContext.Provider>
   )

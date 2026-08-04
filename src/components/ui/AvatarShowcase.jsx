@@ -53,7 +53,7 @@ export default function AvatarShowcase({ sectionId = 'about' }) {
 
     const io = new IntersectionObserver(([e]) => {
       inView = e.isIntersecting
-      if (inView && !stop) stop = onFrame(tick)
+      if (inView && !stop) stop = onFrame(tick, { band: 'input' })
       else if (!inView && stop) { stop(); stop = null }
     }, { rootMargin: '10% 0px' })
     io.observe(el)
@@ -62,7 +62,9 @@ export default function AvatarShowcase({ sectionId = 'about' }) {
     el.addEventListener('pointerenter', onEnter)
     el.addEventListener('pointerleave', onLeave)
     window.addEventListener('scroll', invalidate, { passive: true })
-    window.addEventListener('resize', invalidate, { passive: true })
+    // T-011 — this element's box is what the cached rect describes.
+    const ro = new ResizeObserver(invalidate)
+    ro.observe(el)
 
     return () => {
       io.disconnect()
@@ -71,7 +73,7 @@ export default function AvatarShowcase({ sectionId = 'about' }) {
       el.removeEventListener('pointerenter', onEnter)
       el.removeEventListener('pointerleave', onLeave)
       window.removeEventListener('scroll', invalidate)
-      window.removeEventListener('resize', invalidate)
+      ro.disconnect()
     }
   }, [])
 

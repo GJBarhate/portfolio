@@ -97,6 +97,7 @@ export default function WebGLDistortion({ picture, src, alt = '', className = ''
       }
       gl.viewport(0, 0, w, h)
 
+      // eslint-disable-next-line react-compiler/react-compiler -- WebGL API method, not a React hook
       gl.useProgram(ctx.program)
       gl.activeTexture(gl.TEXTURE0)
       gl.bindTexture(gl.TEXTURE_2D, texture)
@@ -117,7 +118,7 @@ export default function WebGLDistortion({ picture, src, alt = '', className = ''
     }
 
     const start = () => {
-      if (!stopFrame && !disposed && texture) stopFrame = onFrame(draw)
+      if (!stopFrame && !disposed && texture) stopFrame = onFrame(draw, { band: 'ambient' })
     }
 
     const onMove = (e) => {

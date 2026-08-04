@@ -58,7 +58,7 @@ export default function MagneticTilt({
     const start = () => {
       if (!stop) {
         el.style.willChange = 'transform'
-        stop = onFrame(tick)
+        stop = onFrame(tick, { band: 'input' })
       }
     }
 

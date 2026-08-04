@@ -1,0 +1,170 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   layout.css — T-020. Seven layout primitives, zero media queries.
+
+   Layout was expressed by Tailwind utility strings scattered across 64
+   components, so "how a section is laid out" could not be changed without
+   touching 64 files. That is why every responsive fix so far has been a
+   per-component patch, and why the audit kept finding new instances of the
+   same bug.
+
+   Every primitive here is **intrinsic**: it describes the conditions under
+   which it changes shape, and the browser decides when those conditions are
+   met. A media query is an admission that the layout could not describe
+   itself — useful for page-level decisions (the nav switch, the section
+   rhythm) and wrong for everything else.
+
+   Each takes its parameters as custom properties, so a caller tunes it
+   without a new class:
+
+     <div class="l-grid" style="--min: 22rem; --gap: var(--space-l)">
+   ══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* One space ratio. No component invents its own value (Appendix A). */
+  --space-3xs: 0.25rem;
+  --space-2xs: 0.5rem;
+  --space-xs: 0.75rem;
+  --space-s: 1rem;
+  --space-m: 1.5rem;
+  --space-l: 2rem;
+  --space-xl: 3rem;
+  --space-2xl: 4.5rem;
+  --space-3xl: 7rem;
+
+  /* Fluid pairs, for section rhythm that grows with the viewport. */
+  --space-s-m: clamp(1rem, 0.8rem + 1vw, 1.5rem);
+  --space-m-l: clamp(1.5rem, 1.2rem + 1.5vw, 2rem);
+  --space-l-xl: clamp(2rem, 1.4rem + 3vw, 3rem);
+  --space-xl-3xl: clamp(3rem, 1.5rem + 7vw, 7rem);
+
+  /* The reading measure. Long lines are the most common typographic error
+     on a wide screen and the cheapest one to prevent. */
+  --measure: 68ch;
+}
+
+/* ── 1. Stack — vertical flow with one gap ─────────────────────────────────
+   `> * + *` rather than `gap`, so a stack can contain elements that must not
+   be flex/grid children (a `<details>`, a floated figure). */
+.l-stack {
+  display: flow-root;
+}
+.l-stack > * {
+  margin-block: 0;
+}
+.l-stack > * + * {
+  margin-block-start: var(--gap, var(--space-m));
+}
+
+/* ── 2. Cluster — wrapping row, for tag rows and button rows ─────────────── */
+.l-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap, var(--space-2xs));
+  align-items: var(--align, center);
+  justify-content: var(--justify, flex-start);
+}
+
+/* ── 3. Sidebar — two columns that collapse without a breakpoint ───────────
+   The sidebar keeps its ideal width; the main column takes the rest but
+   refuses to go below `--threshold` of the line, at which point the flex
+   container wraps. No media query knows where that happens — the content
+   does. */
+.l-sidebar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap, var(--space-l));
+}
+.l-sidebar > :first-child {
+  flex-basis: var(--side, 20rem);
+  flex-grow: 1;
+}
+.l-sidebar > :last-child {
+  flex-basis: 0;
+  flex-grow: 999;
+  min-inline-size: var(--threshold, 50%);
+}
+
+/* ── 4. Switcher — N-up above a threshold, 1-up below ──────────────────────
+   The `(var(--threshold) - 100%) * 999` term evaluates to a large negative
+   number above the threshold (so `min()` picks 100% ÷ N and the items sit in
+   a row) and a large positive one below it (so `min()` picks 100% and each
+   item takes a full line). One line of arithmetic replacing a breakpoint. */
+.l-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap, var(--space-m));
+}
+.l-switcher > * {
+  flex-grow: 1;
+  flex-basis: calc((var(--threshold, 30rem) - 100%) * 999);
+}
+
+/* ── 5. Grid — auto-fit with the 320px guard ───────────────────────────────
+   `min(var(--min), 100%)` is the whole point of this rule. `auto-fit` with a
+   `minmax` floor wider than the container overflows rather than shrinking,
+   and that single omission is the most common source of horizontal scroll on
+   a phone in the wild. With the `min()`, the floor can never exceed the
+   space available. */
+.l-grid {
+  display: grid;
+  gap: var(--gap, var(--space-m));
+  grid-template-columns: repeat(auto-fit, minmax(min(var(--min, 18rem), 100%), 1fr));
+}
+
+/* ── 6. Center — the page container ────────────────────────────────────────
+   `padding-inline` uses `max()` against the safe-area inset so the container
+   is correct on a notched phone in landscape without a second rule (T-033). */
+.l-center {
+  box-sizing: content-box;
+  max-inline-size: var(--measure);
+  margin-inline: auto;
+  padding-inline: max(var(--pad, var(--space-m)), env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
+}
+.l-center--wide {
+  --measure: 82rem;
+}
+
+/* ── 7. Frame — every media box ────────────────────────────────────────────
+   An explicit ratio plus `object-fit` means an image can never contribute to
+   CLS, whatever its intrinsic size turns out to be. */
+.l-frame {
+  aspect-ratio: var(--ratio, 16 / 9);
+  overflow: hidden;
+  display: block;
+}
+.l-frame > img,
+.l-frame > video,
+.l-frame > canvas,
+.l-frame > svg {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: var(--fit, cover);
+  object-position: var(--position, center);
+}
+
+/* ── Structural overflow defences (T-027) ──────────────────────────────────
+   Applied here rather than per-component because horizontal scroll is a
+   whole-page symptom with a hundred possible causes and only a few possible
+   cures. */
+
+/* `clip`, not `hidden`. `overflow: hidden` makes the element a scroll
+   container, which breaks `position: sticky` in its descendants — and the
+   project deck is a sticky stack. `clip` does not. */
+html {
+  overflow-x: clip;
+}
+
+/* A flex or grid child's default `min-width: auto` refuses to shrink below
+   its content's intrinsic minimum, which is how one long unbroken string
+   pushes the whole page sideways. Zero specificity, so anything can override
+   it deliberately. */
+:where(.l-stack, .l-cluster, .l-sidebar, .l-switcher, .l-grid) > * {
+  min-inline-size: 0;
+}
+
+/* Text containers wrap rather than push. `anywhere` (not `break-word`) also
+   allows the break to affect intrinsic sizing, which is the half that
+   actually prevents the overflow. */
+:where(p, li, dd, dt, h1, h2, h3, h4, h5, h6, figcaption, blockquote, td, th, label, .l-stack > *) {
+  overflow-wrap: anywhere;
+}

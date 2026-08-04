@@ -68,7 +68,7 @@ export default function IdleEasterEgg() {
               <rect x="18" y="5" width="5" height="3" rx="1" fill="var(--warm-dim)" />
             </svg>
             <motion.span
-              className="font-mono text-[8px] text-[var(--ink-low)] mt-1 whitespace-nowrap"
+              className="font-mono text-[12px] text-[var(--ink-low)] mt-1 whitespace-nowrap"
               initial={{ opacity: 0 }}
               animate={{ opacity: [0, 1, 1, 0] }}
               transition={{ duration: 4, delay: 3, times: [0, 0.1, 0.8, 1] }}

@@ -9,7 +9,7 @@ import sprite from '../../assets/avatar/turntable-sprite.webp'
 // is a single background-position change that never touches layout.
 const N = 5
 
-export default function AvatarScrub({ sectionId = 'about', className = '' }) {
+export default function AvatarScrub({ _sectionId = 'about', className = '' }) {
   const reduced = useReducedMotion()
   const sectionRef = useRef(null)
   const frameRef = useRef(null)

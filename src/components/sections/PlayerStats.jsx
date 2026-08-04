@@ -15,7 +15,7 @@ export default function PlayerStats() {
   const spotlight = useSpotlight()
 
   return (
-    <section id="stats" className="relative section-rhythm container-px mesh-gradient-b overflow-hidden">
+    <section id="stats" aria-labelledby="stats-heading" className="relative section-rhythm container-px mesh-gradient-b overflow-hidden">
       <span className="ghost-numeral" aria-hidden="true">02</span>
       <div className="absolute top-[20%] right-[8%]"><Spark id="spark-stats" /></div>
 
@@ -24,7 +24,7 @@ export default function PlayerStats() {
           <span className="level-badge mb-4">02 — TRACK RECORD</span>
         </Reveal>
         <Reveal delay={0.1}>
-          <h2 className="section-h2 font-display mb-16 max-w-3xl">
+          <h2 id="stats-heading" className="section-h2 font-display mb-16 max-w-3xl">
             <SplitText>My coding activity, </SplitText>
             <SplitText className="text-gradient" delay={0.12}>summarized.</SplitText>
           </h2>
@@ -119,7 +119,7 @@ function StatCard({ stat }) {
         className="absolute -inset-1 opacity-0 group-hover:opacity-[0.06] transition-opacity duration-base blur-xl"
         style={{ background: stat.accent === 'plasma' ? 'var(--accent)' : 'var(--violet)' }}
       />
-      <p className="relative z-10 font-mono text-[10px] tracking-widest text-[var(--ink-low)] mb-3">{stat.tag}</p>
+      <p className="relative z-10 font-mono text-[12px] tracking-widest text-[var(--ink-low)] mb-3">{stat.tag}</p>
       <p className="relative z-10 font-display text-4xl md:text-5xl tabular" style={{ color: stat.accent === 'plasma' ? 'var(--accent-bright)' : 'var(--violet)' }}>
         <CountUp value={stat.value} suffix={stat.suffix} />
       </p>

@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { onFrame, getTier, onTierChange } from '../../lib/raf.js'
+import { guardContext, markGlUnavailable } from '../../lib/glResilience.js'
 import { onPalette } from '../../lib/palette.js'
 import { createBackgroundEngine, hexToVec3 } from '../../lib/bgEngine.js'
 
@@ -15,38 +16,76 @@ function damp(current, target, dt, k) {
 /**
  * §14 — one GPU layer for the whole site.
  *
- * Mounts only at tier ≥ 2. Tier 1, phones, reduced-motion and save-data never
- * get a context at all: they see the static CSS gradient composition of the
- * same palette that `critical.css` already paints (§14.4, the "PNG export"
+ * Mounts only at tier ≥ 2. Tier 1, reduced-motion and save-data never get a
+ * context at all: they see the static CSS gradient composition of the same
+ * palette that `critical.css` already paints (§14.4, the "PNG export"
  * principle — same design language, at the device's honest budget).
+ *
+ * Phones DO get it. They used to be excluded by viewport width, which was the
+ * wrong question — this is one fullscreen triangle running two octaves of
+ * noise, and at the resolution rung below it costs a phone less than the
+ * blurred gradient stack it was replacing. Width is not a capability; the tier
+ * governor already measures the thing we actually care about, and it will pull
+ * the layer back down if a given handset disagrees.
  */
 export default function BackgroundEngine() {
   const canvasRef = useRef(null)
+  /*
+   * T-045.1 — context loss is routine on mobile, and this canvas has no
+   * meaningful state to preserve across one: the field is a pure function of
+   * time, scroll and pointer. So "restore" is simply "build it again", which
+   * a generation counter expresses exactly — the effect tears down and re-runs
+   * with a fresh context. `gaveUp` is the second half: after two losses the
+   * component stops rebuilding and the CSS mesh layer becomes the experience,
+   * because a loss/restore loop costs more battery than the effect ever did.
+   */
+  const [generation, setGeneration] = useState(0)
+  const [gaveUp, setGaveUp] = useState(false)
 
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    if (getTier() < 2) return
+    if (gaveUp || getTier() < 2) return
+
+    const detachGuard = guardContext(canvas, {
+      label: 'background-field',
+      onLost: () => teardown(),
+      onRestored: () => setGeneration((g) => g + 1),
+      onGiveUp: () => { markGlUnavailable(); setGaveUp(true) },
+    })
 
     const engine = createBackgroundEngine(canvas)
-    if (!engine) return
+    if (!engine) { detachGuard(); markGlUnavailable(); return }
     const { gl, uniforms } = engine
 
     let disposed = false
     let time = 0
     const mouse = { x: 0.5, y: 0.5 }
     const smoothMouse = { x: 0.5, y: 0.5 }
+    const ripple = { x: 0.5, y: 0.5, life: 0 }
     let scrollVel = 0
     let smoothVel = 0
     let lastScrollY = window.scrollY
     let section = 0
     let smoothSection = 0
-    let palette = null
 
     // ── resolution ladder (§14.4) ────────────────────────────────────────
     // Tier 2 renders at half resolution and lets the compositor upscale.
     // For a soft gradient field that is imperceptible and roughly 4× cheaper.
-    const scaleForTier = (t) => (t >= 3 ? Math.min(window.devicePixelRatio || 1, 1.5) : 1) * (t >= 3 ? 1 : 0.5)
+    //
+    // Phones get a rung of their own below that. A handset's fill rate is its
+    // scarcest resource and its pixels are the smallest, so the upscale is the
+    // least visible exactly where it buys the most — and it is what makes
+    // running this at all on mobile an honest trade rather than a boast.
+    const coarse = window.matchMedia('(pointer: coarse)').matches
+    const scaleForTier = (t) => {
+      // T-058.1 — 1.25, not 1.5. A background blur does not need retina
+      // resolution, and fill rate is quadratic in the scale factor: dropping
+      // 1.5 to 1.25 is a 30 % GPU saving that nobody can see. The declared
+      // cost in the effect registry is this number.
+      if (t >= 3) return Math.min(window.devicePixelRatio || 1, 1.25)
+      return coarse ? 0.4 : 0.5
+    }
 
     let scale = scaleForTier(getTier())
     const resize = () => {
@@ -59,11 +98,14 @@ export default function BackgroundEngine() {
       gl.uniform2f(uniforms.uResolution, w, h)
     }
     resize()
-    window.addEventListener('resize', resize, { passive: true })
+    // T-011 — the canvas is fullscreen-fixed, so the root box IS its size.
+    // A ResizeObserver reports that once per real change; `resize` fired on
+    // every URL-bar collapse, reallocating the drawing buffer mid-scroll.
+    const ro = new ResizeObserver(resize)
+    ro.observe(document.documentElement)
 
     // ── palette (§6.1 — lerped across the theme sweep) ───────────────────
     const stopPalette = onPalette((p) => {
-      palette = p
       gl.useProgram(engine.program)
       gl.uniform3fv(uniforms.uSurface, hexToVec3(p.surface))
       gl.uniform3fv(uniforms.uAccent, hexToVec3(p.accent))
@@ -71,11 +113,25 @@ export default function BackgroundEngine() {
     })
 
     // ── pointer ──────────────────────────────────────────────────────────
+    // `pointermove` covers a dragging finger as well as a cursor, so touch
+    // needs no separate path for the bloom.
     const onPointer = (e) => {
       mouse.x = e.clientX / window.innerWidth
       mouse.y = 1 - e.clientY / window.innerHeight
     }
     window.addEventListener('pointermove', onPointer, { passive: true })
+
+    // A tap, though, is not a move — it is a single instant with no trail
+    // behind it. It gets an impulse instead: the field is struck, and the ring
+    // spreads and dies on its own clock.
+    const onPointerDown = (e) => {
+      mouse.x = e.clientX / window.innerWidth
+      mouse.y = 1 - e.clientY / window.innerHeight
+      ripple.x = mouse.x
+      ripple.y = mouse.y
+      ripple.life = 1
+    }
+    window.addEventListener('pointerdown', onPointerDown, { passive: true })
 
     // ── which section are we in ──────────────────────────────────────────
     const io = new IntersectionObserver(
@@ -110,9 +166,23 @@ export default function BackgroundEngine() {
     let queryFrame = 0
     const probe = engine.timerExt
 
+    // T-058.3 — the ambient field renders at 30 fps, not at the display's
+    // refresh rate. On a slow-drifting gradient the eye cannot tell, and it
+    // halves the GPU cost of the single most expensive layer on the page.
+    // Input-driven work (the cursor, the magnetic buttons) keeps the native
+    // rate: two rates, one clock.
+    const AMBIENT_FRAME_MS = 1000 / 30
+    let sinceDraw = 0
+
     let stopFrame = onFrame((_t, dt) => {
       if (disposed) return
       const tier = getTier()
+
+      sinceDraw += dt
+      if (sinceDraw < AMBIENT_FRAME_MS) return
+      // Carry the remainder rather than resetting to zero, or the effective
+      // rate drifts to half of what was asked for on a 60 Hz display.
+      sinceDraw %= AMBIENT_FRAME_MS
       // Tier 3 runs at full speed; tier 2's field moves more slowly, which
       // costs nothing and reads as "calm" rather than "dropped frames".
       time += (dt / 1000) * (tier >= 3 ? 1.0 : 0.6)
@@ -126,6 +196,9 @@ export default function BackgroundEngine() {
       smoothVel = damp(smoothVel, Math.max(-3, Math.min(3, scrollVel)), dt, 8)
       smoothSection = damp(smoothSection, section, dt, 4)
 
+      // ~1.4 s from strike to silence, in real seconds rather than frames.
+      if (ripple.life > 0) ripple.life = Math.max(0, ripple.life - dt / 1400)
+
       if (probe && !query && queryFrame++ % 240 === 0) {
         query = probe.createQueryEXT()
         probe.beginQueryEXT(probe.TIME_ELAPSED_EXT, query)
@@ -137,6 +210,7 @@ export default function BackgroundEngine() {
       gl.uniform1f(uniforms.uScrollVel, smoothVel)
       gl.uniform1f(uniforms.uSection, smoothSection)
       gl.uniform1f(uniforms.uIntensity, tier >= 3 ? 1.0 : 0.75)
+      gl.uniform3f(uniforms.uRipple, ripple.x, ripple.y, ripple.life)
       gl.drawArrays(gl.TRIANGLES, 0, 3)
 
       if (probe && query) {
@@ -153,8 +227,12 @@ export default function BackgroundEngine() {
           query = null
         }
       }
-    })
+    }, { band: 'ambient' })
 
+    // Declared here and referenced by the guard above: a function
+    // declaration is hoisted, which is what lets the loss handler tear down
+    // an engine that has not been built yet at the point the handler is
+    // written.
     function teardown() {
       if (disposed) return
       disposed = true
@@ -163,13 +241,14 @@ export default function BackgroundEngine() {
       stopPalette()
       io.disconnect()
       mo.disconnect()
-      window.removeEventListener('resize', resize)
+      ro.disconnect()
       window.removeEventListener('pointermove', onPointer)
+      window.removeEventListener('pointerdown', onPointerDown)
       engine.dispose()
     }
 
-    return () => { offTier(); teardown() }
-  }, [])
+    return () => { detachGuard(); offTier(); teardown() }
+  }, [generation, gaveUp])
 
   return (
     <canvas

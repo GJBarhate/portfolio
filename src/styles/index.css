@@ -1,99 +1,115 @@
-﻿@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/* ── The system layer (P0/P1) ─────────────────────────────────────────────
+   Five modules, each the single source of truth for one axis. They are
+   imported here rather than being separate <link>s so the whole cascade is
+   one file to the browser — Vite emits one stylesheet and the ordering is
+   explicit rather than depending on document order.
+       breakpoints  T-010  one breakpoint scale, range syntax, rem
+       motion       T-025  one --motion-scale that every duration multiplies
+       type         T-022  one type scale, clamped on BOTH axes
+       layout       T-020  seven intrinsic primitives + overflow defences
+       a11y         T-024  touch targets and focus rings by construction
+       print        T-035  the paper stylesheet                            */
+@import "./breakpoints.css";
+@import "./motion.css";
+@import "./type.css";
+@import "./layout.css";
+@import "./a11y.css";
+@import "./print.css";
+
+/* T-032 — the `hover:` variant compiles to a gated media query, so all 64
+   components stop applying hover styling on touch, where `:hover` sticks
+   after a tap until the next tap elsewhere ("the card stayed lit"). One line
+   replaces a sweep through every file.
+
+   `group-hover` has to be redefined alongside it. Tailwind derives that
+   variant from `hover`, and overriding `hover` alone left `group-hover:`
+   producing **no CSS at all** — sixteen utilities across the components
+   silently stopped existing, including the four that make the ARCADE
+   dropdown visible. That is D-03 again, reintroduced by the fix for a
+   different defect, and it is why `tests/nav.spec.js` asserts the panel's
+   visibility rather than its presence. */
+@custom-variant hover {
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      @slot;
+    }
+  }
+}
+@custom-variant group-hover {
+  @media (hover: hover) and (pointer: fine) {
+    &:is(:where(.group):hover *) {
+      @slot;
+    }
+  }
+}
+
+@theme {
+  --color-surface-0: var(--surface-0);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-surface-4: var(--surface-4);
+  --color-accent: var(--accent);
+  --color-accent-dim: var(--accent-dim);
+  --color-accent-bright: var(--accent-bright);
+  --color-accent-ghost: var(--accent-ghost);
+  --color-violet: var(--violet);
+  --color-violet-dim: var(--violet-dim);
+  --color-warm: var(--warm);
+  --color-warm-dim: var(--warm-dim);
+  --color-ink: var(--ink);
+  --color-ink-hi: var(--ink-hi);
+  --color-ink-mid: var(--ink-mid);
+  --color-ink-low: var(--ink-low);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+
+  --font-display: "Clash Display", "Clash Fallback", "Space Grotesk", "Grotesk Fallback", sans-serif;
+  --font-sans: "Space Grotesk", "Grotesk Fallback", sans-serif;
+  --font-mono: "JetBrains Mono", "Mono Fallback", monospace;
+
+  --ease-forge: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-cinema: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-snap: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-anticipate: cubic-bezier(0.68, -0.4, 0.32, 1.4);
+  --ease-spring: linear(0, 0.25 13%, 0.6 25%, 1.02 45%, 0.99 60%, 1);
+
+  --duration-fast: 180ms;
+  --duration-base: 420ms;
+  --duration-cinema: 650ms;
+
+  --animate-duration-fast: 180ms;
+  --animate-duration-base: 420ms;
+  --animate-duration-cinema: 650ms;
+}
 
 /* === Self-hosted fonts (no external render-blocking requests) === */
-@font-face {
-  font-family: 'Clash Display';
-  src: url('/fonts/clash-display-400.woff2') format('woff2');
-  font-weight: 400;
-  font-display: swap;
-  font-style: normal;
-}
-@font-face {
-  font-family: 'Clash Display';
-  src: url('/fonts/clash-display-500.woff2') format('woff2');
-  font-weight: 500;
-  font-display: swap;
-  font-style: normal;
-}
-@font-face {
-  font-family: 'Clash Display';
-  src: url('/fonts/clash-display-600.woff2') format('woff2');
-  font-weight: 600;
-  font-display: swap;
-  font-style: normal;
-}
-@font-face {
-  font-family: 'Clash Display';
-  src: url('/fonts/clash-display-700.woff2') format('woff2');
-  font-weight: 700;
-  font-display: swap;
-  font-style: normal;
-}
 /* §8.5 — metric-matched fallback for the display face.
    `font-display: swap` means headlines paint in the fallback first and reflow
    when Clash arrives. Overriding the fallback's metrics so its line box
    matches Clash's makes that swap invisible in layout terms, which is what
    removes the headline CLS rather than merely hiding it. */
-@font-face {
-  font-family: 'Clash Fallback';
-  src: local('Arial'), local('Helvetica Neue'), local('Liberation Sans');
-  size-adjust: 94%;
-  ascent-override: 96%;
-  descent-override: 24%;
-  line-gap-override: 0%;
-}
+/* ── T-051.3 — `optional`, not `swap`, for everything above the fold ───────
+   `swap` paints in the fallback and then reflows when the real face arrives,
+   which on a Slow-4G first load is a 0.236 CLS event measured in
+   `docs/baseline/2026-08.md` — the hero copy and the scroll hint jumping at
+   ~2.3 s, which is exactly when the visitor has started reading.
 
-@font-face {
-  font-family: 'Space Grotesk';
-  src: url('/fonts/space-grotesk-400.woff2') format('woff2');
-  font-weight: 400;
-  font-display: swap;
-  font-style: normal;
-}
-@font-face {
-  font-family: 'Space Grotesk';
-  src: url('/fonts/space-grotesk-500.woff2') format('woff2');
-  font-weight: 500;
-  font-display: swap;
-  font-style: normal;
-}
-@font-face {
-  font-family: 'Space Grotesk';
-  src: url('/fonts/space-grotesk-600.woff2') format('woff2');
-  font-weight: 600;
-  font-display: swap;
-  font-style: normal;
-}
-@font-face {
-  font-family: 'Space Grotesk';
-  src: url('/fonts/space-grotesk-700.woff2') format('woff2');
-  font-weight: 700;
-  font-display: swap;
-  font-style: normal;
-}
-@font-face {
-  font-family: 'JetBrains Mono';
-  src: url('/fonts/jetbrains-mono-400.woff2') format('woff2');
-  font-weight: 400;
-  font-display: swap;
-  font-style: normal;
-}
-@font-face {
-  font-family: 'JetBrains Mono';
-  src: url('/fonts/jetbrains-mono-500.woff2') format('woff2');
-  font-weight: 500;
-  font-display: swap;
-  font-style: normal;
-}
-@font-face {
-  font-family: 'JetBrains Mono';
-  src: url('/fonts/jetbrains-mono-600.woff2') format('woff2');
-  font-weight: 600;
-  font-display: swap;
-  font-style: normal;
-}
+   `optional` gives the browser a ~100 ms window: if the face is there, it is
+   used; if it is not, the fallback is used *for the whole page life* and
+   there is no swap and no shift, ever. With three preloaded faces and an
+   immutable cache header that window is almost always met on a repeat visit,
+   and on the cold slow load — the one case where a reflow would hurt most —
+   the visitor gets a metric-matched fallback instead of a jumping page.
+
+   The fallbacks below are what make that acceptable: `size-adjust` and the
+   metric overrides mean the substitute occupies the same box as the real
+   face, so even the un-swapped state is laid out correctly rather than
+   approximately. */
+
+
 
 :root {
   /* ══════════════════════════════════════════════════════════════════════
@@ -205,19 +221,13 @@
   --dur-base: 420ms;    /* entrances */
   --dur-cinema: 650ms;  /* theme sweep, layout morphs */
 
-  /* §2.2 — one fluid type scale, used through .section-h2 / .fs-* utilities
-     rather than re-typed clamp() literals in a dozen JSX files. */
-  /* §2.2 lists clamp(2.6rem, 7vw, 5.5rem). Applied literally that shrank the
-     hero name by ~40% — it was designed at 12vw/10rem and it is the LCP
-     element and the whole first impression. The token formalises the scale;
-     it was not meant to redesign the one thing on the page that is supposed
-     to be enormous. */
-  --fs-hero: clamp(3rem, 12vw, 10rem);
-  --fs-display: clamp(2.6rem, 7vw, 5.5rem);
-  --fs-h2: clamp(2rem, 5vw, 3.5rem);
-  --fs-h3: clamp(1.15rem, 2vw, 1.5rem);
-  --fs-body: clamp(1rem, 1.1vw, 1.125rem);
-  --fs-caption: 0.75rem;
+  /* §2.2 — one fluid type scale. T-022 moved the numbers to
+     `src/styles/type.css`, where every step above --step-3 is clamped against
+     BOTH axes: `--fs-hero` was `clamp(3rem, 12vw, 10rem)`, which on a
+     844 x 390 landscape phone resolved to ~101px of type inside a 390px-tall
+     viewport. The `--fs-*` names survive as aliases of the one scale so the
+     ~8 call sites below did not need a same-commit rewrite; there is still
+     exactly one set of numbers, and it is not here. */
 
   /* === Z-index layers === */
   --z-cursor: 9999;
@@ -407,6 +417,23 @@ html[data-vt='nav']::view-transition-old(root) {
 @keyframes vtFadeIn  { from { opacity: 0; } to { opacity: 1; } }
 @keyframes vtFadeOut { from { opacity: 1; } to { opacity: 0; } }
 
+/* Recruiter Mode toggle (P4.3) — a cross-fade with a subtle scale so the
+   mode change reads as decisive rather than a plain attribute flip. */
+html[data-vt='recruiter']::view-transition-old(root),
+html[data-vt='recruiter']::view-transition-new(root) {
+  animation-duration: 0.36s;
+  animation-timing-function: var(--ease-forge);
+}
+html[data-vt='recruiter']::view-transition-new(root) {
+  clip-path: none;
+  animation-name: vtRecruiterIn;
+}
+html[data-vt='recruiter']::view-transition-old(root) {
+  animation-name: vtRecruiterOut;
+}
+@keyframes vtRecruiterIn  { from { opacity: 0; scale: 0.985; } to { opacity: 1; scale: 1; } }
+@keyframes vtRecruiterOut { from { opacity: 1; scale: 1; } to { opacity: 0; scale: 1.01; } }
+
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(*),
   ::view-transition-old(*),
@@ -445,21 +472,29 @@ body {
 a { color: inherit; text-decoration: none; }
 
 /* === Skip to content (a11y) === */
+/* The first focusable element on the page. It must become genuinely visible
+   when focused — a skip link parked permanently off-screen is one nobody can
+   confirm works — and it must clear the notch, since it is pinned to the top
+   edge on a device that draws under one (T-024/T-033). */
 .skip-link {
-  position: absolute;
-  top: -100%;
-  left: 16px;
+  position: fixed;
+  top: calc(-1 * (var(--header-h, 64px) + 4rem));
+  left: max(16px, env(safe-area-inset-left, 0px));
   z-index: 10000;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   padding: 8px 16px;
   background: var(--accent);
   color: var(--surface-0);
   border-radius: 0 0 8px 8px;
   font-size: 14px;
   font-weight: 600;
-  transition: top 0.2s;
+  transition: top var(--dur-fast) var(--ease-forge);
 }
-.skip-link:focus {
-  top: 0;
+.skip-link:focus,
+.skip-link:focus-visible {
+  top: max(0px, env(safe-area-inset-top, 0px));
 }
 
 /* === Focus visible === */
@@ -492,9 +527,9 @@ a { color: inherit; text-decoration: none; }
 
 .tabular { font-variant-numeric: tabular-nums; }
 
-/* === Hero aurora â€” cursor-tracked blobs + grid + scanline ===
+/* === Hero aurora — cursor-tracked blobs + grid + scanline ===
    Blobs are positioned at 0,0 and moved ONLY via transform (GPU-composited).
-   Animating left/top forced a layout pass every frame â€” never do that here. */
+   Animating left/top forced a layout pass every frame — never do that here. */
 .hero-aurora {
   --mx: 50%;
   --my: 50%;
@@ -576,7 +611,7 @@ a { color: inherit; text-decoration: none; }
   .hero-aurora__blob { animation: none; }
 }
 
-/* === Status badge â€” glass pill with pulsing live dot === */
+/* === Status badge — glass pill with pulsing live dot === */
 .hero-badge {
   display: inline-flex;
   align-items: center;
@@ -614,7 +649,7 @@ a { color: inherit; text-decoration: none; }
   .hero-badge__dot::after { animation: none; }
 }
 
-/* === Stat strip â€” glowing dot separators for the hero subtext === */
+/* === Stat strip — glowing dot separators for the hero subtext === */
 .hero-stat-sep {
   display: inline-block;
   width: 3px;
@@ -630,7 +665,7 @@ a { color: inherit; text-decoration: none; }
   font-weight: 600;
 }
 
-/* === Gradient-border CTA â€” animated conic border + shimmer sweep === */
+/* === Gradient-border CTA — animated conic border + shimmer sweep === */
 .hero-cta {
   position: relative;
   isolation: isolate;
@@ -661,9 +696,20 @@ a { color: inherit; text-decoration: none; }
   border-radius: inherit;
   padding: 1px;
   background: conic-gradient(from var(--cta-angle, 0deg), var(--accent), var(--violet), var(--warm), var(--accent));
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
+  /* Longhands only, deliberately.
+     Written as `mask: … ; mask-composite: exclude`, the production minifier
+     re-orders the declarations so the SHORTHAND lands last — and a shorthand
+     resets `mask-composite` to `add`. The ring mask then does nothing and the
+     conic gradient floods the whole element instead of drawing a 1px border.
+     That was shipping on five separate effects; the skill card's version
+     showed as a hard-edged spike of light across the card face on hover.
+     A longhand cannot be reset by a shorthand that is not there. */
+  mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+  mask-clip: content-box, border-box;
   mask-composite: exclude;
+  -webkit-mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+  -webkit-mask-clip: content-box, border-box;
+  -webkit-mask-composite: xor;
   opacity: 0.7;
   animation: ctaSpin 4s linear infinite;
 }
@@ -709,7 +755,7 @@ a { color: inherit; text-decoration: none; }
   .hero-cta--ghost::before { animation: none; transition: none; }
 }
 
-/* === Project deck â€” sticky-stack cards === */
+/* === Project deck — sticky-stack cards === */
 .deck-card {
   box-shadow:
     0 -12px 40px -18px rgba(0, 0, 0, 0.55),
@@ -734,7 +780,7 @@ a { color: inherit; text-decoration: none; }
   transform: translateY(-1px);
 }
 
-/* === Project card buttons â€” accent-aware, theme-safe === */
+/* === Project card buttons — accent-aware, theme-safe === */
 .project-btn {
   position: relative;
   border: 1px solid var(--glass-border);
@@ -763,7 +809,7 @@ a { color: inherit; text-decoration: none; }
   background: color-mix(in oklch, var(--surface-3) 50%, transparent);
 }
 
-/* === Scroll progress bar â€” fixed top, gradient fill driven by scroll % === */
+/* === Scroll progress bar — fixed top, gradient fill driven by scroll % === */
 .scroll-progress {
   position: fixed;
   top: 0;
@@ -796,8 +842,8 @@ a { color: inherit; text-decoration: none; }
   33% { transform: translate(-1.5%, -2%); }
   66% { transform: translate(2%, 1.5%); }
 }
-/* Touch devices: static grain â€” the jitter isn't worth the battery/repaints */
-@media (hover: none), (max-width: 768px) {
+/* Touch devices: static grain — the jitter isn't worth the battery/repaints */
+@media (hover: none), (width <= 48rem) {
   .film-grain { animation: none; will-change: auto; }
 }
 
@@ -905,7 +951,7 @@ a { color: inherit; text-decoration: none; }
   animation: meshDrift 20s ease-in-out infinite alternate;
 }
 
-/* === Glass panel â€” with bevel & emboss (AE layer-style port):
+/* === Glass panel — with bevel & emboss (AE layer-style port):
    1px light top hairline + 1px dark bottom edge makes surfaces read as
    machined objects instead of flat rectangles. === */
 /* `.glass` appears on nearly every card. A backdrop-filter forces the
@@ -928,16 +974,16 @@ a { color: inherit; text-decoration: none; }
   -webkit-backdrop-filter: blur(16px) saturate(140%);
 }
 
-/* === Surface system â€” elevation ladder (dual-layer: tight dark + wide soft) === */
+/* === Surface system — elevation ladder (dual-layer: tight dark + wide soft) === */
 .elev-1 { box-shadow: 0 1px 2px rgba(0,0,0,0.35), 0 6px 16px -8px rgba(0,0,0,0.35); }
 .elev-2 { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 14px 34px -14px rgba(0,0,0,0.45); }
 .elev-3 { box-shadow: 0 3px 6px rgba(0,0,0,0.45), 0 28px 64px -24px rgba(0,0,0,0.55); }
 
-/* Recessed well â€” inputs, code panes, game screens */
+/* Recessed well — inputs, code panes, game screens */
 
 
-/* Satin finish â€” diagonal low-opacity sheen (reads strongest on Obsidian) */
-.satin { position: relative; }
+/* Satin finish — diagonal low-opacity sheen (reads strongest on Obsidian) */
+.satin:not(.fixed):not(.absolute):not(.sticky) { position: relative; }
 .satin::before {
   content: '';
   position: absolute;
@@ -971,8 +1017,32 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* === Specular sheen sweep on hover === */
-.sheen {
+/*
+ * `:not(.fixed):not(.absolute):not(.sticky)` is load-bearing here, and
+ * `:where()` alone was NOT enough — which is worth writing down, because the
+ * reason is a cascade rule most of us only meet once.
+ *
+ * `.sheen` needs *a* positioning context so its `::after` sweep can be
+ * absolutely positioned inside it; it does not care which one. But any
+ * element carrying both `sheen` and `fixed` was silently becoming
+ * `position: relative`: that is how the spark-completion toast ended up in
+ * normal flow at the top of the page, full width, with half of it off the
+ * left edge of the screen.
+ *
+ * The first fix was `:where(.sheen)` — zero specificity, so `.fixed` (0,1,0)
+ * should win. It did not, because **unlayered declarations beat layered
+ * ones**, whatever their specificity, and Tailwind 4 emits its utilities
+ * inside `@layer utilities` while this stylesheet is unlayered. Specificity
+ * never entered into it.
+ *
+ * So the rule states its own exception instead. It cannot be defeated by
+ * layer ordering, and it says exactly what it means: decorate anything that
+ * has not already been positioned.
+ */
+.sheen:not(.fixed):not(.absolute):not(.sticky) {
   position: relative;
+}
+.sheen {
   overflow: hidden;
 }
 .sheen::after {
@@ -1042,7 +1112,7 @@ a { color: inherit; text-decoration: none; }
   opacity: 0.4;
 }
 
-/* === Scroll hint â€” descending shimmer line === */
+/* === Scroll hint — descending shimmer line === */
 @keyframes scrollHint {
   0%   { transform: translateY(-100%); }
   60%  { transform: translateY(100%); }
@@ -1141,7 +1211,7 @@ a { color: inherit; text-decoration: none; }
   top: 50%;
   left: 50%;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 12px;
   letter-spacing: 0.12em;
   color: var(--accent-bright);
   background: color-mix(in oklch, var(--surface-1) 85%, transparent);
@@ -1271,7 +1341,7 @@ a { color: inherit; text-decoration: none; }
   align-items: center;
   gap: 6px;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 12px;
   letter-spacing: 0.15em;
   color: var(--accent-bright);
   background: color-mix(in oklch, var(--surface-1) 94%, transparent);
@@ -1325,13 +1395,13 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* Responsive */
-@media (min-width: 768px) {
+@media (width >= 48rem) {
   .avatar-showcase {
     max-width: 320px;
   }
   .avatar-showcase__tag {
     --orbit-r: 180px;
-    font-size: 10px;
+    font-size: 12px;
   }
 }
 
@@ -1348,12 +1418,12 @@ a { color: inherit; text-decoration: none; }
   .avatar-showcase__particle { display: none; }
 }
 
-/* === Section divider â€” glowing line between sections === */
+/* === Section divider — glowing line between sections === */
 
 
 
 
-/* === Level badge â€” game HUD-style section label === */
+/* === Level badge — game HUD-style section label === */
 .level-badge {
   display: inline-flex;
   align-items: center;
@@ -1361,8 +1431,8 @@ a { color: inherit; text-decoration: none; }
   padding: 4px 14px 4px 10px;
   border: 1px solid var(--accent-dim);
   border-radius: 999px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
   letter-spacing: 0.25em;
   color: var(--accent-bright);
   background: color-mix(in oklch, var(--accent) 8%, transparent);
@@ -1480,7 +1550,7 @@ section:not(#hero) {
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent-dim); }
 
-/* === Preloader â€” 00â†’100 counter, then the curtain lifts === */
+/* === Preloader — 00→100 counter, then the curtain lifts === */
 .preloader {
   position: fixed;
   inset: 0;
@@ -1550,7 +1620,7 @@ section:not(#hero) {
   50% { opacity: 1; }
 }
 
-/* === Theme Atelier â€” the theme selector panel === */
+/* === Theme Atelier — the theme selector panel === */
 .atelier-panel {
   position: absolute;
   top: calc(100% + 12px);
@@ -1606,7 +1676,7 @@ section:not(#hero) {
     padding-top: clamp(64px, 9vh, 96px);
     padding-bottom: clamp(64px, 9vh, 96px);
   }
-  @media (min-width: 768px) {
+  @media (width >= 48rem) {
     .section-rhythm {
       padding-top: clamp(96px, 12vh, 160px);
       padding-bottom: clamp(96px, 12vh, 160px);
@@ -1699,9 +1769,20 @@ footer {
   border-radius: inherit;
   padding: 1.5px;
   background: conic-gradient(from var(--border-angle, 0deg), var(--accent), var(--violet), var(--warm), var(--accent));
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
+  /* Longhands only, deliberately.
+     Written as `mask: … ; mask-composite: exclude`, the production minifier
+     re-orders the declarations so the SHORTHAND lands last — and a shorthand
+     resets `mask-composite` to `add`. The ring mask then does nothing and the
+     conic gradient floods the whole element instead of drawing a 1px border.
+     That was shipping on five separate effects; the skill card's version
+     showed as a hard-edged spike of light across the card face on hover.
+     A longhand cannot be reset by a shorthand that is not there. */
+  mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+  mask-clip: content-box, border-box;
   mask-composite: exclude;
+  -webkit-mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+  -webkit-mask-clip: content-box, border-box;
+  -webkit-mask-composite: xor;
   animation: borderSpin 3s linear infinite;
   pointer-events: none;
 }
@@ -1834,15 +1915,18 @@ footer {
 .col-span-11 { grid-column: span 11; }
 .col-span-12 { grid-column: span 12; }
 
-/* === Type scale (1.25 modular ratio) === */
-.text-micro { font-size: clamp(0.625rem, 0.6vw, 0.75rem); letter-spacing: 0.08em; text-transform: uppercase; }
-.text-caption { font-size: clamp(0.75rem, 0.8vw, 0.875rem); }
-.text-body { font-size: clamp(0.875rem, 1vw, 1rem); line-height: 1.6; }
-.text-body-lg { font-size: clamp(1rem, 1.2vw, 1.125rem); line-height: 1.6; }
-.text-h3 { font-size: clamp(1.25rem, 1.8vw, 1.75rem); font-family: 'Clash Display', 'Clash Fallback', sans-serif; letter-spacing: -0.02em; }
-.text-h2 { font-size: clamp(1.75rem, 2.8vw, 2.75rem); font-family: 'Clash Display', 'Clash Fallback', sans-serif; letter-spacing: -0.02em; line-height: 1.1; }
-.text-h1 { font-size: clamp(2.25rem, 4vw, 4rem); font-family: 'Clash Display', 'Clash Fallback', sans-serif; letter-spacing: -0.03em; line-height: 1.05; }
-.text-display { font-size: clamp(3rem, 6vw, 6rem); font-family: 'Clash Display', 'Clash Fallback', sans-serif; letter-spacing: -0.03em; line-height: 1; }
+/* === Type utilities — T-022: consumers of the ONE scale in type.css ======
+   These used to carry their own `clamp()` values, which made them a third
+   competing type system whose sizes did not match either of the other two.
+   The classes stay (they are used across 60 components); the numbers left. */
+.text-micro { font-size: var(--step--2); letter-spacing: 0.08em; text-transform: uppercase; }
+.text-caption { font-size: var(--step--1); }
+.text-body { font-size: var(--step-0); line-height: var(--lh-body); }
+.text-body-lg { font-size: var(--step-1); line-height: var(--lh-body); }
+.text-h3 { font-size: var(--step-2); font-family: 'Clash Display', 'Clash Fallback', sans-serif; letter-spacing: var(--tracking-heading); }
+.text-h2 { font-size: var(--step-3); font-family: 'Clash Display', 'Clash Fallback', sans-serif; letter-spacing: var(--tracking-heading); line-height: var(--lh-heading); }
+.text-h1 { font-size: var(--step-4); font-family: 'Clash Display', 'Clash Fallback', sans-serif; letter-spacing: var(--tracking-display); line-height: var(--lh-heading); }
+.text-display { font-size: var(--step-5); font-family: 'Clash Display', 'Clash Fallback', sans-serif; letter-spacing: var(--tracking-display); line-height: var(--lh-display); }
 
 .shadow-e1 { box-shadow: 0 1px 2px rgba(0,0,0,0.35), 0 6px 16px -8px rgba(0,0,0,0.35); }
 .shadow-e2 { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 14px 34px -14px rgba(0,0,0,0.45); }
@@ -1861,7 +1945,7 @@ footer {
 
 
 
-.color-overlay { position: relative; }
+.color-overlay:not(.fixed):not(.absolute):not(.sticky) { position: relative; }
 .color-overlay::after {
   content: ''; position: absolute; inset: 0; border-radius: inherit;
   background: color-mix(in oklch, var(--accent) 20%, transparent);
@@ -1886,6 +1970,56 @@ footer {
 }
 @media (prefers-reduced-motion: reduce) {
   .text-gradient--sweep { animation: none; background: none; color: inherit; }
+}
+
+/* ── When the swept text is also a <SplitText> ─────────────────────────────
+   `background-clip: text` only reaches glyphs in this element's own inline
+   text run. `.split-word` is an `inline-block`, which establishes its own
+   formatting context, so its glyphs are invisible to the clip — the element
+   painted a transparent fill over a background that had nothing to clip to,
+   and the result was NOTHING. Half the About headline ("real-time,
+   production-ready applications.") did not render at all, on every visit, at
+   every width. It measured 738 × 52 the whole time, which is why no layout
+   gate caught it.
+
+   The paint therefore has to move down to the element that directly contains
+   the glyphs. The reveal stays where it is: the two animations compose on
+   `.split-word__inner`, the wipe carrying its per-word stagger and the sheen
+   running from zero. */
+.split-text.text-gradient--sweep {
+  background: none;
+  color: inherit;
+  -webkit-text-fill-color: currentcolor;
+  animation: none;
+}
+.split-text.text-gradient--sweep .split-word__inner {
+  background: conic-gradient(
+    from var(--sweep-angle, 0deg),
+    var(--ink) 0%,
+    var(--accent-bright) 15%,
+    var(--ink) 30%,
+    var(--ink) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  animation: conicSheenRotate 4s linear infinite;
+  animation-duration: calc(4s / max(var(--motion-scale), 0.001));
+}
+.split-text.text-gradient--sweep[data-split='in'] .split-word__inner {
+  animation:
+    splitWordIn var(--dur-base) var(--ease-forge) both,
+    conicSheenRotate 4s linear infinite;
+  animation-delay: calc(var(--split-delay, 0s) + var(--i) * var(--split-stagger, 45ms)), 0s;
+}
+/* Motion off still has to leave readable text, not a transparent fill over a
+   background that is no longer being painted. */
+:root[data-motion='off'] .split-text.text-gradient--sweep .split-word__inner {
+  animation: none;
+  background: none;
+  color: inherit;
+  -webkit-text-fill-color: currentcolor;
 }
 
 
@@ -1947,7 +2081,7 @@ footer {
   .reveal, .reveal--scale, .scroll-fill, .scroll-clip, .reveal--left { animation: none; opacity: 1; transform: none; clip-path: none; }
 }
 
-/* === Liquid-glass v2 â€” layered blur, refraction edge, hairlines === */
+/* === Liquid-glass v2 — layered blur, refraction edge, hairlines === */
 
 
 
@@ -1957,7 +2091,7 @@ footer {
   position: relative; isolation: isolate; overflow: hidden;
   background: transparent; border: 1px solid var(--accent-dim);
   color: var(--ink); padding: 0.6rem 1.5rem; border-radius: 9999px;
-  font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.12em;
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace; font-size: 12px; letter-spacing: 0.12em;
   transition: color 0.6s var(--ease-forge), border-color 0.6s var(--ease-forge);
   cursor: pointer;
 }
@@ -1970,7 +2104,7 @@ footer {
 .btn-luxury:hover::before { transform: scaleX(1); }
 .btn-luxury:active::before { transform: scaleX(0.95); }
 
-/* === Animated icons â€” micro state changes === */
+/* === Animated icons — micro state changes === */
 .icon-morph { transition: transform 0.5s var(--ease-anticipate), opacity 0.4s var(--ease-forge); }
 .icon-morph--open { transform: rotate(90deg); }
 .icon-morph--close { transform: rotate(0deg); }
@@ -1999,7 +2133,7 @@ footer {
 /* === Game engineering: no autoplay sound, rAF pause === */
 .game-container { position: relative; touch-action: manipulation; }
 .game-canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; }
-.game-hud { font-family: 'JetBrains Mono', monospace; font-size: 10px; letter-spacing: 0.1em; }
+.game-hud { font-family: 'JetBrains Mono', 'Mono Fallback', monospace; font-size: 12px; letter-spacing: 0.1em; }
 @media (prefers-reduced-motion: reduce) {
   .game-canvas { display: none; }
   .game-turn-based { display: block; }
@@ -2235,7 +2369,7 @@ select:focus-visible {
 }
 
 /* === §6.4 Min font 11px sitewide === */
-body { font-size: max(11px, 1rem); }
+body { font-size: max(12px, 1rem); }
 
 /* === §3.1 Avatar Track — pixel forge-bot on journey rail === */
 .avatar-track {
@@ -2270,7 +2404,7 @@ body { font-size: max(11px, 1rem); }
   animation: stampIn 0.5s var(--ease-anticipate) both;
 }
 /* Mobile bottom strip */
-@media (max-width: 1023px) {
+@media (width < 64rem) {
   .avatar-track--mobile {
     position: fixed;
     bottom: 0;
@@ -2322,8 +2456,8 @@ body { font-size: max(11px, 1rem); }
   color: var(--accent-reward);
 }
 .level-ribbon__label {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
   letter-spacing: 0.2em;
   color: var(--ink-mid);
   text-transform: uppercase;
@@ -2370,8 +2504,8 @@ body { font-size: max(11px, 1rem); }
   margin-bottom: 8px;
 }
 .run-complete__subtitle {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
   letter-spacing: 0.25em;
   color: var(--ink-low);
   text-transform: uppercase;
@@ -2390,8 +2524,8 @@ body { font-size: max(11px, 1rem); }
   color: var(--accent-bright);
 }
 .run-complete__stat-label {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
   letter-spacing: 0.2em;
   color: var(--ink-low);
   text-transform: uppercase;
@@ -2465,8 +2599,8 @@ body { font-size: max(11px, 1rem); }
   background: color-mix(in oklch, var(--surface-1) 90%, transparent);
   backdrop-filter: blur(12px);
   border: 1px solid var(--accent-dim);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
   color: var(--accent-bright);
   box-shadow: 0 4px 16px rgba(0,0,0,0.4);
 }
@@ -2476,7 +2610,7 @@ body { font-size: max(11px, 1rem); }
   0% { mask-position: -200% 0; -webkit-mask-position: -200% 0; }
   100% { mask-position: 200% 0; -webkit-mask-position: 200% 0; }
 }
-.sheen--auto {
+.sheen--auto:not(.fixed):not(.absolute):not(.sticky) {
   position: relative;
 }
 .sheen--auto::before {
@@ -2763,9 +2897,19 @@ body { font-size: max(11px, 1rem); }
     from var(--angle),
     var(--accent), var(--violet), var(--warm), var(--accent)
   );
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  /* Longhands only, deliberately.
+     Written as `mask: … ; mask-composite: exclude`, the production minifier
+     re-orders the declarations so the SHORTHAND lands last — and a shorthand
+     resets `mask-composite` to `add`. The ring mask then does nothing and the
+     conic gradient floods the whole element instead of drawing a 1px border.
+     That was shipping on five separate effects; the skill card's version
+     showed as a hard-edged spike of light across the card face on hover.
+     A longhand cannot be reset by a shorthand that is not there. */
+  mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+  mask-clip: content-box, border-box;
   mask-composite: exclude;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+  -webkit-mask-clip: content-box, border-box;
   -webkit-mask-composite: xor;
   animation: conicSpin 6s linear infinite;
   pointer-events: none;
@@ -2829,19 +2973,9 @@ body { font-size: max(11px, 1rem); }
    (P4.5 / P4.6)
    ════════════════════════════════════════════════════════════════════════ */
 
-/* ── Fluid type scale as tokens (1.25 modular ratio) ──────────────────────
-   Ad-hoc clamp() calls were scattered through the JSX in at least four
-   places; these are the single source of truth. */
-:root {
-  --step--2: clamp(0.625rem, 0.58rem + 0.20vw, 0.75rem);
-  --step--1: clamp(0.75rem,  0.70rem + 0.25vw, 0.875rem);
-  --step-0:  clamp(0.875rem, 0.82rem + 0.28vw, 1rem);
-  --step-1:  clamp(1rem,     0.93rem + 0.36vw, 1.25rem);
-  --step-2:  clamp(1.25rem,  1.13rem + 0.60vw, 1.75rem);
-  --step-3:  clamp(1.75rem,  1.45rem + 1.50vw, 2.75rem);
-  --step-4:  clamp(2.25rem,  1.70rem + 2.75vw, 4rem);
-  --step-5:  clamp(3rem,     2.00rem + 5.00vw, 6rem);
-}
+/* ── Fluid type scale ─────────────────────────────────────────────────────
+   The tokens themselves live in `src/styles/type.css` (T-022) — one scale,
+   two-axis clamped. These are the utilities that consume it. */
 .text-step--2 { font-size: var(--step--2); }
 .text-step--1 { font-size: var(--step--1); }
 .text-step-0  { font-size: var(--step-0); }
@@ -2850,6 +2984,7 @@ body { font-size: max(11px, 1rem); }
 .text-step-3  { font-size: var(--step-3); }
 .text-step-4  { font-size: var(--step-4); }
 .text-step-5  { font-size: var(--step-5); }
+.text-step-6  { font-size: var(--step-6); }
 
 /* ── Container queries ───────────────────────────────────────────────────
    A project card appears in the Cinema deck, in the Grid and in the Command
@@ -2991,9 +3126,19 @@ body::before {
     var(--card-accent, var(--accent)) 85%,
     transparent 100%
   );
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  /* Longhands only, deliberately.
+     Written as `mask: … ; mask-composite: exclude`, the production minifier
+     re-orders the declarations so the SHORTHAND lands last — and a shorthand
+     resets `mask-composite` to `add`. The ring mask then does nothing and the
+     conic gradient floods the whole element instead of drawing a 1px border.
+     That was shipping on five separate effects; the skill card's version
+     showed as a hard-edged spike of light across the card face on hover.
+     A longhand cannot be reset by a shorthand that is not there. */
+  mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+  mask-clip: content-box, border-box;
   mask-composite: exclude;
+  -webkit-mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+  -webkit-mask-clip: content-box, border-box;
   -webkit-mask-composite: xor;
   opacity: 0;
   transition: opacity var(--dur-fast) var(--ease-forge);
@@ -3054,8 +3199,8 @@ html {
   border: 1px solid color-mix(in oklch, var(--accent) 35%, transparent);
   background: color-mix(in oklch, var(--accent) 7%, var(--surface-1));
   color: var(--ink);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
   letter-spacing: 0.18em;
   cursor: pointer;
   transition: transform var(--dur-fast) var(--ease-anticipate),
@@ -3069,7 +3214,7 @@ html {
 }
 .about-scene__chip-icon { font-size: 18px; color: var(--accent-bright); }
 .about-scene__chip-hint {
-  font-size: 9px;
+  font-size: 12px;
   letter-spacing: 0.22em;
   color: var(--ink-low);
 }
@@ -3120,7 +3265,7 @@ html {
   flex-wrap: wrap;
 }
 .projects-controls__caption {
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.25em;
   color: var(--ink-mid);
 }
@@ -3152,8 +3297,8 @@ html {
 .view-toggle__btn {
   padding: 6px 14px;
   border-radius: 999px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
   letter-spacing: 0.15em;
   color: var(--ink-mid);
   box-shadow: inset 0 0 0 1px transparent;
@@ -3174,7 +3319,7 @@ html {
 
 /* R4 — 480px min-width left a blank gutter at 768px. */
 .deck-slot { width: min(560px, 88vw); }
-@media (min-width: 768px) {
+@media (width >= 48rem) {
   .deck-slot { width: min(560px, 46vw); min-width: 420px; }
 }
 .deck-card { contain: layout paint; }
@@ -3250,8 +3395,8 @@ html {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
   letter-spacing: 0.06em;
   color: var(--ink-low);
 }
@@ -3352,12 +3497,12 @@ html {
 .grid-card__body { padding: 14px 8px 8px; display: flex; flex-direction: column; gap: 8px; }
 .grid-card__meta { display: flex; align-items: center; gap: 8px; }
 .grid-card__index {
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.16em;
   color: var(--card-accent);
 }
 .grid-card__tagline {
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.2em;
   color: var(--ink-mid);
   overflow: hidden;
@@ -3376,7 +3521,7 @@ html {
 }
 .grid-card__chips { display: flex; flex-wrap: wrap; gap: 5px; }
 .grid-card__chip {
-  font-size: 10px;
+  font-size: 12px;
   padding: 2px 8px;
   border-radius: 999px;
   border: 1px solid var(--glass-border);
@@ -3385,8 +3530,8 @@ html {
 .grid-card__chip--more { border-color: transparent; }
 .grid-card__links { position: relative; z-index: 2; display: flex; gap: 12px; margin-top: 2px; }
 .grid-card__link {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
   letter-spacing: 0.16em;
   color: var(--ink-mid);
   transition: color var(--dur-fast) var(--ease-forge);
@@ -3394,7 +3539,7 @@ html {
 .grid-card__link:hover { color: var(--card-accent); }
 
 /* Mobile: chips scroll inline rather than stacking into a bare list. */
-@media (max-width: 640px) {
+@media (width < 40rem) {
   .grid-card__chips {
     flex-wrap: nowrap;
     overflow-x: auto;
@@ -3419,8 +3564,8 @@ html {
   align-items: center;
   gap: 5px;
   flex: 0 0 auto;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
   letter-spacing: 0.18em;
   color: var(--success);
 }
@@ -3471,15 +3616,15 @@ html {
   to   { opacity: 1; transform: none; }
 }
 .lightbox__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-.lightbox__tagline { font-size: 10px; letter-spacing: 0.24em; color: var(--card-accent); }
+.lightbox__tagline { font-size: 12px; letter-spacing: 0.24em; color: var(--card-accent); }
 .lightbox__title { font-size: var(--fs-h3); margin-top: 4px; }
 .lightbox__close {
   flex: 0 0 auto;
   padding: 6px 12px;
   border-radius: 999px;
   border: 1px solid var(--glass-border);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
   color: var(--ink-mid);
   transition: color var(--dur-fast) var(--ease-forge), border-color var(--dur-fast) var(--ease-forge);
 }
@@ -3537,13 +3682,13 @@ html {
   border: 1px solid color-mix(in oklch, var(--card-accent) 24%, transparent);
 }
 .lightbox__metric-value { display: block; font-size: 1.25rem; color: var(--ink-hi); }
-.lightbox__metric-label { display: block; font-size: 9px; letter-spacing: 0.2em; color: var(--ink-mid); margin-top: 3px; }
+.lightbox__metric-label { display: block; font-size: 12px; letter-spacing: 0.2em; color: var(--ink-mid); margin-top: 3px; }
 .lightbox__arch { margin: 20px 0 0; }
-.lightbox__arch-cap { font-size: 9px; letter-spacing: 0.28em; color: var(--ink-low); margin-bottom: 8px; }
+.lightbox__arch-cap { font-size: 12px; letter-spacing: 0.28em; color: var(--ink-low); margin-bottom: 8px; }
 .lightbox__arch-svg { width: 100%; height: auto; overflow: visible; }
 .lightbox__arch-text {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
   fill: var(--ink);
 }
 .lightbox__desc { margin-top: 18px; color: var(--ink-mid); font-size: 14px; line-height: 1.65; }
@@ -3619,8 +3764,8 @@ html[data-recruiter] .section-rhythm {
   border-radius: 999px;
   border: 1px solid var(--glass-border);
   background: var(--surface-1);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
   letter-spacing: 0.16em;
   color: var(--ink-mid);
   transition: color var(--dur-fast) var(--ease-forge),
@@ -3640,8 +3785,8 @@ html[data-recruiter] .section-rhythm {
 
 /* W6 — the arcade is a differentiator only if it is discoverable. */
 .secret-hint {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
   letter-spacing: 0.2em;
   color: var(--ink-low);
   display: inline-flex;
@@ -3664,8 +3809,8 @@ html[data-recruiter] .section-rhythm {
   gap: 8px;
 }
 .copy-email__flash {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
   letter-spacing: 0.18em;
   color: var(--success);
   opacity: 0;
@@ -3762,7 +3907,16 @@ html[data-recruiter] .section-rhythm {
   will-change: transform;
 }
 .name-runner__glyph .kinetic-char { color: inherit; }
-.hero-name[data-intro='pending'] .name-runner__glyph { opacity: 0; }
+/* T-031.3 — the name PAINTS while the curtain is still down.
+   `opacity: 0` here used to hold the LCP element back until the preloader
+   lifted, which meant the cinematic intro added its own duration directly to
+   the metric — the difference between a 0.9 s LCP and a 2.4 s one, on exactly
+   the devices least able to spare it. The curtain is an opaque fullscreen
+   overlay, so painting behind it is invisible to the visitor and free to the
+   browser: the largest contentful paint happens on schedule, and the arrival
+   animation still starts from zero when the curtain goes up because
+   `runnerArrival` fills `backwards`. */
+.hero-name[data-intro='pending'] .name-runner__glyph { opacity: 1; }
 .hero-name[data-intro='run'] .name-runner__glyph {
   animation: runnerArrival 0.95s cubic-bezier(0.18, 0.9, 0.24, 1) backwards;
   animation-delay: calc(0.08s + var(--i) * 0.065s);
@@ -3852,7 +4006,7 @@ html[data-recruiter] .section-rhythm {
 @keyframes heroRunnerLimbB { to { transform: rotate(-19deg); } }
 .hero-run-lane[data-anim-paused='true'] .hero-runner,
 .hero-run-lane[data-anim-paused='true'] .hero-runner__limb { animation-play-state: paused; }
-@media (max-width: 767px) {
+@media (width < 48rem) {
   .hero-name-stage { padding-bottom: 1.35rem; }
   .hero-run-lane { width: min(100%, 28rem); transform: scale(0.8); transform-origin: left bottom; }
 }
@@ -3916,28 +4070,138 @@ html[data-recruiter] .section-rhythm {
 .nav-burger[data-open='true'] .nav-burger__bar:nth-child(2) { opacity: 0; }
 .nav-burger[data-open='true'] .nav-burger__bar:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
 
-/* `height: auto` is not animatable; `grid-template-rows: 0fr → 1fr` is. */
-.nav-drawer {
+/* ══════════════════════════════════════════════════════════════════════════
+   The drawer — T-026. A native <dialog>, styled as a sheet.
+
+   The `grid-template-rows: 0fr → 1fr` accordion this replaces was the right
+   technique for the wrong element: `height: auto` is not animatable and that
+   trick is how you animate it, but the thing being animated was a plain
+   `<div>` with no focus trap, no scroll lock and no Escape handler. The
+   animation survives; the element underneath it is now a real dialog, so the
+   trap, the top layer, the backdrop and Escape come from the platform.
+   ══════════════════════════════════════════════════════════════════════════ */
+.drawer {
+  /* A dialog defaults to a centred box with a border and its own margins. */
+  margin: 0;
+  padding: 0;
+  border: 0;
+  max-inline-size: 100vw;
+  max-block-size: 100dvh;
+  inline-size: 100vw;
+  block-size: 100dvh;
+  background: transparent;
+  color: inherit;
+  overflow: hidden;
+}
+/* The entry is a keyframe animation rather than a transition out of
+   `@starting-style`. Both are valid, but a transition across a
+   display: none → block change also needs `transition-behavior:
+   allow-discrete` on `display` and `overlay` to run at all, and when it does
+   not run the element is left sitting at its starting value — which is
+   exactly the "drawer opens 12px too high, permanently" bug this replaced.
+   An animation has no such dependency and cannot get stuck. */
+.drawer::backdrop {
+  background: color-mix(in oklch, black 62%, transparent);
+  backdrop-filter: blur(6px);
+  animation: drawerBackdropIn var(--dur-base) var(--ease-forge) both;
+}
+@keyframes drawerBackdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.drawer__sheet {
   position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  display: grid;
-  grid-template-rows: 0fr;
-  opacity: 0;
+  inset-block-start: var(--header-h, 64px);
+  inset-inline: 0;
+  max-block-size: calc(100dvh - var(--header-h, 64px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: var(--surface-0);
-  border-bottom: 1px solid var(--glass-border);
-  transition: grid-template-rows var(--dur-base) var(--ease-forge),
-              opacity var(--dur-base) var(--ease-forge);
+  border-block-end: 1px solid var(--glass-border);
+  /* T-033.5 — the last row must not sit under the iOS home indicator. */
+  padding: var(--space-m) var(--space-m) max(var(--space-m), env(safe-area-inset-bottom, 0px));
+  padding-inline-start: max(var(--space-m), env(safe-area-inset-left, 0px));
+  padding-inline-end: max(var(--space-m), env(safe-area-inset-right, 0px));
+  /* The drag offset, written by the pointer handler as a custom property so
+     the gesture costs zero React commits. */
+  translate: 0 var(--drag-y, 0);
+  transition: translate var(--dur-fast) var(--ease-forge);
+  touch-action: pan-y;
 }
-.nav-drawer[data-open='true'] { grid-template-rows: 1fr; opacity: 1; }
-.nav-drawer__inner { overflow: hidden; min-height: 0; }
+.drawer[open] .drawer__sheet {
+  animation: drawerSheetIn var(--dur-base) var(--ease-forge) both;
+}
+@keyframes drawerSheetIn {
+  from { opacity: 0; translate: 0 calc(-12px * var(--motion-distance)); }
+  to { opacity: 1; translate: 0 0; }
+}
+
+.drawer__grabber {
+  inline-size: 44px;
+  block-size: 4px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  margin: 0 auto var(--space-s);
+}
+
+.drawer__links {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xs);
+}
 .nav-drawer__link {
-  transform: translateX(-20px);
-  transition: transform var(--dur-base) var(--ease-forge);
-  transition-delay: calc(var(--i) * 40ms);
+  min-block-size: 44px;
+  translate: calc(-20px * var(--motion-distance)) 0;
+  opacity: 0;
+  animation: drawerLinkIn var(--dur-base) var(--ease-forge) forwards;
+  animation-delay: calc(var(--i) * 40ms * var(--motion-scale));
 }
-.nav-drawer[data-open='true'] .nav-drawer__link { transform: none; }
+@keyframes drawerLinkIn {
+  to { translate: 0 0; opacity: 1; }
+}
+
+/* The search row — T-002.3. First, above the links, because a visitor who
+   opened the menu looking for search should not have to read past seven
+   section names to find it. */
+.drawer__search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  inline-size: 100%;
+  min-block-size: 48px;
+  padding-inline: 14px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in oklch, var(--accent) 35%, transparent);
+  background: color-mix(in oklch, var(--accent) 8%, var(--surface-1));
+  color: var(--accent-bright);
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+}
+.drawer__search:active { background: color-mix(in oklch, var(--accent) 14%, var(--surface-1)); }
+.drawer__kbd {
+  margin-inline-start: auto;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--glass-border);
+  color: var(--ink-low);
+  font-size: 12px;
+}
+
+/* The header's search button. Below `lg` it is an icon; at `lg`+ the ⌘K hint
+   appears beside it, because that is where a keyboard is likely to exist. */
+.nav-search { flex-shrink: 0; gap: 5px; }
+.nav-search__hint {
+  display: none;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--ink-low);
+}
+@media (width >= 64rem) {
+  .nav-search { inline-size: auto; padding-inline: 10px; border-radius: 999px; }
+  .nav-search__hint { display: inline; }
+}
 
 /* ── §6.3 knob pulse: CSS, gated, no Framer loop in the navbar ─────────── */
 .theme-toggle { transition: box-shadow var(--dur-cinema) var(--ease-forge); }
@@ -3953,15 +4217,29 @@ html[data-recruiter] .section-rhythm {
   to   { opacity: 1; transform: none; }
 }
 
+/*
+ * The `-50%` that used to be in these keyframes is gone.
+ *
+ * Tailwind 3 compiled `-translate-x-1/2` into `transform`, so a keyframe that
+ * animated `transform` had to restate the centring or it would cancel it.
+ * Tailwind 4 compiles it into the separate `translate` property — so the two
+ * no longer override each other, they STACK: −50% from `translate` plus −50%
+ * from the keyframe is −100%, and the toast walks off the left edge of the
+ * screen. The keyframe animates only what it owns.
+ */
 .toast-rise { animation: toastRise 0.4s var(--ease-forge) both; }
 @keyframes toastRise {
-  from { opacity: 0; transform: translate(-50%, 40px) scale(0.9); }
-  to   { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  from { opacity: 0; transform: translateY(40px) scale(0.9); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+/* T-025 — this block used to be one of thirty-eight. What is left of it is
+   only what the scalar cannot express: `animation: none` on entrance
+   animations whose *resting* state is their last keyframe. Everything else
+   here now multiplies --motion-scale and needs no override at all. */
 @media (prefers-reduced-motion: reduce) {
-  .nav-drawer, .nav-drawer__link, .theme-toggle__pulse,
-  .atelier-panel--in, .toast-rise { animation: none; transition: none; }
+  .nav-drawer__link, .theme-toggle__pulse,
+  .atelier-panel--in, .toast-rise { animation: none; opacity: 1; translate: 0 0; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -3971,7 +4249,14 @@ html[data-recruiter] .section-rhythm {
    nobody reads letter by letter.
    ══════════════════════════════════════════════════════════════════════════ */
 .split-text { display: inline; }
-.split-word { display: inline-block; overflow: hidden; vertical-align: bottom; }
+/* No `overflow: hidden` here, deliberately.
+   The reveal is done entirely by the inner's `clip-path` — which animates to
+   `inset(0 0 -12% 0)`, i.e. deliberately 12 % PAST the box, precisely so the
+   finished word is not clipped. The wrapper's `overflow: hidden` was
+   redundant against that and it re-clipped at the border box, shaving the
+   descender off every word with a g, y, p, j or q at 37.6px display type.
+   Measured before removal: a 43px line box holding 59px of glyph. */
+.split-word { display: inline-block; vertical-align: bottom; }
 .split-word__inner {
   display: inline-block;
   clip-path: inset(0 0 110% 0);
@@ -4152,7 +4437,7 @@ html[data-recruiter] .section-rhythm {
   flex-wrap: wrap;
 }
 .recruiter-bar__badge {
-  font-size: 9px;
+  font-size: 12px;
   letter-spacing: 0.24em;
   color: var(--surface-0);
   background: var(--accent);
@@ -4172,7 +4457,7 @@ html[data-recruiter] .section-rhythm {
 .recruiter-bar__stats::-webkit-scrollbar { display: none; }
 .recruiter-bar__stat { flex: 0 0 auto; }
 .recruiter-bar__stat-label {
-  font-size: 8px;
+  font-size: 12px;
   letter-spacing: 0.22em;
   color: var(--ink-low);
   display: block;
@@ -4186,7 +4471,7 @@ html[data-recruiter] .section-rhythm {
 }
 .recruiter-bar__actions { display: flex; gap: 8px; flex: 0 0 auto; }
 .recruiter-bar__cta {
-  font-size: 10px;
+  font-size: 12px;
   letter-spacing: 0.16em;
   padding: 8px 14px;
   border-radius: 999px;
@@ -4274,7 +4559,7 @@ html[data-recruiter] .projects-controls__chips { display: none; }
 .three-scene__fallback-note {
   position: absolute;
   bottom: 12px;
-  font-size: 9px;
+  font-size: 12px;
   letter-spacing: 0.22em;
   color: var(--ink-low);
 }
@@ -4296,3 +4581,2479 @@ html[data-recruiter] .projects-controls__chips { display: none; }
   from { background-position: 120% 0, 0 0; }
   to   { background-position: -120% 0, 0 0; }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   §16 — THE HANDSET PASS
+
+   Everything below exists because the site was authored for a cursor on a
+   1440px canvas and then merely *allowed* to be narrow. Narrow is not the same
+   as mobile. These rules answer the three things that were actually wrong: the
+   viewport is a different size than CSS claims, the input is a different
+   input, and several layers were switched off by a media query standing in for
+   a capability check.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 16.1 The real viewport ───────────────────────────────────────────────
+   `100vh` on a phone is the viewport with the browser chrome RETRACTED, so a
+   100vh hero is always taller than what is on screen and its last ~90px live
+   under the URL bar. `dvh` is the live value. Ordered as progressive
+   enhancement: no `dvh` support means the second declaration is dropped and
+   the first stands. */
+.hero-section {
+  height: 100vh;
+  height: 100dvh;
+}
+html[data-recruiter] .hero-section,
+html[data-recruiter] #hero {
+  height: auto;
+  min-height: 72vh;
+  min-height: 72dvh;
+}
+
+/* Notch, punch-hole and gesture bar. The fixed navbar and the scroll hint sit
+   exactly where the hardware does, and on a landscape phone the side insets
+   are the difference between padded and unreadable. */
+/* `header.site-header` rather than `header`: the padding it is correcting comes
+   from `.container-px` and `.py-4`, and a bare element selector loses to a
+   class no matter where it sits in the file. */
+header.site-header {
+  padding-top: max(1rem, env(safe-area-inset-top, 0px));
+  padding-left: max(clamp(20px, 4vw, 48px), env(safe-area-inset-left, 0px));
+  padding-right: max(clamp(20px, 4vw, 48px), env(safe-area-inset-right, 0px));
+}
+.hero-scroll-hint {
+  bottom: max(2.5rem, calc(env(safe-area-inset-bottom, 0px) + 1.75rem));
+}
+.avatar-track--mobile {
+  bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ── 16.2 Staging the forge gem ───────────────────────────────────────────
+   The gem was a 420px pane pinned to the right margin, which is a shape that
+   only exists on a wide screen — so on a phone it was simply deleted. At
+   handset size it becomes what an object that size should be: part of the
+   scene, upper right, sitting BEHIND the copy rather than beside it. */
+.hero-forge-slot {
+  position: absolute;
+  z-index: 5;
+  pointer-events: auto;
+  opacity: clamp(0.25, calc(1 - var(--hero-p, 0) * 0.834), 1);
+  /* Vertical scrolling stays the browser's, always. Only the horizontal
+     component of a drag reaches the gem — without this, a 340px-square region
+     of the first viewport would swallow the gesture people use to leave it. */
+  touch-action: pan-y;
+}
+.hero-forge-object { touch-action: inherit; }
+
+@media (width < 48rem) {
+  .hero-forge-slot {
+    top: 3%;
+    right: -16%;
+    width: min(76vw, 340px);
+    height: min(76vw, 340px);
+    /* Behind .hero-copy (z-10). The headline stays the brightest thing in the
+       frame; the gem is depth, not competition. */
+    z-index: 1;
+    opacity: clamp(0.18, calc((1 - var(--hero-p, 0) * 0.834) * 0.68), 0.68);
+    transform:
+      translate3d(calc(var(--lean-x, 0) * -20px), calc(var(--lean-y, 0) * -16px), 0);
+  }
+}
+@media (width >= 48rem) {
+  .hero-forge-slot {
+    top: 50%;
+    right: 4%;
+    width: 340px;
+    height: 340px;
+    transform:
+      translate3d(calc(var(--lean-x, 0) * -18px),
+                  calc(-50% + var(--lean-y, 0) * -14px), 0);
+  }
+}
+@media (width >= 64rem) {
+  .hero-forge-slot { width: 420px; height: 420px; }
+}
+
+/* ── 16.3 Depth ───────────────────────────────────────────────────────────
+   The backdrop leans WITH the viewer and the gem leans AGAINST them. Opposed
+   motion across a shared signal is what separates two flat layers into near
+   and far — and it is the entire reason the gyroscope is worth reading. The
+   headline is deliberately excluded: text that moves sub-pixel every frame
+   renders soft, and the one thing here that must stay razor sharp is the name.
+*/
+.hero-back {
+  transform: translate3d(
+    calc(var(--lean-x, 0) * 12px),
+    calc(var(--hero-p, 0) * 90px + var(--lean-y, 0) * 9px),
+    0);
+}
+
+/* The mesh overlay, lifted out of an inline <style> tag in HeroAurora so it is
+   not re-parsed on every mount. */
+.hero-aurora__mesh {
+  position: absolute;
+  inset: 0;
+  opacity: 0.2;
+  background:
+    radial-gradient(ellipse 120% 80% at 20% 30%, color-mix(in oklch, var(--accent) 25%, transparent), transparent 60%),
+    radial-gradient(ellipse 100% 70% at 80% 70%, color-mix(in oklch, var(--violet) 20%, transparent), transparent 55%);
+}
+.hero-aurora__mesh[data-animated='true'] {
+  animation: meshDrift 14s ease-in-out infinite alternate;
+}
+@keyframes meshDrift {
+  0%   { transform: translate(0, 0) scale(1);       opacity: 0.2; }
+  50%  { transform: translate(2%, -1%) scale(1.03); opacity: 0.3; }
+  100% { transform: translate(-1%, 2%) scale(0.98); opacity: 0.2; }
+}
+
+/* ── 16.4 The sprinter ────────────────────────────────────────────────────
+   The run cycle translated a hard-coded 48rem — 768px — regardless of how wide
+   the lane actually was. In a 46rem desktop lane that roughly worked; in the
+   ~21rem lane a phone gets, the runner left the frame a third of the way in
+   and the remaining two thirds of every cycle played to an empty strip. That
+   is why "the moving thing on the first page" was invisible on a phone: it was
+   running, off-screen, on a loop.
+
+   Travel is now measured from the lane itself, so it is correct at every width
+   instead of at one. */
+.hero-run-lane {
+  container-type: inline-size;
+  --run-travel: calc(100cqw + 6.2rem);
+}
+@keyframes heroSprinter {
+  0%   { transform: translate3d(0, 0, 0) scaleX(0.96); opacity: 0; }
+  8%   { opacity: 1; }
+  42%  { transform: translate3d(calc(var(--run-travel) * 0.32), -0.18rem, 0) scaleX(1.04); }
+  78%  { transform: translate3d(calc(var(--run-travel) * 0.71), 0, 0) scaleX(0.96); opacity: 1; }
+  100% { transform: translate3d(var(--run-travel), -0.12rem, 0) scaleX(1.02); opacity: 0; }
+}
+
+/* ── 16.5 The navbar, which did not fit ───────────────────────────────────
+   Measured at 375px: the right-hand cluster ran from 71px to 377px — two
+   pixels PAST the edge of the screen — the burger sat flush against the
+   viewport boundary with none of the header's own padding left, and the logo
+   had buckled onto two lines. Six controls and a wordmark do not fit across a
+   phone at desktop sizing, so the labels go and the icons stay. */
+@media (width < 48rem) {
+  .nav-wordmark {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .nav-cluster {
+    gap: 0.625rem;
+    min-width: 0;
+  }
+  /* Without this the burger is the item that gives: flex children shrink by
+     default, and at 320px it was compressed from 28px to SEVEN pixels wide —
+     still present, still clickable in theory, and completely unusable. Every
+     control in this row has a deliberate size; none of them may be the one
+     that absorbs a narrow screen. */
+  .nav-cluster > * { flex-shrink: 0; }
+  /* The recruiter toggle keeps its dot and loses its word: 106px → 32px, which
+     is the single change that brings the row back inside the screen. */
+  .recruiter-chip {
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    justify-content: center;
+    gap: 0;
+    flex-shrink: 0;
+  }
+  .recruiter-chip__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .recruiter-chip__dot { width: 8px; height: 8px; }
+}
+
+/* What the header gave up, the drawer gains — plus the two things that were
+   never reachable on a phone at all: the arcade lived only in the desktop nav,
+   and the résumé button was `hidden sm:inline-flex`, i.e. invisible below
+   640px. The single most important link on a portfolio was unreachable from
+   the navigation on every phone. */
+.nav-drawer__tools {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--glass-border);
+}
+.nav-drawer__tool {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  background: var(--surface-1);
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  color: var(--ink-mid);
+  text-align: left;
+  transition: border-color var(--dur-fast) var(--ease-forge),
+              color var(--dur-fast) var(--ease-forge);
+}
+.nav-drawer__tool:active {
+  border-color: var(--accent-dim);
+  color: var(--ink);
+}
+.nav-drawer__tool--accent {
+  border-color: color-mix(in oklch, var(--accent) 40%, transparent);
+  color: var(--accent-bright);
+}
+
+/* ── 16.6 Cards wider than the screen ─────────────────────────────────────
+   `.grid-card` measured 420px inside a 335px grid track and was clipped by the
+   section's `overflow-x-clip` — a quarter of every project card, permanently
+   off-screen on a phone.
+
+   The cause is the default `min-width: auto` on flex and grid items: a track
+   will not shrink below its content's min-content width, and `.grid-card__meta`
+   contributed 350px of unbreakable inline row. `min-width: 0` restores the
+   ability to shrink; the meta row is then allowed to wrap rather than forcing
+   the card open. */
+.projects-grid > *,
+.grid-card,
+.grid-card__body,
+.grid-card__meta,
+.grid-card__chips,
+.grid-card__links,
+.deck-slot,
+.deck-card,
+.deck-card__body {
+  min-width: 0;
+}
+.grid-card__meta { flex-wrap: wrap; row-gap: 4px; }
+.grid-card__title,
+.grid-card__outcome { overflow-wrap: anywhere; }
+
+/* ── 16.7 Targets a finger can actually hit ───────────────────────────────
+   The ten-selector hand-list that used to live here is gone. It was a snapshot
+   of one audit, and the eleventh control added after it was not covered by
+   anything. `src/styles/a11y.css` (T-024) applies the same technique to
+   element *categories* instead, so a new `<button>` is compliant by
+   construction rather than by remembering to extend a list.
+
+   What stays here is the part a generic rule cannot know: the header cluster
+   has to hold its controls far enough apart that their 44px hit areas do not
+   OVERLAP. WCAG 2.2 SC 2.5.8 asks for clear space between adjacent targets,
+   and a row of 32px controls at a 10px gap fails it — the expanded boxes
+   collide, and whichever one is later in the DOM silently swallows taps meant
+   for its neighbour. (Playwright found this the honest way: it reported the
+   recruiter chip intercepting clicks aimed at the search button.) */
+@media (pointer: coarse) {
+  .nav-cluster {
+    gap: 0.75rem;
+  }
+  /* Real size, not a pseudo-element: when the control itself is 44px the hit
+     area cannot extend past it, and the overlap problem disappears rather
+     than being managed. */
+  .nav-cluster > .nav-search,
+  .nav-cluster > .recruiter-chip,
+  .nav-cluster > .theme-toggle,
+  .nav-cluster > .nav-burger,
+  .nav-cluster > .spark-counter {
+    min-inline-size: 44px;
+    min-block-size: 44px;
+  }
+  /* The drawer is touch-only by definition, so its links have no excuse for
+     being 32px tall. */
+  .nav-drawer__link { min-height: 44px; }
+}
+
+/* At the bottom of the range the arithmetic simply does not close. Measured
+   at 320px: the content box is 288px wide, the wordmark takes 101 of it, and
+   a compliant control is 44 — so three controls plus their gaps (44x3 + 12x2
+   = 156) is the most that fits, and the row was asking for six.
+
+   What survives in the header is what a visitor reaches for: search, and the
+   menu. Recruiter mode, the spark counter and the theme switch move into the
+   drawer — the same trade the sound toggle already makes, and the reason the
+   drawer exists. Nothing becomes unreachable; the theme is also three rows in
+   the command palette.
+
+   Two thresholds, because the controls do not all cost the same, and both
+   come from that arithmetic rather than from a round number:
+
+     below 22rem (352px)  the theme switch goes too — it is a 92px
+                          three-position track, and 101 + 44 + 92 + 44 + 24
+                          = 305 does not fit inside 288
+     below 26rem (416px)  recruiter mode and the spark counter go — adding
+                          them needs a 260px control row, and a 390px phone
+                          has 250 */
+@media (pointer: coarse) and (width < 22rem) {
+  .nav-cluster > .nav-theme {
+    display: none;
+  }
+}
+@media (pointer: coarse) and (width < 26rem) {
+  .nav-cluster > .recruiter-chip,
+  .nav-cluster > .spark-counter {
+    display: none;
+  }
+}
+
+/* ── 16.8 The tilt offer ──────────────────────────────────────────────────
+   Rendered only where the platform withholds motion data until asked, which
+   in practice means iOS. Sized as a real target from the start rather than
+   patched by §16.7. */
+.hero-tilt-offer {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 1.5rem;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklch, var(--accent) 35%, transparent);
+  background: color-mix(in oklch, var(--accent) 8%, var(--surface-1));
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  color: var(--accent-bright);
+  transition: border-color var(--dur-fast) var(--ease-forge),
+              background-color var(--dur-fast) var(--ease-forge);
+}
+.hero-tilt-offer:active {
+  background: color-mix(in oklch, var(--accent) 16%, var(--surface-1));
+  border-color: var(--accent);
+}
+.hero-tilt-offer__icon {
+  font-size: 13px;
+  animation: tiltOfferRock 2.4s var(--ease-forge) infinite;
+}
+@keyframes tiltOfferRock {
+  0%, 100% { transform: rotate(-12deg); }
+  50%      { transform: rotate(12deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-tilt-offer__icon { animation: none; }
+}
+
+/* ── 16.9 Honouring the preference ────────────────────────────────────────
+   Everything §16 added is motion, so all of it has to be answerable. */
+@media (prefers-reduced-motion: reduce) {
+  .hero-back { transform: none !important; }
+  .hero-forge-slot { transform: none !important; }
+  .hero-aurora__mesh { animation: none !important; }
+}
+@media (prefers-reduced-motion: reduce) and (width >= 48rem) {
+  .hero-forge-slot { transform: translateY(-50%) !important; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   §P10 — motion/transparency/contrast consent, beyond reduced-motion.
+   v4 handled prefers-reduced-motion well and stopped there (W10). These three
+   preferences get the same treatment: suppress the specific layer that
+   conflicts with the stated preference, never degrade the content itself.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* prefers-reduced-transparency — every backdrop-filter surface on the page
+   falls back to a solid tint of the same token it was already blending
+   against, so nothing loses its background, it just stops blurring what's
+   behind it. */
+@media (prefers-reduced-transparency: reduce) {
+  *, *::before, *::after {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  .glass--live,
+  .atelier-panel,
+  .welcome-toast,
+  .exit-intent__tooltip,
+  .progressive-blur::before {
+    background: var(--surface-1);
+  }
+  .run-complete,
+  .lightbox {
+    background: var(--surface-0);
+  }
+}
+
+/* prefers-contrast: more — the site's default contrast already clears APCA
+   thresholds (§2.1), so this raises borders and dividers that were tuned for
+   *aesthetic* subtlety, not accessibility, up to unambiguous. Decorative
+   grain/bevel/anisotropy layers (§P5.2) are pure noise at this contrast
+   level and are removed rather than boosted. */
+@media (prefers-contrast: more) {
+  .glass, .glass--live, .card, .clay-btn, .surface {
+    border-color: var(--ink-mid) !important;
+  }
+  .film-grain, .grade-wash {
+    display: none !important;
+  }
+}
+
+/* forced-colors (Windows High Contrast Mode) — the browser already replaces
+   background/color/box-shadow with the user's system palette; the one thing
+   author CSS must still guarantee is that every interactive surface keeps a
+   real border, since several here rely on box-shadow or a near-invisible
+   color-mix border for their edge, and box-shadow is one of the properties
+   forced-colors strips. */
+@media (forced-colors: active) {
+  .glass, .glass--live, .card, .clay-btn, button, a {
+    border: 1px solid currentColor;
+  }
+  .grade-wash, .film-grain, .bg-engine {
+    display: none;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   COMMAND PALETTE — T-002 / T-003
+
+   Every measurement here is a mobile decision:
+
+   · the input is 16px minimum, because below that iOS Safari zooms the whole
+     page when the field takes focus and the visitor has to pinch back out
+   · the results list is capped in `dvh`, not `vh`, so the URL bar collapsing
+     mid-scroll cannot push the last row off the screen
+   · `overscroll-behavior: contain` stops a flick inside the list from
+     scrolling the page behind it once the list hits its end
+   · the panel is inset by the safe-area insets, so it clears the notch in
+     landscape and the home indicator in portrait
+   ══════════════════════════════════════════════════════════════════════════ */
+.cmdpal {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  inline-size: 100vw;
+  max-inline-size: 100vw;
+  block-size: 100dvh;
+  max-block-size: 100dvh;
+  background: transparent;
+  color: inherit;
+  overflow: hidden;
+}
+.cmdpal::backdrop {
+  background: color-mix(in oklch, black 60%, transparent);
+  backdrop-filter: blur(4px);
+  animation: drawerBackdropIn var(--dur-base) var(--ease-forge) both;
+}
+
+.cmdpal__panel {
+  position: absolute;
+  inset-block-start: max(6dvh, env(safe-area-inset-top, 0px));
+  inset-inline-start: 50%;
+  translate: -50% 0;
+  inline-size: min(92vw, 34rem);
+  max-block-size: min(84dvh, 44rem);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid var(--glass-border);
+  background: color-mix(in oklch, var(--surface-1) 92%, transparent);
+  backdrop-filter: blur(var(--blur-glass, 12px));
+  box-shadow: var(--shadow-3);
+  animation: cmdpalIn var(--dur-base) var(--ease-forge) both;
+}
+@keyframes cmdpalIn {
+  from { opacity: 0; translate: -50% calc(-12px * var(--motion-distance)); scale: 0.97; }
+  to { opacity: 1; translate: -50% 0; scale: 1; }
+}
+
+.cmdpal__inputrow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-block-end: 1px solid var(--glass-border);
+  flex-shrink: 0;
+}
+.cmdpal__glyph {
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 13px;
+  color: var(--accent-bright);
+}
+.cmdpal__input {
+  flex: 1;
+  min-inline-size: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: var(--ink);
+  /* 16px floor — see the block comment above. */
+  font-size: max(16px, 1rem);
+}
+.cmdpal__input::placeholder { color: var(--ink-low); }
+.cmdpal__kbd {
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--glass-border);
+  color: var(--ink-low);
+  flex-shrink: 0;
+}
+
+.cmdpal__results {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  max-block-size: 60dvh;
+  -webkit-overflow-scrolling: touch;
+}
+.cmdpal__item {
+  inline-size: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-block-size: 44px;
+  padding: 8px 18px;
+  text-align: start;
+  font-size: 0.875rem;
+  color: var(--ink-mid);
+  transition: background-color var(--dur-fast) var(--ease-forge);
+}
+.cmdpal__item.is-selected { background: var(--surface-2); color: var(--ink); }
+.cmdpal__icon {
+  inline-size: 28px;
+  block-size: 28px;
+  border-radius: 9px;
+  background: var(--surface-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
+  color: var(--ink-low);
+  flex-shrink: 0;
+}
+.cmdpal__label { min-inline-size: 0; overflow-wrap: anywhere; }
+.cmdpal__badge { margin-inline-start: auto; color: var(--accent-bright); font-size: 12px; }
+.cmdpal__empty { padding: 24px 18px; text-align: center; color: var(--ink-low); font-size: 0.875rem; }
+
+/* Terminal mode — T-003.3. The transcript sits ABOVE the input, which is
+   where a terminal puts its history and where a phone keyboard leaves room
+   for it. */
+.cmdpal__transcript {
+  list-style: none;
+  margin: 0;
+  padding: 14px 18px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  max-block-size: 46dvh;
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  border-block-end: 1px solid var(--glass-border);
+}
+.cmdpal__line { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink-mid); }
+.cmdpal__line--cmd { color: var(--accent-bright); }
+.cmdpal__line--ok { color: var(--accent); }
+.cmdpal__line--err { color: var(--danger, #fb7185); }
+.cmdpal__line--art { color: var(--violet); font-size: 12px; line-height: 1.35; }
+
+.cmdpal__hint {
+  padding: 8px 18px;
+  border-block-start: 1px solid var(--glass-border);
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
+  color: var(--ink-low);
+  flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   SECTION SKELETONS — T-029 / D-32
+
+   Shaped like the content they stand in for, and reserving its height, so the
+   swap from skeleton to content costs no layout shift. The pulse is a single
+   opacity animation on a compositor layer, and it stops entirely at
+   --motion-scale: 0 rather than becoming a zero-length loop.
+   ══════════════════════════════════════════════════════════════════════════ */
+.section-skeleton { content-visibility: auto; }
+.skel {
+  border-radius: 12px;
+  background: var(--surface-2);
+  animation: skelPulse 1.6s ease-in-out infinite;
+  animation-duration: calc(1.6s / max(var(--motion-scale), 0.001));
+}
+:root[data-motion='off'] .skel { animation: none; }
+@keyframes skelPulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.8; }
+}
+.skel--eyebrow { block-size: 0.75rem; inline-size: 8rem; border-radius: 999px; }
+.skel--title { block-size: 2.5rem; inline-size: min(100%, 26rem); }
+.skel--line { block-size: 0.9rem; }
+.skel--card { block-size: 16rem; }
+.skel--tile { block-size: 9rem; }
+.skel--lane { block-size: 18rem; }
+.skel--row { block-size: 4.5rem; }
+.skel--field { block-size: 3rem; }
+.skel--button { block-size: 3rem; inline-size: 10rem; border-radius: 999px; }
+
+.section-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-s);
+  padding: var(--space-xl) var(--space-m);
+  text-align: center;
+  border: 1px dashed var(--glass-border);
+  border-radius: 18px;
+  margin-inline: var(--space-m);
+}
+
+/* The one-time coach mark for the terminal (T-003.4). */
+.coach-chip {
+  position: fixed;
+  inset-block-start: calc(var(--header-h, 64px) + 8px);
+  inset-inline-end: max(12px, env(safe-area-inset-right, 0px));
+  z-index: calc(var(--z-nav) - 1);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-inline-size: min(88vw, 22rem);
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in oklch, var(--accent) 35%, transparent);
+  background: color-mix(in oklch, var(--surface-1) 94%, transparent);
+  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-2);
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
+  color: var(--ink-mid);
+  animation: coachIn var(--dur-base) var(--ease-forge) both;
+}
+@keyframes coachIn {
+  from { opacity: 0; translate: 0 calc(-8px * var(--motion-distance)); }
+  to { opacity: 1; translate: 0 0; }
+}
+.coach-chip__close {
+  margin-inline-start: auto;
+  inline-size: 28px;
+  block-size: 28px;
+  border-radius: 8px;
+  color: var(--ink-low);
+  flex-shrink: 0;
+}
+
+/* ── Contact form — T-044 ─────────────────────────────────────────────────
+   The honeypot must be invisible to people and present to a bot. `display:
+   none` and `visibility: hidden` are both skipped by the bots worth catching,
+   so it is moved off-screen instead — the same technique as `.sr-only`, with
+   `aria-hidden` on the wrapper doing the assistive-technology half. */
+.form-honeypot {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Field hints. Tied to their input with aria-describedby, so they are read
+   with the field rather than being decoration a screen reader never meets. */
+.form-hint {
+  margin-block-start: 0.375rem;
+  font-size: var(--step--1);
+  color: var(--ink-low);
+}
+
+/* `:user-invalid` — not `:invalid`. `:invalid` matches an empty required
+   field before the visitor has typed anything, so a form styled with it is
+   red on arrival, which teaches people to ignore the colour. `:user-invalid`
+   waits until they have actually interacted. */
+.contact-form :where(input, textarea):user-invalid {
+  border-block-end-color: var(--danger, #fb7185);
+}
+.contact-form :where(input, textarea):user-invalid + label {
+  color: var(--danger, #fb7185);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   The skills hint.
+
+   It was a line of grey monospace. It is now the one piece of chrome in the
+   section that invites the interaction the whole 3-D stage exists for, so it
+   earns the twenty lines: a gyroscope orb that genuinely rotates in 3-D, a
+   glass pill, and a light sweep crossing it every few seconds.
+
+   Everything here is `transform`, `opacity` and `background-position` —
+   compositor properties. No canvas, no context, no JavaScript, no layout.
+   Two nested rings on one `preserve-3d` stage cost the GPU essentially
+   nothing, and the whole thing stops at `--motion-scale: 0`.
+   ══════════════════════════════════════════════════════════════════════════ */
+.skills-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.5rem 1.1rem 0.5rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklch, var(--accent) 22%, transparent);
+  background: linear-gradient(
+    120deg,
+    color-mix(in oklch, var(--accent) 7%, var(--surface-1)),
+    color-mix(in oklch, var(--violet) 5%, var(--surface-1))
+  );
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklch, var(--ink) 8%, transparent),
+    0 8px 28px -14px color-mix(in oklch, var(--accent) 55%, transparent);
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: var(--step--2);
+  letter-spacing: 0.18em;
+  color: var(--ink-mid);
+  position: relative;
+  overflow: hidden;
+  /* Centred by its own box, not by a transform, so nothing here can fight a
+     positioning utility the way `.sheen` used to. */
+  margin-inline: auto;
+}
+.skills-hint__label {
+  position: relative;
+  z-index: 1;
+  background: linear-gradient(92deg, var(--ink-mid), var(--accent-bright), var(--ink-mid));
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: skillsHintShimmer 6s linear infinite;
+  animation-duration: calc(6s / max(var(--motion-scale), 0.001));
+}
+@keyframes skillsHintShimmer {
+  from { background-position: 120% 0; }
+  to { background-position: -120% 0; }
+}
+
+/* The orb: two rings on one 3-D stage, rotating on different axes. */
+.skills-hint__orb {
+  position: relative;
+  z-index: 1;
+  inline-size: 1.35rem;
+  block-size: 1.35rem;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  transform-style: preserve-3d;
+  perspective: 120px;
+}
+.skills-hint__orb-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid color-mix(in oklch, var(--accent) 65%, transparent);
+  animation: skillsOrbA 3.6s linear infinite;
+  animation-duration: calc(3.6s / max(var(--motion-scale), 0.001));
+}
+.skills-hint__orb-ring:nth-child(2) {
+  border-color: color-mix(in oklch, var(--violet) 60%, transparent);
+  animation-name: skillsOrbB;
+  animation-duration: calc(5.2s / max(var(--motion-scale), 0.001));
+}
+.skills-hint__orb-dot {
+  inline-size: 0.3rem;
+  block-size: 0.3rem;
+  border-radius: 50%;
+  background: var(--accent-bright);
+  box-shadow: 0 0 8px 1px color-mix(in oklch, var(--accent) 70%, transparent);
+}
+@keyframes skillsOrbA {
+  from { transform: rotateX(68deg) rotateZ(0deg); }
+  to { transform: rotateX(68deg) rotateZ(360deg); }
+}
+@keyframes skillsOrbB {
+  from { transform: rotateY(70deg) rotateZ(0deg); }
+  to { transform: rotateY(70deg) rotateZ(-360deg); }
+}
+
+/* The sweep: one skewed highlight crossing the pill. */
+.skills-hint__sweep {
+  position: absolute;
+  inset-block: -50%;
+  inline-size: 40%;
+  inset-inline-start: -60%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklch, var(--accent) 26%, transparent),
+    transparent
+  );
+  transform: skewX(-18deg);
+  animation: skillsHintSweep 5.5s var(--ease-forge) infinite;
+  animation-duration: calc(5.5s / max(var(--motion-scale), 0.001));
+  pointer-events: none;
+}
+@keyframes skillsHintSweep {
+  0%, 55% { inset-inline-start: -60%; }
+  85%, 100% { inset-inline-start: 130%; }
+}
+
+/* T-032 — one instruction, two input methods. The hover copy is meaningless
+   on a touch device and the tap copy is meaningless with a mouse, so exactly
+   one of them is ever present. */
+.skills-hint__touch { display: none; }
+@media (hover: none), (pointer: coarse) {
+  .skills-hint__hover { display: none; }
+  .skills-hint__touch { display: inline; }
+}
+
+/* Motion off means off. The label also needs a real colour back, because
+   transparent text over a gradient still has to be painted by something. */
+:root[data-motion='off'] .skills-hint__label,
+:root[data-motion='off'] .skills-hint__orb-ring {
+  animation: none;
+}
+:root[data-motion='off'] .skills-hint__label {
+  background: none;
+  -webkit-text-fill-color: var(--ink-mid);
+  color: var(--ink-mid);
+}
+:root[data-motion='off'] .skills-hint__sweep { display: none; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   The Build Philosophy lattice.
+
+   Three rings and a core on one shared 3-D stage behind the copy. Same
+   reasoning as the hint: transforms only, no canvas, no context, nothing on
+   the main thread. Inert below tier 2 and at `--motion-scale: 0`, where the
+   rings stop animating AND drop their `will-change`, because an inert layer
+   still costs memory.
+   ══════════════════════════════════════════════════════════════════════════ */
+.philosophy-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+.philosophy-orbit {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: grid;
+  place-items: center;
+  perspective: 520px;
+  transform-style: preserve-3d;
+  pointer-events: none;
+  /* Decoration, but it has to actually READ as depth — at 0.5 with hairline
+     borders it was invisible against the card. The mask keeps it away from
+     the copy on the left while letting it fill the space on the right. */
+  opacity: 0.85;
+  mask-image: radial-gradient(ellipse 78% 88% at 50% 50%, #000 40%, transparent 84%);
+}
+/* Anchor the stage to the lower-right of the card instead of dead centre.
+   Centred, the core glow sat directly under the paragraph and ate its
+   contrast; here the rings overhang the card edge and get clipped by the
+   card's own `overflow: hidden`, which reads as depth rather than clutter. */
+@media (width >= 48rem) {
+  .philosophy-orbit {
+    inset: 18% -3.5rem -2.5rem 34%;
+  }
+}
+.philosophy-orbit__ring {
+  position: absolute;
+  inline-size: 13rem;
+  block-size: 13rem;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in oklch, var(--accent) 78%, transparent);
+  box-shadow:
+    0 0 22px -6px color-mix(in oklch, var(--accent) 70%, transparent),
+    inset 0 0 22px -10px color-mix(in oklch, var(--accent) 55%, transparent);
+  animation: philosophySpinA 18s linear infinite;
+  animation-duration: calc(18s / max(var(--motion-scale), 0.001));
+  will-change: transform;
+}
+.philosophy-orbit__ring:nth-child(2) {
+  inline-size: 9.5rem;
+  block-size: 9.5rem;
+  border-color: color-mix(in oklch, var(--violet) 82%, transparent);
+  border-style: dashed;
+  box-shadow: 0 0 20px -6px color-mix(in oklch, var(--violet) 65%, transparent);
+  animation-name: philosophySpinB;
+  animation-duration: calc(24s / max(var(--motion-scale), 0.001));
+}
+.philosophy-orbit__ring:nth-child(3) {
+  inline-size: 6.5rem;
+  block-size: 6.5rem;
+  border-color: color-mix(in oklch, var(--warm) 75%, transparent);
+  box-shadow: 0 0 18px -6px color-mix(in oklch, var(--warm) 60%, transparent);
+  animation-name: philosophySpinC;
+  animation-duration: calc(31s / max(var(--motion-scale), 0.001));
+}
+.philosophy-orbit__core {
+  inline-size: 3rem;
+  block-size: 3rem;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 35% 30%,
+    color-mix(in oklch, var(--accent-bright) 95%, transparent),
+    color-mix(in oklch, var(--violet) 45%, transparent) 45%,
+    transparent 72%
+  );
+  filter: blur(2px);
+  animation: philosophyPulse 6s ease-in-out infinite;
+  animation-duration: calc(6s / max(var(--motion-scale), 0.001));
+}
+@keyframes philosophySpinA {
+  from { transform: rotateX(72deg) rotateZ(0deg); }
+  to { transform: rotateX(72deg) rotateZ(360deg); }
+}
+@keyframes philosophySpinB {
+  from { transform: rotateY(66deg) rotateZ(0deg); }
+  to { transform: rotateY(66deg) rotateZ(-360deg); }
+}
+@keyframes philosophySpinC {
+  from { transform: rotateX(28deg) rotateY(48deg) rotateZ(0deg); }
+  to { transform: rotateX(28deg) rotateY(48deg) rotateZ(360deg); }
+}
+@keyframes philosophyPulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 0.95; transform: scale(1.12); }
+}
+
+:root[data-gfx-tier='1'] .philosophy-orbit__ring,
+:root[data-gfx-tier='1'] .philosophy-orbit__core,
+:root[data-motion='off'] .philosophy-orbit__ring,
+:root[data-motion='off'] .philosophy-orbit__core {
+  animation: none;
+  will-change: auto;
+}
+
+/* ── The header row, after the search button joined it ────────────────────
+   Adding the palette's search affordance to `.nav-cluster` (T-002) pushed the
+   row past the space available at `lg`–`xl`: flex shrank the nav links to
+   their min-content width and "ABOUT" wrapped to "ABOU / T" on every item.
+
+   Two rules fix it and neither is a magic number. The links refuse to wrap,
+   so flex has to take the space from the GAPS rather than from the words —
+   and the gap tightens between the nav switch and `xl`, which is exactly the
+   band where the row is tight. Above `xl` there is room for the original
+   rhythm. */
+.site-header nav[aria-label='Sections'] > button,
+.site-header nav[aria-label='Sections'] .arcade-nav-btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+/* The desktop nav appears at 72rem, not at `lg` (64rem).
+   
+   Measured: the horizontal link list plus the ARCADE button needs ~740px, the
+   wordmark 110, and the trimmed cluster ~290 — about 1,150px before gutters.
+   At exactly 1024, where `lg:flex` used to reveal it, the row ran 111px past
+   the right edge and the RESUME button was simply off-screen.
+   
+   The two rules below move the switch without touching Tailwind's `lg`, which
+   64 other components depend on. Between 64rem and 72rem the drawer is the
+   navigation — which is the correct answer for a 1024px window anyway, and
+   the same conclusion the original author reached when moving the switch up
+   from `md`. */
+@media (64rem <= width < 72rem) {
+  .site-header nav[aria-label='Sections'] {
+    display: none;
+  }
+  .site-header .nav-burger {
+    display: flex;
+  }
+}
+
+/* The band where the desktop nav and the full control cluster genuinely do
+   not both fit. Measured at 1280px: wordmark 110 + nav 738 + cluster 509 +
+   128 of gutter = 1,485 against 1,280 available.
+
+   So the same trade the phone header already makes is made here, one item at
+   a time and in order of how little each is missed:
+
+     · the sound toggle    — it is in the palette and in the drawer
+     · the progress ring   — decorative, and `aria-hidden` already
+     · the recruiter label — the dot and the tooltip carry it, exactly as
+                             they do below `md`
+
+   That recovers ~160px, and the tighter gaps recover the rest. Above 90rem
+   everything comes back. */
+@media (64rem <= width < 90rem) {
+  .site-header nav[aria-label='Sections'] {
+    gap: 1.15rem;
+  }
+  .nav-cluster {
+    gap: 0.6rem;
+  }
+  .nav-cluster > .nav-sound,
+  .nav-cluster > svg {
+    display: none;
+  }
+  .nav-cluster > .recruiter-chip {
+    padding: 0;
+    inline-size: 2rem;
+    justify-content: center;
+    gap: 0;
+  }
+  .nav-cluster > .recruiter-chip .recruiter-chip__label {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   The lattice chamber — the left half of the About band.
+
+   That panel was two static radial gradients and a 28px grid: a big, bright,
+   completely dead rectangle sitting next to the one card on the page that
+   moves. This fills it with a 3-D chamber that never stops — a grid floor
+   receding into perspective, three wireframe rings turning on three different
+   axes, and motes drifting through them on the Z axis.
+
+   Every layer here is `transform` and `opacity` on a `preserve-3d` stage.
+   No canvas, no WebGL context, no JavaScript, no layout, nothing on the main
+   thread — which is the whole reason it is CSS and not another three.js
+   scene: it cannot be tier-gated off, it cannot lose a context, and it cannot
+   be starved by the frame budget. It runs forever.
+
+   Motion: off stops it, because that setting means what it says.
+   ══════════════════════════════════════════════════════════════════════════ */
+.chamber {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  perspective: 620px;
+  perspective-origin: 50% 46%;
+  transform-style: preserve-3d;
+  pointer-events: none;
+  contain: strict;
+}
+
+/* Floor and ceiling. One grid plane laid nearly flat and its mirror, scrolled
+   along their own Y so they read as infinite, faded at the horizon by a mask
+   rather than a gradient overlay — one fewer layer to composite. They share
+   everything except colour, direction and which way they fade. */
+.chamber__floor,
+.chamber__roof {
+  position: absolute;
+  inset-inline: -60%;
+  block-size: 190%;
+  background-size: 44px 44px;
+  animation: chamberFloor 3.2s linear infinite;
+  animation-duration: calc(3.2s / max(var(--motion-scale), 0.001));
+  will-change: background-position;
+}
+.chamber__floor {
+  inset-block-start: 42%;
+  background-image:
+    linear-gradient(color-mix(in oklch, var(--accent) 34%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklch, var(--accent) 26%, transparent) 1px, transparent 1px);
+  transform: rotateX(78deg);
+  transform-origin: 50% 0;
+  mask-image: linear-gradient(#000 0%, rgba(0, 0, 0, 0.55) 28%, transparent 70%);
+}
+.chamber__roof {
+  inset-block-end: 58%;
+  background-image:
+    linear-gradient(color-mix(in oklch, var(--violet) 26%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklch, var(--violet) 20%, transparent) 1px, transparent 1px);
+  transform: rotateX(-78deg);
+  transform-origin: 50% 100%;
+  mask-image: linear-gradient(transparent 30%, rgba(0, 0, 0, 0.5) 72%, #000 100%);
+  animation-direction: reverse;
+  animation-duration: calc(4.6s / max(var(--motion-scale), 0.001));
+}
+@keyframes chamberFloor {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 0 44px, 0 0; }
+}
+
+/* Motes. Six spans travelling toward the camera on staggered offsets, so
+   something is always arriving and something is always leaving. */
+.chamber__mote {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  inline-size: 4px;
+  block-size: 4px;
+  border-radius: 50%;
+  background: var(--accent-bright);
+  box-shadow: 0 0 10px 2px color-mix(in oklch, var(--accent) 65%, transparent);
+  animation: chamberMote 7s linear infinite;
+  animation-duration: calc(7s / max(var(--motion-scale), 0.001));
+  animation-delay: calc(var(--mote-delay, 0s) / max(var(--motion-scale), 0.001));
+  will-change: transform, opacity;
+}
+@keyframes chamberMote {
+  0% { opacity: 0; transform: translate3d(var(--mote-x, 0), var(--mote-y, 0), -520px) scale(0.4); }
+  12% { opacity: 0.9; }
+  80% { opacity: 0.55; }
+  100% { opacity: 0; transform: translate3d(var(--mote-x, 0), var(--mote-y, 0), 240px) scale(1.5); }
+}
+
+/* Motion off means off — and every layer drops its `will-change`, because an
+   inert promoted layer still costs memory for nothing. */
+:root[data-motion='off'] .chamber__floor,
+:root[data-motion='off'] .chamber__roof,
+:root[data-motion='off'] .orrery__orbit,
+:root[data-motion='off'] .orrery__sat,
+:root[data-motion='off'] .orrery__sun,
+:root[data-motion='off'] .chamber__mote {
+  animation: none;
+  will-change: auto;
+}
+:root[data-motion='off'] .chamber__mote { opacity: 0.5; }
+
+/* Tier 1 keeps the chamber — it is CSS, it costs a compositor pass — but the
+   motes and the roof go, which is where most of the layer count is. */
+:root[data-gfx-tier='1'] .chamber__mote,
+:root[data-gfx-tier='1'] .chamber__roof {
+  display: none;
+}
+/* ══════════════════════════════════════════════════════════════════════════
+   The orrery.
+
+   Sun and all eight planets, in their real colours and their real order,
+   turning on a shared 3-D stage inside the chamber. Periods are compressed —
+   Neptune's real 165 years against Mercury's 88 days cannot be shown on one
+   screen — but they are compressed MONOTONICALLY, so every planet is slower
+   than the one inside it, which is the part a viewer can actually check.
+
+   Three nested elements per planet, and each does exactly one job:
+     __orbit  tilts the ring into perspective and turns it
+     __sat    rides the ring's edge, counter-turning so it does not tumble
+     __body   cancels the tilt so the lit sphere always faces the camera
+
+   That separation is why this is three elements and not one: a single element
+   cannot both travel along a tilted circle and keep its shading upright,
+   because it only has one transform to spend.
+   ══════════════════════════════════════════════════════════════════════════ */
+.orrery {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  inline-size: 0;
+  block-size: 0;
+  transform-style: preserve-3d;
+  /* Neptune sits at 8.8 au, so this is the number that decides whether the
+     outer system fits the panel. At 21px it did not — Uranus and Neptune were
+     clipped by the card edge on every frame. 12px puts Neptune's orbit at
+     106px, inside the narrowest column this panel is ever laid out in. */
+  --au: 12px;
+}
+@media (width < 48rem) { .orrery { --au: 9px; } }
+@media (width >= 90rem) { .orrery { --au: 14px; } }
+
+.orrery__sun {
+  position: absolute;
+  inline-size: 1.9rem;
+  block-size: 1.9rem;
+  margin-block-start: -0.95rem;
+  margin-inline-start: -0.95rem;
+  border-radius: 50%;
+  /* Photosphere out to corona: #fff6d8 → #ffd257 → #ff8a1f. */
+  background: radial-gradient(circle at 42% 38%, #fff6d8, #ffd257 42%, #ff8a1f 74%, rgba(255, 122, 24, 0) 100%);
+  box-shadow: 0 0 26px 8px rgba(255, 170, 52, 0.45), 0 0 70px 24px rgba(255, 122, 24, 0.18);
+  animation: orrerySun 4.5s ease-in-out infinite;
+  animation-duration: calc(4.5s / max(var(--motion-scale), 0.001));
+}
+@keyframes orrerySun {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.06); filter: brightness(1.14); }
+}
+
+.orrery__orbit {
+  position: absolute;
+  inline-size: calc(var(--r) * var(--au) * 2);
+  block-size: calc(var(--r) * var(--au) * 2);
+  margin-block-start: calc(var(--r) * var(--au) * -1);
+  margin-inline-start: calc(var(--r) * var(--au) * -1);
+  border-radius: 50%;
+  border: 1px solid color-mix(in oklch, var(--accent) 26%, transparent);
+  transform-style: preserve-3d;
+  animation: orreryOrbit var(--period) linear infinite;
+  animation-duration: calc(var(--period) / max(var(--motion-scale), 0.001));
+  will-change: transform;
+}
+@keyframes orreryOrbit {
+  from { transform: rotateX(74deg) rotateZ(var(--phase)); }
+  to { transform: rotateX(74deg) rotateZ(calc(var(--phase) + 360deg)); }
+}
+
+.orrery__sat {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 50%;
+  transform-style: preserve-3d;
+  animation: orrerySat var(--period) linear infinite;
+  animation-duration: calc(var(--period) / max(var(--motion-scale), 0.001));
+  will-change: transform;
+}
+@keyframes orrerySat {
+  from { transform: translate(-50%, -50%) rotateZ(calc(var(--phase) * -1)); }
+  to { transform: translate(-50%, -50%) rotateZ(calc((var(--phase) + 360deg) * -1)); }
+}
+
+.orrery__body {
+  display: block;
+  inline-size: var(--d);
+  block-size: var(--d);
+  border-radius: 50%;
+  /* Lit from the Sun's side, terminator on the far edge. */
+  background: radial-gradient(circle at 34% 32%, var(--lit), var(--dark) 76%);
+  box-shadow: 0 0 calc(var(--d) * 0.7) color-mix(in oklch, var(--lit) 45%, transparent);
+  transform: rotateX(-74deg);
+}
+
+/* Saturn's rings — one ellipse in the planet's own plane, so they stay in the
+   orbital plane while the body itself is turned to face the camera. */
+.orrery__body--ringed::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  inline-size: calc(var(--d) * 2.5);
+  block-size: calc(var(--d) * 2.5);
+  margin-block-start: calc(var(--d) * -1.25);
+  margin-inline-start: calc(var(--d) * -1.25);
+  border-radius: 50%;
+  border: 2px solid rgba(232, 214, 164, 0.9);
+  box-shadow: 0 0 8px rgba(232, 214, 164, 0.45), inset 0 0 0 2.5px rgba(232, 214, 164, 0.28);
+  transform: rotateX(72deg) rotateY(14deg);
+}
+.orrery__body { position: relative; }
+
+/* The grid stands down once the orrery is on it — two systems of curves
+   competing at the same weight read as noise rather than as depth. */
+.chamber:has(.orrery) .chamber__floor { opacity: 0.42; }
+.chamber:has(.orrery) .chamber__roof { opacity: 0.3; }
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Scroll-driven depth on the section headings.
+
+   Every section heading on the page turns out of the Z axis as it arrives and
+   settles flat when it reaches reading position — the same physical idea as
+   the hero gem and the orrery, restated six times on the way down so the page
+   reads as one dimensional space rather than as a stack of flat bands.
+
+   Driven by `animation-timeline: view()`, which means the browser advances it
+   off the main thread from scroll position alone. No IntersectionObserver, no
+   rAF subscriber, no React state, no work in a scroll handler — this costs
+   the same whether the visitor scrolls slowly or flings the page.
+
+   Three gates, all necessary:
+     @supports          — Safari has no scroll-driven animations yet
+     [data-sda='on']    — the runtime probe agrees (scrollDriven.js)
+     [data-motion]      — the scalar is not zero
+   Without the last one a visitor who asked for no motion would still get
+   headings pivoting at them, which is the exact thing they turned off.
+   ══════════════════════════════════════════════════════════════════════════ */
+@supports (animation-timeline: view()) {
+  :root[data-sda='on'] .section-h2 {
+    /* Perspective on the element itself rather than an ancestor: adding it to
+       the section would make that section a containing block for every fixed
+       descendant, which is how a perspective declaration silently unpins a
+       sticky header. */
+    transform-origin: 50% 120%;
+    animation: sectionDepth linear both;
+    animation-timeline: view();
+    animation-range: entry 8% entry 72%;
+    /* No `will-change` here on purpose. A scroll-driven animation is already
+       run off the main thread and the compositor promotes what it needs; the
+       hint would only pin six layers for the whole session, five of which are
+       nowhere near the viewport at any moment. */
+  }
+  @keyframes sectionDepth {
+    from {
+      opacity: 0.35;
+      transform: perspective(900px) rotateX(9deg) translateY(1.1rem) scale(0.985);
+    }
+    to {
+      opacity: 1;
+      transform: perspective(900px) rotateX(0deg) translateY(0) scale(1);
+    }
+  }
+  /* Off means off — and the promoted layer goes with it. */
+  :root[data-motion='off'][data-sda='on'] .section-h2,
+  :root[data-motion='reduced'][data-sda='on'] .section-h2 {
+    animation: none;
+    transform: none;
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-sda='on'] .section-h2 {
+    animation: none;
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* The magnetic button's defaults. In `@layer components` so that any Tailwind
+   utility a caller passes — `hidden`, `flex`, `sm:inline-flex` — outranks it.
+   See MagneticButton.jsx for what happened when these were utilities. */
+@layer components {
+  .magnetic-btn {
+    display: inline-block;
+    transition: transform var(--dur-fast) var(--ease-out-expo);
+  }
+}
+
+/* The run-complete card's two exits. "Again" is the primary of the pair —
+   it is the only place the hunt can be restarted — so it reads as a control
+   rather than as the grey afterthought DISMISS used to sit next to. */
+.run-complete__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  margin-block-start: 1.1rem;
+}
+.run-complete__again {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1.35rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklch, var(--accent) 45%, transparent);
+  background: color-mix(in oklch, var(--accent) 10%, transparent);
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: var(--step--2);
+  letter-spacing: 0.16em;
+  color: var(--accent-bright);
+  transition:
+    border-color var(--dur-fast) var(--ease-forge),
+    background-color var(--dur-fast) var(--ease-forge);
+}
+.run-complete__again:hover {
+  border-color: var(--accent);
+  background: color-mix(in oklch, var(--accent) 18%, transparent);
+}
+.run-complete__again::before {
+  content: '';
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  border-radius: 50%;
+  background: var(--accent-bright);
+  box-shadow: 0 0 10px 2px color-mix(in oklch, var(--accent) 70%, transparent);
+  animation: sparkPip 2.2s ease-in-out infinite;
+  animation-duration: calc(2.2s / max(var(--motion-scale), 0.001));
+}
+@keyframes sparkPip {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.35); }
+}
+:root[data-motion='off'] .run-complete__again::before { animation: none; opacity: 1; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   The skill reactor.
+
+   This replaces the skill ring, and the reason is worth writing down because
+   the flag that caused it looked like the correct fix at the time.
+
+   The ring was six faces on one turning stage with `backface-visibility:
+   hidden`. That flag solves a real problem — a face seen from behind shows
+   its text mirrored — but it solves it by *not drawing* the far half. Four of
+   the six panels were invisible at any moment, so a six-sided carousel read
+   as two lonely cards in a 400px square. The object was mostly empty.
+
+   The orrery next door had already answered this: **counter-rotation**. A
+   satellite there rides a turning ring and counter-turns on the same clock so
+   it does not tumble. Do the same on the Y axis and a panel travels the whole
+   circle while permanently facing the camera — nothing is ever mirrored, so
+   nothing has to be hidden, and all six are legible at every instant.
+
+   Once every panel is visible, the shape can carry more: two rings turning in
+   opposite directions, three panels each, the hub between them. Depth is then
+   read from brightness instead of from absence — `reactorDepth` is phase-
+   locked to the same period and offset per lane, so a panel dims and softens
+   exactly as it swings behind the core.
+
+   Five nested elements per panel, each with exactly one job, because each has
+   only one transform to spend:
+
+     __ring    turns, and holds its plane's height
+     __lane    the fixed 120-degree offset around that ring
+     __mount   the radius — and the only thing hover moves
+     __panel   the counter-turn that cancels the ring, every frame
+     __skin    depth shading; opacity cannot share an element with a transform
+               that is already animating
+
+   Transforms and opacity only: no canvas, no context to lose, nothing that
+   the frame budget can starve. The one piece of JavaScript is the pointer
+   tilt on the gimbal, which runs on the shared ticker.
+   ══════════════════════════════════════════════════════════════════════════ */
+.skill-reactor {
+  /* One period for the whole machine. Both rings, both counter-turns and all
+     six depth curves divide it, which is the only reason the phase locking
+     holds — change this and everything stays in step. */
+  --period: 30s;
+  --radius: 7.6rem;
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+
+  position: relative;
+  inline-size: 100%;
+  aspect-ratio: 1;
+  /* Short enough that the near panel is meaningfully larger than the far one
+     (1.16x against 0.88x), long enough that it is not distorted. The old ring
+     used 1500px and the depth was barely readable. */
+  perspective: 820px;
+  perspective-origin: 50% 46%;
+  overflow: visible;
+}
+
+/* The whole assembly leans toward the pointer. It is a separate element from
+   the rings because their Y rotation is animated and a script cannot share a
+   property with a keyframe. */
+.skill-reactor__gimbal {
+  position: absolute;
+  inset-block-start: 47%;
+  inset-inline-start: 50%;
+  inline-size: 0;
+  block-size: 0;
+  transform-style: preserve-3d;
+  transform: rotateX(calc(-21deg + var(--tilt-x))) rotateY(var(--tilt-y));
+}
+
+/* ── The hub ────────────────────────────────────────────────────────────── */
+
+.skill-reactor__hub {
+  position: absolute;
+  inline-size: 0;
+  block-size: 0;
+  transform-style: preserve-3d;
+}
+
+/* The axis the whole thing turns about, drawn rather than implied. */
+.skill-reactor__spindle {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 15rem;
+  margin-block-start: -7.5rem;
+  margin-inline-start: -0.5px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in oklch, var(--accent) 45%, transparent) 22%,
+    color-mix(in oklch, var(--violet) 55%, transparent) 50%,
+    color-mix(in oklch, var(--accent) 45%, transparent) 78%,
+    transparent
+  );
+  opacity: 0.55;
+}
+
+/* Charge running up the spindle — three, staggered by a third of a cycle, so
+   something is always arriving at the core. */
+.skill-reactor__mote {
+  position: absolute;
+  inline-size: 4px;
+  block-size: 4px;
+  margin-inline-start: -2px;
+  border-radius: 50%;
+  background: var(--accent-bright);
+  box-shadow: 0 0 10px 2px color-mix(in oklch, var(--accent) 60%, transparent);
+  animation: reactorMote 4.2s linear infinite;
+  animation-duration: calc(4.2s / max(var(--motion-scale), 0.001));
+  animation-delay: calc(var(--m) * -1.4s / max(var(--motion-scale), 0.001));
+}
+@keyframes reactorMote {
+  0%   { transform: translate3d(0, 4rem, 0) scale(0.4); opacity: 0; }
+  18%  { opacity: 1; }
+  76%  { opacity: 0.85; }
+  100% { transform: translate3d(0, -4rem, 0) scale(1); opacity: 0; }
+}
+
+.skill-reactor__corona {
+  position: absolute;
+  inline-size: 9rem;
+  block-size: 9rem;
+  margin-block-start: -4.5rem;
+  margin-inline-start: -4.5rem;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in oklch, var(--accent) 30%, transparent),
+    color-mix(in oklch, var(--violet) 18%, transparent) 45%,
+    transparent 70%
+  );
+  filter: blur(14px);
+  animation: reactorCorona 7s ease-in-out infinite;
+  animation-duration: calc(7s / max(var(--motion-scale), 0.001));
+}
+@keyframes reactorCorona {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50%      { opacity: 0.9; transform: scale(1.12); }
+}
+
+/* The core reads as a lit sphere for the same reason the orrery's planets do:
+   the highlight is off-centre and the terminator falls on the far edge. */
+.skill-reactor__core {
+  position: absolute;
+  inline-size: 3.4rem;
+  block-size: 3.4rem;
+  margin-block-start: -1.7rem;
+  margin-inline-start: -1.7rem;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 38% 34%,
+    color-mix(in oklch, var(--accent-bright) 92%, white),
+    var(--accent) 40%,
+    color-mix(in oklch, var(--violet) 80%, transparent) 74%,
+    transparent 88%
+  );
+  box-shadow:
+    0 0 28px 6px color-mix(in oklch, var(--accent) 40%, transparent),
+    0 0 64px 20px color-mix(in oklch, var(--violet) 16%, transparent);
+  animation: reactorCore 5s ease-in-out infinite;
+  animation-duration: calc(5s / max(var(--motion-scale), 0.001));
+}
+@keyframes reactorCore {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  50%      { transform: scale(1.06); filter: brightness(1.18); }
+}
+/* Containment ring in the core's own equator — the detail that says the
+   sphere is held by something rather than merely floating. */
+.skill-reactor__core::after {
+  content: '';
+  position: absolute;
+  inset: -22%;
+  border-radius: 50%;
+  border: 1px solid color-mix(in oklch, var(--accent-bright) 60%, transparent);
+  box-shadow: 0 0 12px -2px color-mix(in oklch, var(--accent) 60%, transparent);
+  transform: rotateX(74deg);
+}
+
+/* Twenty-four ticks around the platter rim. A plain circle reads as a drawn
+   line; a graduated one reads as a bearing the machine sits in. */
+.skill-reactor__platter::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  background: repeating-conic-gradient(
+    from 0deg,
+    color-mix(in oklch, var(--accent) 60%, transparent) 0deg 0.5deg,
+    transparent 0.5deg 15deg
+  );
+  mask: radial-gradient(circle, transparent 91%, #000 92%);
+  -webkit-mask: radial-gradient(circle, transparent 91%, #000 92%);
+}
+.skill-reactor__platter--inner::after { display: none; }
+
+/* Two gyro rings on different axes. A plain circle spinning about its own
+   axis shows nothing, which is why one is dashed and the other is a conic
+   gradient — the dashes and the bright arc are what carry the motion. */
+.skill-reactor__gyro {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+}
+.skill-reactor__gyro--a {
+  inline-size: 6.2rem;
+  block-size: 6.2rem;
+  margin-block-start: -3.1rem;
+  margin-inline-start: -3.1rem;
+  border: 1px dashed color-mix(in oklch, var(--accent) 42%, transparent);
+  animation: reactorGyroA 14s linear infinite;
+  animation-duration: calc(14s / max(var(--motion-scale), 0.001));
+}
+@keyframes reactorGyroA {
+  from { transform: rotateX(72deg) rotateZ(0deg); }
+  to   { transform: rotateX(72deg) rotateZ(360deg); }
+}
+.skill-reactor__gyro--b {
+  inline-size: 5rem;
+  block-size: 5rem;
+  margin-block-start: -2.5rem;
+  margin-inline-start: -2.5rem;
+  padding: 1px;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    var(--violet) 40deg,
+    color-mix(in oklch, var(--accent-bright) 70%, transparent) 90deg,
+    transparent 150deg,
+    transparent 360deg
+  );
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  animation: reactorGyroB 9s linear infinite;
+  animation-duration: calc(9s / max(var(--motion-scale), 0.001));
+}
+@keyframes reactorGyroB {
+  from { transform: rotateY(64deg) rotateX(16deg) rotateZ(0deg); }
+  to   { transform: rotateY(64deg) rotateX(16deg) rotateZ(-360deg); }
+}
+
+/* ── The rings ──────────────────────────────────────────────────────────── */
+
+/* --dir is +1 or -1 and is set per ring in the markup. It appears in three
+   places — the turn, the counter-turn and the depth phase — and all three
+   must read the same one, which is why it is a property and not two
+   hand-written keyframe sets. */
+.skill-reactor__ring {
+  position: absolute;
+  inline-size: 0;
+  block-size: 0;
+  transform-style: preserve-3d;
+  animation: reactorRing var(--period) linear infinite;
+  animation-duration: calc(var(--period) / max(var(--motion-scale), 0.001));
+  will-change: transform;
+}
+@keyframes reactorRing {
+  from { transform: translateY(var(--y)) rotateY(0deg); }
+  to   { transform: translateY(var(--y)) rotateY(calc(var(--dir) * 360deg)); }
+}
+
+/* The path itself, laid flat into the ring's plane. It turns with the ring;
+   a plain circle would show nothing for that, so the light is a conic arc
+   riding around the rim. */
+.skill-reactor__orbit {
+  position: absolute;
+  inline-size: calc(var(--radius) * 2);
+  block-size: calc(var(--radius) * 2);
+  margin-block-start: calc(var(--radius) * -1);
+  margin-inline-start: calc(var(--radius) * -1);
+  border-radius: 50%;
+  padding: 1px;
+  background: conic-gradient(
+    from 0deg,
+    color-mix(in oklch, var(--accent) 10%, transparent) 0deg,
+    var(--accent-bright) 30deg,
+    color-mix(in oklch, var(--violet) 40%, transparent) 90deg,
+    color-mix(in oklch, var(--accent) 10%, transparent) 200deg,
+    color-mix(in oklch, var(--accent) 10%, transparent) 360deg
+  );
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  transform: rotateX(90deg);
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.skill-reactor__lane {
+  position: absolute;
+  inline-size: 0;
+  block-size: 0;
+  transform-style: preserve-3d;
+  transform: rotateY(calc(var(--i) * 120deg));
+}
+
+/* Hub to panel, drawn in the ring's plane. It is a bar of length --radius
+   swung onto the Z axis about its own inner end, so it points outward from
+   the core — nearly invisible when its lane faces the camera, broadside when
+   the lane is side-on. That is exactly how a real spoke behaves. */
+.skill-reactor__tether {
+  position: absolute;
+  inline-size: var(--radius);
+  block-size: 1px;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  transform-origin: 0 50%;
+  transform: rotateY(-90deg);
+  background: linear-gradient(
+    to right,
+    color-mix(in oklch, var(--face) 70%, transparent),
+    color-mix(in oklch, var(--face) 8%, transparent)
+  );
+  opacity: 0.9;
+  pointer-events: none;
+}
+/* Charge travelling out to the panel. */
+.skill-reactor__tether::after {
+  content: '';
+  position: absolute;
+  inset-block-start: -1px;
+  inset-inline-start: 0;
+  inline-size: 14px;
+  block-size: 3px;
+  border-radius: 2px;
+  background: var(--face-bright);
+  box-shadow: 0 0 9px 1px color-mix(in oklch, var(--face) 70%, transparent);
+  animation: reactorPulse 2.6s linear infinite;
+  animation-duration: calc(2.6s / max(var(--motion-scale), 0.001));
+  animation-delay: calc(var(--i) * -0.65s / max(var(--motion-scale), 0.001));
+}
+@keyframes reactorPulse {
+  0%   { transform: translateX(0); opacity: 0; }
+  15%  { opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translateX(calc(var(--radius) - 14px)); opacity: 0; }
+}
+
+/* The radius, and the only thing hover moves — a panel steps toward the
+   camera rather than growing, because growing is a 2-D idea. */
+.skill-reactor__mount {
+  position: absolute;
+  inline-size: 0;
+  block-size: 0;
+  transform-style: preserve-3d;
+  transform: translateZ(var(--radius));
+  transition: transform var(--dur-base) var(--ease-forge);
+}
+
+/* The counter-turn. It cancels the ring's rotation and the lane's fixed
+   offset on the same clock and in the same direction, so the sum is zero at
+   every instant and the panel never leaves the camera. Both animations start
+   at document load and share one period; that is what keeps them locked. */
+.skill-reactor__panel {
+  position: absolute;
+  inline-size: 7rem;
+  block-size: 3.1rem;
+  margin-block-start: -1.55rem;
+  margin-inline-start: -3.5rem;
+  transform-style: preserve-3d;
+  animation: reactorFace var(--period) linear infinite;
+  animation-duration: calc(var(--period) / max(var(--motion-scale), 0.001));
+  will-change: transform;
+}
+@keyframes reactorFace {
+  from { transform: rotateY(calc(var(--i) * -120deg)); }
+  to   { transform: rotateY(calc(var(--i) * -120deg - var(--dir) * 360deg)); }
+}
+
+/* Depth as light, phase-locked to the turn.
+ *
+ * A lane one third of the way around its ring is one third of a cycle away
+ * from facing the camera, so the offset is --i / 3 of a period — and the sign
+ * flips with the ring's direction, because the two rings arrive at the front
+ * from opposite sides.
+ *
+ * The `- 3` is the part that is easy to get wrong and impossible to miss once
+ * it is wrong. Only a NEGATIVE `animation-delay` starts an animation partway
+ * in; a positive one makes the element sit at its `from` state and wait. The
+ * counter-turning ring needs a positive offset, so all three of its panels
+ * held opacity 1 for the first thirty seconds — every panel bright, no depth
+ * at all, and then it silently corrected itself once the cycle came round.
+ * Subtracting a whole period puts every case back into negative territory
+ * without changing the phase, because the animation is infinite.
+ *
+ * The divisor at the end is not optional either: the durations above are
+ * scaled by --motion-scale, and a delay that is not scaled by the same number
+ * is a delay against a different clock. That is what phase-locked means.
+ *
+ * This is the one part of the file checkable by eye: the dim panel should
+ * always be the far one. */
+.skill-reactor__skin {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  border-radius: 0.7rem;
+  border: 1px solid color-mix(in oklch, var(--face) 60%, transparent);
+  /* Three layers, because one flat fill is what made the first pass read as a
+     rounded rectangle rather than as a machined panel: a top-lit sheen, the
+     group's colour, and the surface underneath. */
+  background:
+    radial-gradient(120% 80% at 28% -20%, rgb(255 255 255 / 0.1), transparent 60%),
+    linear-gradient(180deg, color-mix(in oklch, var(--face) 24%, transparent), transparent 58%),
+    linear-gradient(
+      150deg,
+      color-mix(in oklch, var(--face) 16%, var(--surface-1)),
+      color-mix(in oklch, var(--face) 4%, var(--surface-0))
+    );
+  box-shadow:
+    0 0 26px -10px color-mix(in oklch, var(--face) 80%, transparent),
+    inset 0 1px 0 color-mix(in oklch, var(--ink) 12%, transparent);
+  animation: reactorDepth var(--period) ease-in-out infinite;
+  animation-duration: calc(var(--period) / max(var(--motion-scale), 0.001));
+  animation-delay: calc(
+    (var(--dir) * var(--i) * -1 - 3) * var(--period) / 3 / max(var(--motion-scale), 0.001)
+  );
+  transition:
+    border-color var(--dur-fast) var(--ease-forge),
+    box-shadow var(--dur-fast) var(--ease-forge);
+}
+@keyframes reactorDepth {
+  0%, 100% { opacity: 1; filter: blur(0); }
+  50%      { opacity: 0.42; filter: blur(0.7px); }
+}
+
+/* The lit rail along the panel's top edge. It is the one detail that makes a
+   dark rectangle read as a lit object rather than as a hole. */
+.skill-reactor__skin::before {
+  content: '';
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 18%;
+  block-size: 1.5px;
+  border-radius: 0 0 2px 2px;
+  background: linear-gradient(90deg, transparent, var(--face-bright), transparent);
+  opacity: 0.85;
+}
+
+.skill-reactor__label {
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 0.62rem;
+  line-height: 1.2;
+  letter-spacing: 0.1em;
+  color: var(--face-bright);
+  text-align: center;
+  padding-inline: 0.4rem;
+}
+.skill-reactor__count {
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.12em;
+  color: var(--ink-low);
+}
+/* The socket the tether lands in, on the hub-facing edge. */
+.skill-reactor__node {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: -3px;
+  inline-size: 5px;
+  block-size: 5px;
+  margin-block-start: -2.5px;
+  border-radius: 50%;
+  background: var(--face-bright);
+  box-shadow: 0 0 8px 1px color-mix(in oklch, var(--face) 70%, transparent);
+}
+
+/* ── The ground ─────────────────────────────────────────────────────────── */
+
+.skill-reactor__platter {
+  position: absolute;
+  inset-block-start: 64%;
+  inset-inline-start: 50%;
+  inline-size: 19rem;
+  block-size: 19rem;
+  margin-block-start: -9.5rem;
+  margin-inline-start: -9.5rem;
+  border-radius: 50%;
+  border: 1px solid color-mix(in oklch, var(--accent) 34%, transparent);
+  transform: rotateX(77deg);
+  mask-image: radial-gradient(circle, #000 55%, transparent 78%);
+  pointer-events: none;
+}
+.skill-reactor__platter--inner {
+  inline-size: 11rem;
+  block-size: 11rem;
+  margin-block-start: -5.5rem;
+  margin-inline-start: -5.5rem;
+  border-color: color-mix(in oklch, var(--violet) 22%, transparent);
+  border-style: dashed;
+}
+.skill-reactor__bloom {
+  position: absolute;
+  inset-block-start: 46%;
+  inset-inline-start: 50%;
+  inline-size: 17rem;
+  block-size: 17rem;
+  margin-block-start: -8.5rem;
+  margin-inline-start: -8.5rem;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in oklch, var(--accent) 14%, transparent),
+    transparent 65%
+  );
+  filter: blur(30px);
+  pointer-events: none;
+}
+
+/* ── Interaction ────────────────────────────────────────────────────────── */
+
+/* Gated for the same reason the cards are: on touch, `:hover` latches on tap
+   and the machine would simply stop, permanently, on the first finger. */
+@media (hover: hover) and (pointer: fine) {
+  /* Everything that turns stops together. Pausing only the rings would break
+     the phase lock and the panels would drift off-camera. */
+  .skill-reactor:hover .skill-reactor__ring,
+  .skill-reactor:hover .skill-reactor__panel,
+  .skill-reactor:hover .skill-reactor__skin,
+  .skill-reactor:focus-within .skill-reactor__ring,
+  .skill-reactor:focus-within .skill-reactor__panel,
+  .skill-reactor:focus-within .skill-reactor__skin {
+    animation-play-state: paused;
+  }
+
+  .skill-reactor__lane:hover .skill-reactor__mount {
+    transform: translateZ(calc(var(--radius) + 1.1rem));
+  }
+  .skill-reactor__lane:hover .skill-reactor__skin {
+    border-color: var(--face-bright);
+    box-shadow:
+      0 0 40px -8px color-mix(in oklch, var(--face) 90%, transparent),
+      inset 0 1px 0 color-mix(in oklch, var(--ink) 16%, transparent);
+  }
+}
+
+/* ── Degraded paths ─────────────────────────────────────────────────────── */
+
+:root[data-gfx-tier='1'] .skill-reactor__bloom,
+:root[data-gfx-tier='1'] .skill-reactor__corona,
+:root[data-gfx-tier='1'] .skill-reactor__mote { display: none; }
+
+/* Motion off stops the machine without flattening it. The counter-rotation
+   makes this case unusually clean: every panel already faces the camera, so a
+   frozen reactor is a legible diagram — six labelled panels on two rings —
+   rather than a carousel caught mid-turn with half its faces edge-on.
+
+   The rings hold a quarter turn from each other so no panel hides another,
+   and the depth shading is dropped entirely: without motion there is no
+   moment when a dim panel becomes bright again, and a permanently 42%-opaque
+   label is just an unreadable label. */
+:root[data-motion='off'] .skill-reactor__ring {
+  animation: none;
+  transform: translateY(var(--y)) rotateY(calc(var(--dir) * 30deg));
+}
+:root[data-motion='off'] .skill-reactor__panel {
+  animation: none;
+  transform: rotateY(calc(var(--i) * -120deg - var(--dir) * 30deg));
+}
+:root[data-motion='off'] .skill-reactor__skin {
+  animation: none;
+  opacity: 1;
+  filter: none;
+}
+:root[data-motion='off'] .skill-reactor__tether::after,
+:root[data-motion='off'] .skill-reactor__mote { display: none; }
+:root[data-motion='off'] .skill-reactor__core,
+:root[data-motion='off'] .skill-reactor__corona,
+:root[data-motion='off'] .skill-reactor__gyro--a,
+:root[data-motion='off'] .skill-reactor__gyro--b { animation: none; }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   The skill cards — a depth rig, not a rectangle that leans.
+
+   The old card was flat: one plane, one spring on rotateX/rotateY. Tilting it
+   moved every pixel together, which reads as a photograph being turned rather
+   than as an object with a near side and a far side. Parallax is what sells
+   depth, and parallax needs things at different distances.
+
+   So everything here lives on its own Z plane inside one `preserve-3d` stack
+   (the cast shadow sits outside it, behind the whole rig):
+
+     -34px  circuit plate    parallaxes behind the glass — the real depth cue
+     -12px  chroma bloom     the group's colour pooled under the surface
+       0    the face         glass, rim light, pointer glare
+     +18px  chips            staggered per index, so the row has thickness
+     +30px  corner brackets  they push outward as the card lifts
+     +40px  the index badge  nearest the camera; it leads every movement
+
+   Two rules the whole block depends on:
+
+   1. No `overflow: hidden` anywhere on the stack. `overflow` other than
+      `visible` forces a used `transform-style: flat`, which collapses every
+      plane above back onto the face and turns the rig into the flat card it
+      replaced. Each overlay is a rounded rect that clips itself instead.
+
+   2. No `mix-blend-mode`, for the same class of reason — blending groups the
+      element and flattens what is beneath it. The rim and glare get their
+      lift from colour and opacity alone.
+
+   The pointer drives --rx/--ry/--lift/--glare through one damped lerp on the
+   shared ticker (see SkillCard), so there is no spring engine per card and no
+   React render per frame.
+   ══════════════════════════════════════════════════════════════════════════ */
+.skill3d {
+  --rx: 0deg;
+  --ry: 0deg;
+  /* The same rotations as bare numbers, for the one consumer that needs them
+     as a length — see .skill3d__cast. */
+  --rxn: 0;
+  --ryn: 0;
+  --lift: 0px;
+  --glare: 0;
+  --mx: 50%;
+  --my: 50%;
+  --angle: 180deg;
+  --hue: var(--accent);
+  --hue-bright: var(--accent-bright);
+
+  position: relative;
+  block-size: 100%;
+  /* Long enough that a 40px badge does not balloon at the near edge — the
+     same reasoning as the ring's 1500px, scaled to a much smaller object. */
+  perspective: 900px;
+  perspective-origin: var(--mx) var(--my);
+}
+
+/* The idle sway. It is a separate element from the body because the body's
+   transform is written every frame by JS, and an animation and a script
+   cannot both own one property. Two elements, one property each. */
+.skill3d__drift {
+  position: relative;
+  block-size: 100%;
+  transform-style: preserve-3d;
+  animation: skill3dDrift 11s ease-in-out infinite;
+  animation-duration: calc(11s / max(var(--motion-scale), 0.001));
+  animation-delay: calc(var(--drift-delay, 0s) / max(var(--motion-scale), 0.001));
+}
+@keyframes skill3dDrift {
+  0%, 100% { transform: rotateX(1deg) rotateY(-1.8deg) translate3d(0, 0, 0); }
+  50%      { transform: rotateX(-1.2deg) rotateY(2deg) translate3d(0, -3px, 8px); }
+}
+.skill3d__body {
+  position: relative;
+  block-size: 100%;
+  padding: 1.35rem 1.25rem 1.4rem;
+  border-radius: 1rem;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--rx)) rotateY(var(--ry)) translate3d(0, 0, var(--lift));
+  border: 1px solid var(--glass-border);
+  background:
+    linear-gradient(180deg in oklch, rgb(255 255 255 / 0.05), transparent 55%),
+    linear-gradient(
+      152deg,
+      color-mix(in oklch, var(--hue) 9%, var(--surface-1)),
+      color-mix(in oklch, var(--surface-1) 94%, transparent) 62%
+    );
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-highlight),
+    inset 0 -1px 0 0 rgb(0 0 0 / 0.28);
+  transition:
+    border-color var(--dur-base) var(--ease-forge),
+    box-shadow var(--dur-base) var(--ease-forge);
+}
+/* ── Below the face ─────────────────────────────────────────────────────── */
+
+/* The cast shadow. It sits behind the card and slides *opposite* the tilt,
+   which is the cue that says "this is above the page" rather than "this is
+   drawn on the page". */
+.skill3d__cast {
+  position: absolute;
+  inset: 12% 8% -6%;
+  border-radius: 1.4rem;
+  background: radial-gradient(ellipse at 50% 50%, rgb(0 0 0 / 0.55), transparent 70%);
+  filter: blur(18px);
+  opacity: calc(0.25 + var(--glare) * 0.45);
+  transform: translate3d(calc(var(--ryn) * -0.6px), calc(var(--rxn) * 0.5px), 0);
+  pointer-events: none;
+}
+
+/* The circuit plate. A grid drawn well behind the glass so that moving the
+   pointer slides it against the surface — this layer, more than the rotation
+   itself, is what the eye reads as depth. */
+.skill3d__plate {
+  position: absolute;
+  inset: 6%;
+  border-radius: 0.8rem;
+  transform: translateZ(-34px);
+  background-image:
+    linear-gradient(to right, color-mix(in oklch, var(--hue) 26%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklch, var(--hue) 26%, transparent) 1px, transparent 1px);
+  background-size: 22px 22px;
+  mask-image: radial-gradient(ellipse at var(--mx) var(--my), #000 5%, transparent 62%);
+  opacity: calc(0.2 + var(--glare) * 0.8);
+  transition: opacity var(--dur-base) var(--ease-forge);
+  pointer-events: none;
+}
+
+/* The group's colour, pooled just under the surface and following the
+   pointer. This replaces the old `.spotlight` wash, which was flat on the
+   face and therefore invisible the moment the card turned. */
+.skill3d__bloom {
+  position: absolute;
+  inset: -14%;
+  border-radius: 50%;
+  transform: translateZ(-12px);
+  background: radial-gradient(
+    circle at var(--mx) var(--my),
+    color-mix(in oklch, var(--hue-bright) 34%, transparent),
+    transparent 58%
+  );
+  filter: blur(26px);
+  opacity: var(--glare);
+  pointer-events: none;
+}
+
+/* ── On the face ────────────────────────────────────────────────────────── */
+
+/* One moving light around the edge. The conic starts at --angle, which JS
+   points at the pointer, so the bright arc tracks the cursor around the
+   border instead of spinning on a timer the way `.conic-border` does. */
+.skill3d__rim {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  transform: translateZ(0.5px);
+  background: conic-gradient(
+    from var(--angle),
+    transparent 0deg,
+    var(--hue-bright) 22deg,
+    color-mix(in oklch, var(--hue) 55%, transparent) 46deg,
+    transparent 96deg,
+    transparent 264deg,
+    color-mix(in oklch, var(--hue) 40%, transparent) 314deg,
+    var(--hue-bright) 338deg,
+    transparent 360deg
+  );
+  /* Longhands only, deliberately.
+     Written as `mask: … ; mask-composite: exclude`, the production minifier
+     re-orders the declarations so the SHORTHAND lands last — and a shorthand
+     resets `mask-composite` to `add`. The ring mask then does nothing and the
+     conic gradient floods the whole element instead of drawing a 1px border.
+     That was shipping on five separate effects; the skill card's version
+     showed as a hard-edged spike of light across the card face on hover.
+     A longhand cannot be reset by a shorthand that is not there. */
+  mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+  mask-clip: content-box, border-box;
+  mask-composite: exclude;
+  -webkit-mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
+  -webkit-mask-clip: content-box, border-box;
+  -webkit-mask-composite: xor;
+  opacity: var(--glare);
+  pointer-events: none;
+}
+
+/* Specular highlight, hard against the glass and tinted at its edge — white
+   alone reads as a flashlight, white-into-hue reads as a coated surface. */
+/* ══════════════════════════════════════════════════════════════════════════
+   The holographic pass.
+
+   A diffraction grating: fine parallel lines whose hue rotates with the
+   pointer, composited `color-dodge` so it BRIGHTENS what is beneath rather
+   than tinting it — which is what a real hologram does to light, and the
+   reason this reads as a material rather than as an overlay.
+
+   Two gratings at different pitches and opposing angles, because a single
+   one reads as stripes; crossed, they moiré into the iridescent shimmer the
+   effect is named for. Both ride the pointer's own gradient position, so the
+   bands sweep as the pointer moves instead of sitting still under it.
+
+   Cost is one composited layer per hovered card and zero at rest: opacity is
+   `var(--glare)`, which the pointer handler drives to 0 on leave, and the
+   promotion is scoped to :hover so an untouched grid promotes nothing.
+   ══════════════════════════════════════════════════════════════════════════ */
+.skill3d__holo {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  transform: translateZ(0.8px);
+  background-image:
+    repeating-linear-gradient(
+      calc(var(--angle) * 0.5 + 18deg),
+      hsl(190 100% 70% / 0.26) 0px,
+      hsl(280 100% 72% / 0.26) 2.5px,
+      hsl(45 100% 68% / 0.22) 5px,
+      transparent 10px
+    ),
+    repeating-linear-gradient(
+      calc(var(--angle) * -0.5 - 62deg),
+      hsl(160 100% 66% / 0.16) 0px,
+      hsl(320 100% 70% / 0.16) 3.5px,
+      transparent 9px
+    );
+  background-position: var(--mx) var(--my), var(--my) var(--mx);
+  background-size: 220% 220%;
+  mix-blend-mode: color-dodge;
+  /* Strongest where the pointer is, gone at the far corners — an even wash
+     would read as a filter over the card instead of as light on it. */
+  /* Tight around the pointer and gone quickly. Spread wide it stopped being
+     a sheen and became texture printed over the copy. */
+  mask-image: radial-gradient(circle 165px at var(--mx) var(--my), #000 4%, transparent 70%);
+  opacity: calc(var(--glare) * 0.55);
+  pointer-events: none;
+}
+
+/* The caustic. The pooled, smeared light an edge throws when it catches a
+   source — elongated along the rim, tracking the pointer. */
+.skill3d__caustic {
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  transform: translateZ(1.4px);
+  background: radial-gradient(
+    ellipse 60% 26% at var(--mx) var(--my),
+    color-mix(in oklch, var(--hue-bright) 55%, transparent),
+    transparent 72%
+  );
+  filter: blur(9px);
+  opacity: calc(var(--glare) * 0.55);
+  pointer-events: none;
+}
+
+/* The far grid. Sits well behind the circuit plate and counter-parallaxes
+   against it — two depths moving past each other is what produces volume;
+   one moving alone just slides. */
+.skill3d__deep {
+  position: absolute;
+  inset: -20%;
+  border-radius: inherit;
+  transform: translate3d(calc(var(--ryn) * 1.1px), calc(var(--rxn) * -1.1px), -70px);
+  background-image:
+    linear-gradient(color-mix(in oklch, var(--hue) 22%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklch, var(--hue) 22%, transparent) 1px, transparent 1px);
+  background-size: 17px 17px;
+  mask-image: radial-gradient(ellipse 62% 62% at var(--mx) var(--my), #000, transparent 76%);
+  opacity: calc(0.16 + var(--glare) * 0.4);
+  pointer-events: none;
+}
+
+/* Promotion is scoped to the interaction. Six idle cards holding nine
+   promoted layers each is 54 layers of nothing; on hover it is nine. */
+.skill3d:hover .skill3d__holo,
+.skill3d:hover .skill3d__caustic,
+.skill3d:hover .skill3d__deep,
+.skill3d:focus-within .skill3d__holo,
+.skill3d:focus-within .skill3d__caustic,
+.skill3d:focus-within .skill3d__deep {
+  will-change: transform, opacity;
+}
+
+/* Motion off keeps the card and loses the light show: the grating and the
+   caustic are pure motion response and have nothing to say when still. */
+:root[data-motion='off'] .skill3d__holo,
+:root[data-motion='off'] .skill3d__caustic { display: none; }
+:root[data-motion='off'] .skill3d__deep { opacity: 0.12; }
+
+/* Tier 1 gets the card, the plate and the glare — not a blended grating and
+   a blurred caustic, which are the two most expensive things here. */
+:root[data-gfx-tier='1'] .skill3d__holo,
+:root[data-gfx-tier='1'] .skill3d__caustic { display: none; }
+
+/* `color-dodge` against a forced palette produces unpredictable luminance —
+   in forced-colors the only correct answer is nothing. */
+@media (forced-colors: active) {
+  .skill3d__holo,
+  .skill3d__caustic,
+  .skill3d__deep { display: none; }
+}
+
+.skill3d__glare {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  transform: translateZ(1px);
+  background: radial-gradient(
+    circle 120px at var(--mx) var(--my),
+    rgb(255 255 255 / 0.16),
+    color-mix(in oklch, var(--hue-bright) 12%, transparent) 42%,
+    transparent 68%
+  );
+  opacity: var(--glare);
+  pointer-events: none;
+}
+
+/* A single pass of light down the card when the pointer arrives. It runs once
+   per entry rather than looping, so it reads as a response and not as decor. */
+.skill3d__scan {
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  transform: translateZ(2px);
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in oklch, var(--hue-bright) 22%, transparent) 48%,
+    transparent
+  );
+  opacity: 0;
+  pointer-events: none;
+}
+@keyframes skill3dScan {
+  0%   { opacity: 0; clip-path: inset(0 0 100% 0); }
+  35%  { opacity: 1; }
+  100% { opacity: 0; clip-path: inset(100% 0 0 0); }
+}
+
+/* ── Above the face ─────────────────────────────────────────────────────── */
+
+/* Corner brackets. They sit forward of the glass and push outward as the card
+   lifts, so the frame opens rather than merely brightening. */
+.skill3d__corner {
+  position: absolute;
+  inline-size: 0.85rem;
+  block-size: 0.85rem;
+  transform: translateZ(30px);
+  opacity: 0;
+  transition:
+    opacity var(--dur-base) var(--ease-forge),
+    inset var(--dur-base) var(--ease-forge);
+  pointer-events: none;
+}
+.skill3d__corner--tl { inset-block-start: 0.6rem; inset-inline-start: 0.6rem; border-block-start: 1.5px solid color-mix(in oklch, var(--hue) 70%, transparent); border-inline-start: 1.5px solid color-mix(in oklch, var(--hue) 70%, transparent); border-start-start-radius: 4px; }
+.skill3d__corner--tr { inset-block-start: 0.6rem; inset-inline-end: 0.6rem; border-block-start: 1.5px solid color-mix(in oklch, var(--hue) 70%, transparent); border-inline-end: 1.5px solid color-mix(in oklch, var(--hue) 70%, transparent); border-start-end-radius: 4px; }
+.skill3d__corner--bl { inset-block-end: 0.6rem; inset-inline-start: 0.6rem; border-block-end: 1.5px solid color-mix(in oklch, var(--hue) 70%, transparent); border-inline-start: 1.5px solid color-mix(in oklch, var(--hue) 70%, transparent); border-end-start-radius: 4px; }
+.skill3d__corner--br { inset-block-end: 0.6rem; inset-inline-end: 0.6rem; border-block-end: 1.5px solid color-mix(in oklch, var(--hue) 70%, transparent); border-inline-end: 1.5px solid color-mix(in oklch, var(--hue) 70%, transparent); border-end-end-radius: 4px; }
+.skill3d__head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-block-end: 0.85rem;
+  transform: translateZ(40px);
+}
+.skill3d__badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in oklch, var(--hue) 80%, transparent);
+  background: color-mix(in oklch, var(--hue) 10%, transparent);
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--hue-bright);
+  transition: box-shadow var(--dur-base) var(--ease-forge);
+}
+/* A dashed ring that only turns while the card is live. */
+.skill3d__badge-ring {
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 1px dashed color-mix(in oklch, var(--hue) 45%, transparent);
+  opacity: 0;
+  transition: opacity var(--dur-base) var(--ease-forge);
+}
+@keyframes skill3dBadgeSpin { to { transform: rotate(360deg); } }
+
+.skill3d__count {
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: var(--step--3, 0.7rem);
+  letter-spacing: 0.16em;
+  color: var(--ink-low);
+  transition: color var(--dur-base) var(--ease-forge);
+}
+.skill3d__title {
+  position: relative;
+  font-size: var(--step-1, 1.125rem);
+  line-height: 1.2;
+  margin-block-end: 0.85rem;
+  transform: translateZ(26px);
+}
+
+.skill3d__chips {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  transform-style: preserve-3d;
+}
+
+/* Each chip on its own plane. The 1.4px per index is small on purpose: enough
+   that the row has thickness when the card turns, not so much that the last
+   chip floats off the front of it. Hover pulls one chip clear of the rest. */
+.skill3d__chip {
+  --z: calc(18px + var(--zi, 0) * 1.4px);
+  position: relative;
+  transform: translateZ(var(--z));
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: color-mix(in oklch, var(--surface-2, var(--surface-1)) 70%, transparent);
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
+  color: var(--ink-mid);
+  cursor: default;
+  /* Entrance is opacity only. Transform is spoken for — see the note in
+     Skills.jsx about what happened when Framer also wrote to it. */
+  /* Multiplied by the scalar, not divided by it. The divisor form used
+     everywhere above is for *loops* — it slows an infinite animation until it
+     is effectively frozen, which is what "stopped" means for a spinning ring.
+     Applied to a one-shot with `both`, the same form is a trap: at
+     --motion-scale 0 this becomes a 500-second fade and the chips are simply
+     invisible for the whole visit. Multiplying gives a zero-duration
+     animation, which snaps to the end state — no animation, content present.
+     That is what motion.css means by a zero scale. */
+  animation: skill3dChipIn 500ms var(--ease-forge) both;
+  animation-duration: calc(500ms * var(--motion-scale));
+  animation-delay: calc(var(--zi, 0) * 45ms * var(--motion-scale));
+  transition:
+    transform var(--dur-base) var(--ease-forge),
+    color var(--dur-fast) var(--ease-forge),
+    border-color var(--dur-fast) var(--ease-forge),
+    box-shadow var(--dur-fast) var(--ease-forge);
+}
+@keyframes skill3dChipIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── The hover layer ────────────────────────────────────────────────────────
+   Every hover state in this component lives in here, behind the pointer
+   query, and that gate is not optional.
+
+   On a touch screen `:hover` latches on tap and stays latched until the next
+   tap somewhere else — the "the card stayed lit" defect this codebase has met
+   once already and answered at the top of the file by redefining Tailwind's
+   `hover:` variant. That redefinition covers `hover:` utilities only; raw
+   `:hover` in this stylesheet is not covered by it and has to say so itself.
+
+   `:focus-within` is deliberately outside the gate on the one rule that
+   needs it: keyboard focus should hold the drift still on any device.
+   ──────────────────────────────────────────────────────────────────────── */
+.skill3d:focus-within .skill3d__drift { animation-play-state: paused; }
+
+@media (hover: hover) and (pointer: fine) {
+  /* Hover holds the sway still — a target that is moving is a target you
+     cannot aim at, and the pointer tilt has to start from a known angle. */
+  .skill3d:hover .skill3d__drift { animation-play-state: paused; }
+
+  .skill3d:hover .skill3d__body {
+    border-color: color-mix(in oklch, var(--hue) 46%, transparent);
+    box-shadow:
+      inset 0 1px 0 0 var(--glass-highlight),
+      inset 0 -1px 0 0 rgb(0 0 0 / 0.28),
+      0 0 46px -14px color-mix(in oklch, var(--hue) 75%, transparent);
+  }
+
+  .skill3d:hover .skill3d__scan {
+    /* One-shot, so it scales by multiplication for the same reason the chips
+       do — at scale 0 it takes no time rather than freezing mid-sweep. */
+    animation: skill3dScan 1150ms var(--ease-forge) 1;
+    animation-duration: calc(1150ms * var(--motion-scale));
+  }
+
+  .skill3d:hover .skill3d__corner { opacity: 0.9; }
+  .skill3d:hover .skill3d__corner--tl { inset-block-start: 0.35rem; inset-inline-start: 0.35rem; }
+  .skill3d:hover .skill3d__corner--tr { inset-block-start: 0.35rem; inset-inline-end: 0.35rem; }
+  .skill3d:hover .skill3d__corner--bl { inset-block-end: 0.35rem; inset-inline-start: 0.35rem; }
+  .skill3d:hover .skill3d__corner--br { inset-block-end: 0.35rem; inset-inline-end: 0.35rem; }
+
+  .skill3d:hover .skill3d__badge {
+    box-shadow: 0 0 22px -4px color-mix(in oklch, var(--hue) 80%, transparent);
+  }
+  .skill3d:hover .skill3d__badge-ring {
+    opacity: 1;
+    animation: skill3dBadgeSpin 9s linear infinite;
+    animation-duration: calc(9s / max(var(--motion-scale), 0.001));
+  }
+
+  .skill3d:hover .skill3d__count {
+    color: color-mix(in oklch, var(--hue-bright) 70%, var(--ink-mid));
+  }
+
+  .skill3d__chip:hover {
+    transform: translateZ(calc(var(--z) + 22px));
+    color: var(--ink);
+    border-color: color-mix(in oklch, var(--hue) 60%, transparent);
+    box-shadow: 0 0 18px -6px color-mix(in oklch, var(--hue) 85%, transparent);
+  }
+}
+
+/* ── Degraded paths ─────────────────────────────────────────────────────── */
+
+/* Tier 1 drops the three layers that cost real fill rate — two blurs and a
+   masked grid — and keeps the geometry, which is free. */
+:root[data-gfx-tier='1'] .skill3d__bloom,
+:root[data-gfx-tier='1'] .skill3d__plate,
+:root[data-gfx-tier='1'] .skill3d__cast { display: none; }
+
+/* Motion off means the object stops, not that it flattens: the rig holds a
+   slight three-quarter angle so the depth is still legible at rest, and every
+   pointer-driven layer sits at a fixed, calm value. */
+:root[data-motion='off'] .skill3d__drift {
+  animation: none;
+  transform: rotateX(0.8deg) rotateY(-1.6deg);
+}
+:root[data-motion='off'] .skill3d__badge-ring { animation: none; }
+:root[data-motion='off'] .skill3d__scan { display: none; }
+:root[data-motion='off'] .skill3d__chip { animation: none; opacity: 1; }
+:root[data-motion='off'] .skill3d__bloom,
+:root[data-motion='off'] .skill3d__rim { opacity: 0.35; }
+:root[data-motion='off'] .skill3d__plate { opacity: 0.3; }

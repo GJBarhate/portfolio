@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState } from 'react'
+import { flushSync } from 'react-dom'
+import { withViewTransition } from '../../lib/viewTransition.js'
+import { getStore, setStore } from '../../lib/store.js'
 
-const KEY = 'forge-recruiter'
+// T-030 — the flag lives in the unified store's `prefs`, and index.html reads
+// the same key before first paint so recruiter mode survives a reload without
+// a frame of the full experience first.
 
 /**
  * W1 — Recruiter Mode.
@@ -17,22 +22,32 @@ const KEY = 'forge-recruiter'
  * it. There is no second render tree to maintain.
  */
 export default function RecruiterMode() {
-  const [on, setOn] = useState(() => {
-    try { return sessionStorage.getItem(KEY) === '1' } catch { return false }
-  })
+  const [on, setOn] = useState(() => getStore().prefs.recruiter)
 
   useEffect(() => {
     const root = document.documentElement
     if (on) root.setAttribute('data-recruiter', '')
     else root.removeAttribute('data-recruiter')
-    try { sessionStorage.setItem(KEY, on ? '1' : '0') } catch { /* private mode */ }
+    setStore({ prefs: { recruiter: on } })
   }, [on])
 
   const toggle = useCallback(() => {
-    setOn((v) => {
-      if (!v) window.dispatchEvent(new CustomEvent('forge:unlock', { detail: 'recruiter-mode' }))
-      return !v
-    })
+    // The mode change should read as decisive, not a plain attribute flip —
+    // a cross-fade + scale carries that without a second render tree.
+    // startViewTransition snapshots the DOM when the callback returns, so
+    // the state update must be flushed synchronously (Projects.jsx's
+    // switchView established this pattern first).
+    withViewTransition(
+      () => {
+        flushSync(() => {
+          setOn((v) => {
+            if (!v) window.dispatchEvent(new CustomEvent('forge:unlock', { detail: 'recruiter-mode' }))
+            return !v
+          })
+        })
+      },
+      { mode: 'recruiter' }
+    )
   }, [])
 
   // ⌘R / Ctrl+R is browser reload, so the shortcut is ⌘⇧R's neighbour: the
@@ -46,7 +61,14 @@ export default function RecruiterMode() {
       }
     }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    // T-024 — below 26rem the chip leaves the header entirely (four 44px
+    // controls plus a wordmark do not fit across 320px), so the drawer needs a
+    // way to reach the same toggle. One event, one owner of the state.
+    window.addEventListener('forge:toggle-recruiter', toggle)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('forge:toggle-recruiter', toggle)
+    }
   }, [toggle])
 
   return (

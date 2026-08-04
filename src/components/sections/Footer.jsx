@@ -98,7 +98,7 @@ export default function Footer() {
           </p>
           {/* §10 trust signals — "built from scratch" and a freshness date are
               both explicit recruiter screening heuristics. */}
-          <p className="font-mono text-[10px] text-[var(--ink-low)]">
+          <p className="font-mono text-[12px] text-[var(--ink-low)]">
             Built from scratch — React 18, no template ·{' '}
             <a
               href={SOCIALS.github}
@@ -112,7 +112,7 @@ export default function Footer() {
           </p>
         </div>
         <div className="flex items-center gap-6">
-          <span className="font-mono text-[10px] text-[var(--ink-low)]">
+          <span className="font-mono text-[12px] text-[var(--ink-low)]">
             press <kbd className="px-1.5 py-0.5 rounded border border-[var(--glass-border)] text-[var(--ink-mid)]">&#8984;K</kbd> for commands
           </span>
           <button

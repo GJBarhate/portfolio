@@ -51,6 +51,16 @@ build
 Thumbs.db
 desktop.ini
 
+# Test artefacts — T-006.5. The RESULTS are disposable; anything that acts as
+# a baseline belongs in git, which is why nothing under tests/ is ignored here.
+test-results
+playwright-report
+.playwright
+
+# Generated at build/CI time
+stats.html
+size-report.json
+
 # Misc
 *.tsbuildinfo
 coverage

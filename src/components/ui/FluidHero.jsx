@@ -18,6 +18,14 @@ function wantsFluid() {
   if (navigator.connection?.saveData) return false
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false
   if (!window.matchMedia('(min-width: 768px)').matches) return false
+  /*
+   * Width alone let a landscape phone through: at 812px it cleared the 768px
+   * bar, and a modern handset reports 8 cores and lands on tier 3, so the one
+   * genuinely expensive thing on the site — a ~20-pass Navier-Stokes step per
+   * frame, on its own renderer — was reachable by rotating a phone sideways.
+   * A fine pointer is the honest proxy for "a machine plugged into a wall".
+   */
+  if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return false
   return true
 }
 

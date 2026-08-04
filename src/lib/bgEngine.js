@@ -36,6 +36,8 @@ uniform vec3  uSurface;
 uniform vec3  uAccent;
 uniform vec3  uGlow;
 uniform float uIntensity;
+/* xy = tap origin in the same space as uMouse, z = life, 1 → 0. */
+uniform vec3  uRipple;
 
 varying vec2 vUv;
 
@@ -87,10 +89,28 @@ void main() {
           + snoise(q * 2.60 - vec2(t * 0.02, t * 0.035)) * 0.35;
   n = n * 0.5 + 0.5;
 
-  /* Pointer bloom — the liquid trailing the cursor. */
+  /* Pointer bloom — the liquid trailing the cursor. On touch this follows the
+     finger, which is the same gesture by a different name. */
   vec2 m = uMouse;
   m.x *= aspect;
   float bloom = smoothstep(0.55, 0.0, distance(p, m));
+
+  /* Tap ripple. A cursor produces a continuous bloom simply by existing; a
+     finger only exists at the moment it lands, so a tap gets an event of its
+     own — an expanding ring that fades as it grows. This is what makes the
+     field feel touched rather than merely animated. */
+  vec2 rp = uRipple.xy;
+  rp.x *= aspect;
+  float life = uRipple.z;
+  float ripple = 0.0;
+  if (life > 0.001) {
+    float radius = (1.0 - life) * 0.95;
+    float ring = abs(distance(p, rp) - radius);
+    /* Sharp at birth, soft as it dissipates, so it reads as energy spreading
+       rather than a hard circle sliding outward. */
+    float width = 0.02 + (1.0 - life) * 0.10;
+    ripple = smoothstep(width, 0.0, ring) * life * life;
+  }
 
   /* Section character. Hero flows; projects tint toward the hovered accent;
      contact drifts; everything between is nearly still. */
@@ -98,10 +118,11 @@ void main() {
   float projectness = 1.0 - abs(clamp(uSection, 2.0, 6.0) - 4.0) * 0.5;
   float energy = uIntensity * (0.35 + heroness * 0.75 + projectness * 0.3);
 
-  float field = pow(n, 1.8) * energy + bloom * 0.16 * uIntensity;
+  float field = pow(n, 1.8) * energy + bloom * 0.16 * uIntensity
+              + ripple * 0.30 * uIntensity;
 
   vec3 col = mix(uSurface, uAccent, clamp(field, 0.0, 1.0));
-  col = mix(col, uGlow, clamp(pow(n, 6.0) * energy * 0.8 + bloom * 0.10, 0.0, 1.0));
+  col = mix(col, uGlow, clamp(pow(n, 6.0) * energy * 0.8 + bloom * 0.10 + ripple * 0.45, 0.0, 1.0));
 
   /* Vignette keeps the centre readable and hides the quad's edges. */
   vec2 d = vUv - 0.5;
@@ -163,7 +184,7 @@ export function createBackgroundEngine(canvas) {
   gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0)
 
   const u = {}
-  for (const name of ['uResolution', 'uTime', 'uMouse', 'uScrollVel', 'uSection', 'uSurface', 'uAccent', 'uGlow', 'uIntensity']) {
+  for (const name of ['uResolution', 'uTime', 'uMouse', 'uScrollVel', 'uSection', 'uSurface', 'uAccent', 'uGlow', 'uIntensity', 'uRipple']) {
     u[name] = gl.getUniformLocation(program, name)
   }
 

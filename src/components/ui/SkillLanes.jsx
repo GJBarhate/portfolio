@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { motion, useInView } from 'framer-motion'
 import { SKILLS } from '../../lib/content.js'
-import { useIsMobile } from '../../lib/useIsMobile.js'
+import { useBelow } from '../../lib/useMedia.js'
 
 const LANE_CONFIG = [
   { label: 'FRONTEND', categories: ['Frontend', 'Realtime'], color: 'var(--accent)' },
@@ -49,7 +49,7 @@ function Lane({ config, index }) {
     >
       <div className="skill-lane__header">
         <span
-          className="font-mono text-[10px] tracking-[0.3em] px-3 py-1.5 rounded-full"
+          className="font-mono text-[12px] tracking-[0.3em] px-3 py-1.5 rounded-full"
           style={{
             border: `1px solid ${config.color}`,
             color: config.color,
@@ -57,7 +57,7 @@ function Lane({ config, index }) {
         >
           {config.label}
         </span>
-        <span className="font-mono text-[9px] text-[var(--ink-low)] ml-2">
+        <span className="font-mono text-[12px] text-[var(--ink-low)] ml-2">
           {skills.length} skills
         </span>
       </div>
@@ -90,7 +90,7 @@ function MobileLanes() {
           <button
             key={lane.label}
             onClick={() => setActiveLane(i)}
-            className="flex-1 py-2 rounded-full font-mono text-[10px] tracking-[0.2em] transition-all duration-fast"
+            className="flex-1 py-2 rounded-full font-mono text-[12px] tracking-[0.2em] transition-all duration-fast"
             style={{
               border: `1px solid ${i === activeLane ? lane.color : 'var(--glass-border)'}`,
               color: i === activeLane ? lane.color : 'var(--ink-low)',
@@ -126,13 +126,14 @@ function MobileLanes() {
 }
 
 export default function SkillLanes() {
-  const isMobile = useIsMobile()
+  // Three 3-D lanes side by side is a width decision (T-011).
+  const isNarrow = useBelow('md')
   const ref = useRef(null)
-  const inView = useInView(ref, { once: true, margin: '-10%' })
+  const _inView = useInView(ref, { once: true, margin: '-10%' })
 
   return (
     <div ref={ref} className="skill-lanes-container">
-      {isMobile ? (
+      {isNarrow ? (
         <MobileLanes />
       ) : (
         <div className="grid grid-cols-3 gap-6" style={{ perspective: '1200px' }}>
