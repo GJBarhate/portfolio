@@ -2466,74 +2466,334 @@ body { font-size: max(12px, 1rem); }
   .level-ribbon__inner { animation: none; opacity: 0; }
 }
 
-/* === §3.2 Run Complete — celebration panel === */
-@keyframes crtFlicker {
-  0% { opacity: 0; }
-  5% { opacity: 0.8; }
-  10% { opacity: 0.2; }
-  15% { opacity: 0.9; }
-  20% { opacity: 1; }
-  100% { opacity: 1; }
-}
-.run-complete {
+/* === §3.2 Run Complete === */
+/* ══════════════════════════════════════════════════════════════════════════
+   The run-complete toast.
+
+   This was a full-screen modal: `inset: 0`, a 24px backdrop blur, `aria-modal`
+   and a card in the middle of the viewport. It fired when a visitor reached
+   the footer — which is to say, at the exact moment someone who had just read
+   the contact section was deciding what to do — and took the entire site away
+   to congratulate them on a spark hunt they may never have realised they were
+   playing. Someone arriving for the first time does not know what it is, and
+   the only affordances for getting rid of it were a backdrop click and a
+   DISMISS link at the bottom of the card.
+
+   A reward is allowed to be seen. It is not allowed to interrupt. So it is a
+   notification now: it sits in the corner above the arcade button, it takes
+   nothing away, it holds while it is being read and retires itself when it is
+   not, and every layer that made the old card feel expensive — the lit rim,
+   the specular sweep, the glow it throws on the page — survives at toast size,
+   plus the one thing a centred modal could never have: it arrives as an
+   object, swinging up out of the screen on a real perspective.
+   ══════════════════════════════════════════════════════════════════════════ */
+.run-toast {
   position: fixed;
+  /*
+   * The bottom of a phone is a shared lane. The time-of-day suggestion, the
+   * welcome-back pill and the spark toasts all live at `bottom-8` and stand up
+   * to ~9rem tall, and the first version of this sat at 6.25rem — so the
+   * suggestion toast landed straight across this card's buttons and the
+   * primary action was half-covered. Two notifications arguing over the same
+   * corner is the same failure as the modal, just smaller.
+   *
+   * 10.5rem clears the tallest of them, so if a second one does arrive they
+   * stack rather than overlap, and the home indicator is accounted for
+   * separately.
+   */
+  inset-block-end: calc(env(safe-area-inset-bottom, 0px) + 10.5rem);
+  inset-inline: 1rem;
+  z-index: 60;
+  display: flex;
+  justify-content: center;
+  /* The wrapper spans the viewport so the card can be corner-anchored; it must
+     not eat a single click on its way past. Only the card takes the pointer. */
+  pointer-events: none;
+}
+/* On a wide screen the lane is not shared: everything else is centred, this is
+   in the right corner. It only has to clear the arcade FAB (bottom-8, 3.5rem
+   tall), which 6.25rem does. */
+@media (width >= 48rem) {
+  .run-toast {
+    inset-block-end: calc(env(safe-area-inset-bottom, 0px) + 6.25rem);
+    inset-inline: auto 2rem;
+    justify-content: flex-end;
+  }
+}
+
+/* Perspective lives here rather than on the card, so the card's own transform
+   stack stays free for the entrance — Framer writes that inline. */
+.run-toast__stage {
+  perspective: 900px;
+  perspective-origin: 50% 100%;
+  inline-size: min(23.5rem, 100%);
+}
+
+.run-toast__card {
+  position: relative;
+  pointer-events: auto;
+  transform-style: preserve-3d;
+  transform-origin: 50% 100%;
+  padding: 1.05rem 1.15rem 1.25rem;
+  border-radius: 1.25rem;
+  border: 1px solid color-mix(in oklch, var(--accent-reward) 42%, transparent);
+  background:
+    radial-gradient(120% 90% at 12% -10%, color-mix(in oklch, var(--accent-reward) 12%, transparent), transparent 62%),
+    linear-gradient(158deg in oklch, color-mix(in oklch, var(--surface-2) 92%, transparent), color-mix(in oklch, var(--surface-1) 94%, transparent));
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow:
+    0 26px 60px -22px color-mix(in oklch, var(--surface-0) 90%, transparent),
+    0 0 42px -18px color-mix(in oklch, var(--accent-reward) 55%, transparent),
+    inset 0 1px 0 var(--glass-highlight);
+  overflow: hidden;
+}
+
+/* The glow it throws on the page behind it — the layer that says the card is
+   above the document rather than printed on it. */
+.run-toast__aura {
+  position: absolute;
+  inset: -40% -25% auto;
+  block-size: 130%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in oklch, var(--accent-reward) 20%, transparent),
+    transparent 68%
+  );
+  filter: blur(26px);
+  opacity: 0.7;
+  pointer-events: none;
+  animation: runToastAura 6s ease-in-out infinite;
+  animation-duration: calc(6s / max(var(--motion-scale), 0.001));
+}
+@keyframes runToastAura {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50%      { opacity: 0.85; transform: scale(1.06); }
+}
+
+/* The lit top edge. One rail is the whole difference between a rectangle and
+   a machined face catching a light. */
+.run-toast__rim {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 12%;
+  block-size: 1.5px;
+  border-radius: 0 0 2px 2px;
+  background: linear-gradient(90deg, transparent, var(--accent-reward), transparent);
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+/* The specular sweep. It crosses once every eight seconds — slow enough to
+   read as light moving across glass rather than as a loading shimmer. */
+.run-toast__sheen {
+  position: absolute;
   inset: 0;
-  z-index: var(--z-preloader);
+  pointer-events: none;
+  background: linear-gradient(
+    104deg,
+    transparent 38%,
+    color-mix(in oklch, var(--ink) 12%, transparent) 48%,
+    transparent 58%
+  );
+  transform: translateX(-120%);
+  animation: runToastSheen 8s ease-in-out infinite 1.2s;
+  animation-duration: calc(8s / max(var(--motion-scale), 0.001));
+}
+@keyframes runToastSheen {
+  0%, 62% { transform: translateX(-120%); }
+  100%    { transform: translateX(120%); }
+}
+
+.run-toast__head {
+  position: relative;
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: color-mix(in oklch, var(--surface-0) 92%, transparent);
-  backdrop-filter: blur(24px);
-  animation: crtFlicker 0.6s linear forwards;
+  gap: 0.7rem;
 }
-.run-complete__card {
-  text-align: center;
-  padding: 48px 40px;
-  border-radius: 24px;
-  border: 1px solid var(--accent-reward);
-  background: color-mix(in oklch, var(--surface-1) 80%, transparent);
-  box-shadow: 0 0 60px color-mix(in oklch, var(--accent-reward) 20%, transparent),
-              inset 0 1px 0 var(--glass-highlight);
-  max-width: 440px;
-  width: 90vw;
+
+/* The seal — a lit core inside a ring that turns on its own axis in 3-D. It
+   is the only thing in the toast that rotates, which is what keeps it reading
+   as a detail rather than as decoration. */
+.run-toast__seal {
+  position: relative;
+  flex: none;
+  inline-size: 2.1rem;
+  block-size: 2.1rem;
+  transform-style: preserve-3d;
 }
-.run-complete__title {
+.run-toast__seal-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid color-mix(in oklch, var(--accent-reward) 65%, transparent);
+  border-block-start-color: transparent;
+  animation: runToastSeal 5.5s linear infinite;
+  animation-duration: calc(5.5s / max(var(--motion-scale), 0.001));
+}
+@keyframes runToastSeal {
+  from { transform: rotateY(0deg) rotateZ(0deg); }
+  to   { transform: rotateY(360deg) rotateZ(360deg); }
+}
+.run-toast__seal-core {
+  position: absolute;
+  inset: 28%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 36% 32%,
+    color-mix(in oklch, var(--accent-reward) 90%, white),
+    var(--accent-reward) 55%,
+    transparent 90%
+  );
+  box-shadow: 0 0 16px 2px color-mix(in oklch, var(--accent-reward) 45%, transparent);
+  animation: runToastCore 3.4s ease-in-out infinite;
+  animation-duration: calc(3.4s / max(var(--motion-scale), 0.001));
+}
+@keyframes runToastCore {
+  0%, 100% { transform: scale(1); opacity: 0.88; }
+  50%      { transform: scale(1.12); opacity: 1; }
+}
+
+.run-toast__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-inline-size: 0;
+}
+.run-toast__title {
   font-family: 'Clash Display', 'Clash Fallback', sans-serif;
-  font-size: clamp(2rem, 5vw, 3rem);
+  font-size: var(--step-0);
+  line-height: 1.1;
   color: var(--accent-reward);
-  margin-bottom: 8px;
 }
-.run-complete__subtitle {
+.run-toast__sub {
   font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
-  font-size: 12px;
-  letter-spacing: 0.25em;
+  font-size: var(--step--2);
+  letter-spacing: 0.18em;
   color: var(--ink-low);
-  text-transform: uppercase;
-  margin-bottom: 24px;
 }
-.run-complete__stats {
+
+.run-toast__close {
+  flex: none;
+  margin-inline-start: auto;
+  inline-size: 1.7rem;
+  block-size: 1.7rem;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  color: var(--ink-low);
+  font-size: 11px;
+  line-height: 1;
+  transition:
+    color var(--dur-fast) var(--ease-forge),
+    border-color var(--dur-fast) var(--ease-forge),
+    background-color var(--dur-fast) var(--ease-forge);
+}
+.run-toast__close:hover {
+  color: var(--ink);
+  border-color: var(--ink-mid);
+  background: color-mix(in oklch, var(--ink) 8%, transparent);
+}
+
+.run-toast__stats {
+  position: relative;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  margin-bottom: 32px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  margin-block: 0.9rem 0.95rem;
+  padding-block: 0.7rem;
+  border-block: 1px solid var(--glass-border);
 }
-.run-complete__stat-value {
+.run-toast__stat {
+  display: flex;
+  flex-direction: column-reverse; /* value above label, without reordering the dl */
+  align-items: center;
+  gap: 0.15rem;
+  text-align: center;
+}
+.run-toast__stat dt {
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: var(--step--2);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-low);
+}
+.run-toast__stat dd {
   font-family: 'Clash Display', 'Clash Fallback', sans-serif;
-  font-size: 28px;
+  font-size: var(--step-0);
   font-weight: 700;
   color: var(--accent-bright);
 }
-.run-complete__stat-label {
+
+.run-toast__actions {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.run-toast__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 auto;
+  padding: 0.6rem 1.1rem;
+  border-radius: 999px;
+  background: var(--accent-reward);
+  color: var(--surface-0);
+  font-size: var(--step--1);
+  font-weight: 600;
+  box-shadow: 0 0 24px -8px color-mix(in oklch, var(--accent-reward) 70%, transparent);
+  transition: transform var(--dur-fast) var(--ease-anticipate), box-shadow var(--dur-fast) var(--ease-forge);
+}
+.run-toast__cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 32px -6px color-mix(in oklch, var(--accent-reward) 80%, transparent);
+}
+.run-toast__again {
+  flex: none;
+  padding: 0.55rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklch, var(--accent) 40%, transparent);
   font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
-  font-size: 12px;
-  letter-spacing: 0.2em;
-  color: var(--ink-low);
-  text-transform: uppercase;
-  margin-top: 4px;
+  font-size: var(--step--2);
+  letter-spacing: 0.1em;
+  color: var(--accent-bright);
+  transition:
+    border-color var(--dur-fast) var(--ease-forge),
+    background-color var(--dur-fast) var(--ease-forge);
 }
-@media (prefers-reduced-motion: reduce) {
-  .run-complete { animation: none; }
+.run-toast__again:hover {
+  border-color: var(--accent);
+  background: color-mix(in oklch, var(--accent) 14%, transparent);
 }
+
+/* The hold, drawn. Nothing that disappears on a timer should do it without
+   saying so first — and it stops while the card is being read, because the
+   JS timeout is held by the same hover. */
+.run-toast__rail {
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline-start: 0;
+  block-size: 2px;
+  inline-size: 100%;
+  transform-origin: 0 50%;
+  background: linear-gradient(90deg, var(--accent-reward), color-mix(in oklch, var(--accent) 80%, transparent));
+  animation: runToastRail var(--hold, 14000ms) linear forwards;
+}
+@keyframes runToastRail {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+.run-toast__card:hover .run-toast__rail,
+.run-toast__card:focus-within .run-toast__rail {
+  animation-play-state: paused;
+}
+
+/* No reduced-motion block here on purpose. Every loop above divides by
+   --motion-scale, which motion.css drives to zero for both `data-motion='off'`
+   and `prefers-reduced-motion`, and the global rule there pauses what is left.
+   The rail is the one animation deliberately left unscaled: it is a countdown,
+   not decoration, and it has to agree with the JS timeout in real seconds. */
 
 /* === E13 Progressive blur — iOS-style graded backdrop on navbar === */
 /* The navbar genuinely floats over scrolling content, so it keeps a real
@@ -2657,19 +2917,10 @@ body { font-size: max(12px, 1rem); }
 /* === E20 Magnetic section headers — h2 lean toward cursor === */
 
 
-/* === E18 CRT power-on flicker for RunComplete === */
-@keyframes crtFlicker {
-  0% { opacity: 0; transform: scale(1.05); filter: brightness(3) contrast(0.6); }
-  5% { opacity: 1; transform: scale(1); filter: brightness(1.6) contrast(1.2); }
-  10% { opacity: 0.85; transform: scale(0.98); filter: brightness(0.8); }
-  15% { opacity: 1; transform: scale(1); filter: brightness(1.2); }
-  20% { opacity: 0.95; filter: brightness(0.9); }
-  25% { opacity: 1; filter: brightness(1); }
-  100% { opacity: 1; filter: brightness(1); }
-}
-.crt-flicker {
-  animation: crtFlicker 1.6s steps(6) forwards;
-}
+/* E18's CRT power-on flicker lived here. Its only consumer was the
+   run-complete card, and a notification that boots like a CRT is a
+   notification that draws the eye away from whatever is being read — the
+   opposite of what the toast is for. Removed with the modal. */
 
 /* === Footer outlined wordmark === */
 .footer-wordmark {
@@ -3189,35 +3440,8 @@ html {
 .about-scene {
   border-color: var(--glass-border);
 }
-.about-scene__chip {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 18px 26px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in oklch, var(--accent) 35%, transparent);
-  background: color-mix(in oklch, var(--accent) 7%, var(--surface-1));
-  color: var(--ink);
-  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
-  font-size: 12px;
-  letter-spacing: 0.18em;
-  cursor: pointer;
-  transition: transform var(--dur-fast) var(--ease-anticipate),
-              box-shadow var(--dur-fast) var(--ease-forge),
-              border-color var(--dur-fast) var(--ease-forge);
-}
-.about-scene__chip:hover {
-  transform: translateY(-2px);
-  border-color: var(--accent);
-  box-shadow: var(--shadow-2);
-}
-.about-scene__chip-icon { font-size: 18px; color: var(--accent-bright); }
-.about-scene__chip-hint {
-  font-size: 12px;
-  letter-spacing: 0.22em;
-  color: var(--ink-low);
-}
+/* Holds the box while the three chunk is in flight. There is no opt-in chip
+   any more — the desk mounts itself as the card nears the viewport. */
 .about-scene__skeleton {
   position: absolute;
   inset: 0;
@@ -4974,7 +5198,7 @@ header.site-header {
   .progressive-blur::before {
     background: var(--surface-1);
   }
-  .run-complete,
+  .run-toast__card,
   .lightbox {
     background: var(--surface-0);
   }
@@ -5901,52 +6125,6 @@ header.site-header {
   }
 }
 
-/* The run-complete card's two exits. "Again" is the primary of the pair —
-   it is the only place the hunt can be restarted — so it reads as a control
-   rather than as the grey afterthought DISMISS used to sit next to. */
-.run-complete__actions {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.85rem;
-  margin-block-start: 1.1rem;
-}
-.run-complete__again {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.55rem 1.35rem;
-  border-radius: 999px;
-  border: 1px solid color-mix(in oklch, var(--accent) 45%, transparent);
-  background: color-mix(in oklch, var(--accent) 10%, transparent);
-  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
-  font-size: var(--step--2);
-  letter-spacing: 0.16em;
-  color: var(--accent-bright);
-  transition:
-    border-color var(--dur-fast) var(--ease-forge),
-    background-color var(--dur-fast) var(--ease-forge);
-}
-.run-complete__again:hover {
-  border-color: var(--accent);
-  background: color-mix(in oklch, var(--accent) 18%, transparent);
-}
-.run-complete__again::before {
-  content: '';
-  inline-size: 0.5rem;
-  block-size: 0.5rem;
-  border-radius: 50%;
-  background: var(--accent-bright);
-  box-shadow: 0 0 10px 2px color-mix(in oklch, var(--accent) 70%, transparent);
-  animation: sparkPip 2.2s ease-in-out infinite;
-  animation-duration: calc(2.2s / max(var(--motion-scale), 0.001));
-}
-@keyframes sparkPip {
-  0%, 100% { opacity: 0.55; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.35); }
-}
-:root[data-motion='off'] .run-complete__again::before { animation: none; opacity: 1; }
-
 /* ══════════════════════════════════════════════════════════════════════════
    The skill reactor.
 
@@ -5991,6 +6169,10 @@ header.site-header {
      holds — change this and everything stays in step. */
   --period: 30s;
   --radius: 7.6rem;
+  /* Half the distance between the two ring planes. Read by the ring's inline
+     --y, which carries only the sign, so both this and --radius can be scaled
+     for a phone in one place. */
+  --ring-gap: 4.8rem;
   --tilt-x: 0deg;
   --tilt-y: 0deg;
 
@@ -6460,6 +6642,64 @@ header.site-header {
   );
   filter: blur(30px);
   pointer-events: none;
+}
+
+/* ── The phone ──────────────────────────────────────────────────────────── */
+
+/* The reactor used to be `hidden md:block` in the markup, which meant the one
+   moving object in this section was missing on the device most people arrive
+   with. It is not expensive — CSS transforms, no canvas, no context — it was
+   simply too big: at a 7.6rem radius plus a 7rem panel it needs ~360px of
+   width, and a 375px phone has about 335px after the section's gutters.
+
+   So it is scaled rather than hidden. Everything below is one machine drawn
+   at ~0.7×: the two lengths the geometry is built from (--radius and
+   --ring-gap) and then each part that carries its own hard-coded size. The
+   phase locking is untouched — it lives in --period and the delays, none of
+   which are sizes — so the counter-rotation still holds and every panel still
+   faces the camera. */
+@media (width < 40rem) {
+  .skill-reactor {
+    --radius: 5.3rem;
+    --ring-gap: 3.5rem;
+    /* Shortened with the radius: perspective is a distance, and leaving it at
+       820px against a smaller machine flattens the near/far difference that
+       the whole depth read depends on. */
+    perspective: 620px;
+  }
+
+  .skill-reactor__panel {
+    inline-size: 5.9rem;
+    block-size: 2.7rem;
+    margin-block-start: -1.35rem;
+    margin-inline-start: -2.95rem;
+  }
+  .skill-reactor__label { font-size: 0.55rem; letter-spacing: 0.06em; }
+  .skill-reactor__count { font-size: 0.48rem; }
+
+  /* The hub ornaments are not touched: corona, core and both gyros are all
+     under 10rem across, so they already fit a 320px phone, and shrinking them
+     with the radius would only put more empty space between the core and the
+     panels. Only the pieces that set the machine's footprint are scaled. */
+  .skill-reactor__spindle { block-size: 10.5rem; margin-block-start: -5.25rem; }
+  .skill-reactor__platter {
+    inline-size: 13.5rem;
+    block-size: 13.5rem;
+    margin-block-start: -6.75rem;
+    margin-inline-start: -6.75rem;
+  }
+  .skill-reactor__platter--inner {
+    inline-size: 7.8rem;
+    block-size: 7.8rem;
+    margin-block-start: -3.9rem;
+    margin-inline-start: -3.9rem;
+  }
+  .skill-reactor__bloom {
+    inline-size: 12rem;
+    block-size: 12rem;
+    margin-block-start: -6rem;
+    margin-inline-start: -6rem;
+  }
 }
 
 /* ── Interaction ────────────────────────────────────────────────────────── */

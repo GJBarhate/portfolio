@@ -24,7 +24,12 @@ export default function Skills() {
         </Reveal>
 
         <div className="grid md:grid-cols-2 gap-12 items-center">
-          <Reveal className="hidden md:block">
+          {/* This was `hidden md:block`, so the machine — the one thing in the
+              section that moves — simply did not exist on a phone, which is
+              where most people open the site. It is CSS transforms and no
+              canvas, so it costs the same there; what it needed was to be
+              scaled to fit, and that is a media query, not a display: none. */}
+          <Reveal>
             <SkillReactor />
           </Reveal>
 
@@ -143,7 +148,11 @@ function SkillReactor() {
           </div>
 
           {rings.map((groups, ri) => (
-            <div key={ri} className="skill-reactor__ring" style={{ '--dir': ri === 0 ? 1 : -1, '--y': ri === 0 ? '-4.8rem' : '4.8rem' }}>
+            /* --y is the plane's height, and it has to shrink with the rest of
+               the machine on a phone. An inline literal cannot be overridden by
+               a media query, so the size lives in --ring-gap (index.css) and
+               only the sign is set here. */
+            <div key={ri} className="skill-reactor__ring" style={{ '--dir': ri === 0 ? 1 : -1, '--y': ri === 0 ? 'calc(var(--ring-gap) * -1)' : 'var(--ring-gap)' }}>
               <span className="skill-reactor__orbit" aria-hidden="true" />
               {groups.map((group, i) => (
                 <div

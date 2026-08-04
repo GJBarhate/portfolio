@@ -36,14 +36,13 @@ export default function ThreeDScene({ className = '' }) {
     // This scene is NEVER refused for being expensive.
     //
     // It used to bail at tier 1 with "3-D skipped — your device is busy",
-    // which is the wrong answer to the only question being asked: somebody
-    // pressed a button that says SPIN THE DESK. Nothing here loads unless
-    // they do. Telling a visitor who explicitly asked for the one interactive
-    // object on the page that their machine is too busy is a worse experience
-    // than a slightly coarser render, and on a laptop with a browser, an
-    // editor and a chat client open — the ordinary case — it fired constantly.
+    // which is the wrong answer for the one moving object in the section: an
+    // empty rectangle where the desk should be reads as broken, and on a laptop
+    // with a browser, an editor and a chat client open — the ordinary case —
+    // that bail fired constantly.
     //
-    // The tier now decides how GOOD it looks, not whether it exists.
+    // The tier now decides how GOOD it looks, not whether it exists. The scene
+    // is mounted on scroll (About.jsx), so it costs nothing until it is near.
     const tier = getTier()
 
     const colors = getThemeColors()
@@ -200,11 +199,11 @@ export default function ThreeDScene({ className = '' }) {
         const step = Math.min(dt / 1000, 0.05)
         time += step
 
-        // The button says SPIN THE DESK, so the desk spins. The camera orbit
-        // alone reads as a slow drift — it is a 33-second revolution — and on
-        // a 340px card the parallax is small enough that several people have
-        // reported the scene as static. A visible rotation of the group is
-        // the thing the control promises.
+        // The desk spins on its own. The camera orbit alone reads as a slow
+        // drift — it is a 33-second revolution — and on a 340px card the
+        // parallax is small enough that several people have reported the
+        // scene as static. A visible rotation of the group is what says the
+        // card is alive without anyone having to touch it.
         deskGroup.rotation.y += step * 0.45
 
         camera.position.x = 4 * Math.cos(time * 0.2)

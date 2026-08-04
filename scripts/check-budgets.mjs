@@ -42,8 +42,27 @@ const BUDGETS = {
    * get materially under 40 was to delete the features. 44 restores the same
    * ~10 % headroom the budget was written with, so it still fails on drift
    * rather than sitting permanently on the line.
+   *
+   * 44 -> 46 KB, same rule: recorded, not quietly bumped.
+   *
+   * Two changes spent it. The skill reactor stopped being `hidden md:block`
+   * and now has a phone geometry (~1 KB raw), and the run-complete celebration
+   * stopped being a full-screen modal and became a corner toast — a card with
+   * a lit rim, a specular sweep and a countdown rail costs more CSS than a
+   * centred box on a blurred backdrop did (~4 KB raw). Both were asked for,
+   * and both are the difference between an effect existing on a phone and not.
+   *
+   * Trimmed first, in this order: the toast's own reduced-motion block (every
+   * loop already divides by --motion-scale, so it was dead weight), the four
+   * hub ornaments in the reactor's phone block that already fit a 320px
+   * screen, and the dead CRT-flicker keyframes the modal was the only user of.
+   * That recovered ~0.4 KB gzipped and the measured total is 44.6 KB. There is
+   * a genuine ~100-selector dead utility layer left in index.css (the `*pt`
+   * spacing scale, `col-span-*`, `text-step-*`, `fs-*`, `shadow-e*`) which is
+   * the right place to win this back properly — it is a separate change, not
+   * something to fold into a feature.
    */
-  cssTotal: 44 * KB,
+  cssTotal: 46 * KB,
   prerenderedHtml: 24 * KB,
   fontsTotal: 120 * KB,
   shadersTotal: 60 * KB,

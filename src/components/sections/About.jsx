@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import Reveal from '../ui/Reveal.jsx'
 import SplitText from '../ui/SplitText.jsx'
 import ScrollInkFill from '../ui/ScrollInkFill.jsx'
@@ -51,7 +51,29 @@ const MANIFESTO_2 =
 
 export default function About() {
   const marqueeRef = useRef(null)
+  const sceneHostRef = useRef(null)
   const [sceneOn, setSceneOn] = useState(false)
+
+  // The desk used to sit behind a "SPIN THE DESK — 3D" button. Asking a visitor
+  // to press something before the one moving object in this section exists is a
+  // toll on the thing they came to look at, and most people never paid it.
+  //
+  // The lazy import stays — that is what keeps `three` off the initial bundle —
+  // but the trigger is now proximity rather than a click: the chunk is fetched
+  // when the card is about to enter the viewport, so by the time it is on
+  // screen the desk is already turning. Observe once, then disconnect.
+  useEffect(() => {
+    const el = sceneHostRef.current
+    if (!el) return
+    if (typeof IntersectionObserver === 'undefined') { setSceneOn(true); return }
+    const io = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return
+      setSceneOn(true)
+      io.disconnect()
+    }, { rootMargin: '300px 0px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
 
   // Interpolating `animation-duration` is impossible — swapping 24s→60s makes
   // the marquee visibly snap to a new speed. WAAPI's playback rate ramps the
@@ -196,25 +218,20 @@ export default function About() {
         </div>
       </div>
 
-        {/* The desk scene is the one place three.js is still worth loading in
-            this section, so it is a deliberate opt-in: nothing is fetched
-            until the chip is pressed. */}
-        <div className="about-scene rounded-3xl glass overflow-hidden relative min-h-[340px] flex items-center justify-center p-6">
+        {/* The desk scene. three.js is still code-split — it is fetched when
+            this card nears the viewport, not on first paint — but it needs no
+            press: the skeleton holds the box for the moment the chunk is in
+            flight and the desk takes over. */}
+        <div
+          ref={sceneHostRef}
+          className="about-scene rounded-3xl glass overflow-hidden relative min-h-[340px] flex items-center justify-center p-6"
+        >
           {sceneOn ? (
             <Suspense fallback={<div className="about-scene__skeleton" aria-hidden="true" />}>
               <ThreeDScene className="absolute inset-0" />
             </Suspense>
           ) : (
-            <button
-              type="button"
-              onClick={() => setSceneOn(true)}
-              data-cursor="crosshair"
-              className="about-scene__chip"
-            >
-              <span className="about-scene__chip-icon" aria-hidden="true">✦</span>
-              <span>SPIN THE DESK — 3D</span>
-              <span className="about-scene__chip-hint">loads on demand</span>
-            </button>
+            <div className="about-scene__skeleton" aria-hidden="true" />
           )}
         </div>
       </div>
