@@ -1,12 +1,25 @@
-import LIVE_STATUS from './liveStatus.json'
+// `with { type: 'json' }` is required by Node's ESM loader, and this module is
+// imported by `scripts/gen-structured-data.mjs` at build time as well as by the
+// app. Vite/Rolldown accept the attribute too, so one spelling serves both.
+import LIVE_STATUS from './liveStatus.json' with { type: 'json' }
+import { AUTHOR, SOCIAL } from './siteConfig.js'
 
+/**
+ * D-10e — the contact details are DERIVED, not restated.
+ *
+ * The email shipped from five places: here, `siteConfig.js`, the Person
+ * JSON-LD, the `<noscript>` contact list and `RecruiterMode.jsx`. Five copies
+ * of the one string a recruiter is actually going to use, and nothing that
+ * would notice if four of them fell behind. `siteConfig.js` owns identity;
+ * this re-exports it under the name components already import.
+ */
 export const SOCIALS = {
-  github: 'https://github.com/GJBarhate',
-  leetcode: 'https://leetcode.com/u/chgyCygKwQ/',
-  codechef: 'https://www.codechef.com/users/gaurav_jb',
-  linkedin: 'https://www.linkedin.com/in/gaurav-barhate-056175271/',
-  email: 'gauravjbarhate554@gmail.com',
-  phone: '+91 93733 27427',
+  github: SOCIAL.github,
+  leetcode: SOCIAL.leetcode,
+  codechef: SOCIAL.codechef,
+  linkedin: SOCIAL.linkedin,
+  email: AUTHOR.email,
+  phone: AUTHOR.phone,
 }
 
 /*

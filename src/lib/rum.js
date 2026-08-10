@@ -40,7 +40,18 @@ const payload = {
   events: [],
   longTasks: 0,
   longestTask: 0,
+  /**
+   * P0.4 — the long-task inventory. A count and a maximum tell you the page
+   * has a problem; they do not tell you which code has it, which is the only
+   * thing that lets anyone fix it. Each bucket is `container → { n, total,
+   * max }`, keyed by the attribution the browser gives us (the frame or the
+   * script that owned the task). Capped at 12 keys so a pathological page
+   * cannot grow the beacon without bound.
+   */
+  longTaskBuckets: {},
 }
+
+const LONG_TASK_KEYS = 12
 
 let installed = false
 let flushed = false
@@ -139,11 +150,67 @@ export async function install() {
     bind(onFCP, 'FCP')
   } catch { /* web-vitals unavailable — the observers below still work */ }
 
+  /*
+   * P0.7 — INP WITH ATTRIBUTION.
+   *
+   * "INP is 340 ms" is a number you can put in a table and do nothing about.
+   * The attribution build answers the three questions that make it
+   * actionable: which element was interacted with, and how the 340 ms split
+   * between waiting for the main thread (input delay), running the handler
+   * (processing) and painting the result (presentation delay). Those three
+   * have completely different fixes — a long task somewhere else, a slow
+   * handler, and a heavy style/layout pass respectively.
+   *
+   * A SECOND dynamic import rather than replacing the one above: the
+   * attribution build is meaningfully larger, and if it fails to load (an old
+   * browser, an ad blocker, a bad cache) the plain INP number above still
+   * arrives. Both call `recordMetric('INP', …)`; the attributed one lands
+   * second and wins, which is the ordering we want.
+   */
+  try {
+    const { onINP } = await import('web-vitals/attribution')
+    onINP((metric) => {
+      const a = metric.attribution || {}
+      recordMetric('INP', metric.value, {
+        rating: metric.rating,
+        target: String(a.interactionTarget || '').slice(0, 120) || null,
+        type: a.interactionType ?? null,
+        id: a.interactionId ?? null,
+        // The three phases, rounded — see above for why each matters.
+        delay: round(a.inputDelay),
+        processing: round(a.processingDuration),
+        presentation: round(a.presentationDelay),
+        loadState: a.loadState ?? null,
+      })
+    })
+  } catch { /* plain INP from the block above still applies */ }
+
   try {
     const po = new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
         payload.longTasks += 1
         payload.longestTask = Math.max(payload.longestTask, Math.round(entry.duration))
+
+        // P0.4 — attribute it. `containerName`/`containerSrc` name the frame
+        // or element that owned the task; `containerType` ('window',
+        // 'iframe', …) is the fallback when neither is populated, which is
+        // the common case for same-document script.
+        const source = entry.attribution?.[0]
+        const key = (
+          source?.containerName ||
+          source?.containerId ||
+          source?.containerSrc ||
+          source?.containerType ||
+          'unknown'
+        ).slice(0, 40)
+        const bucket = payload.longTaskBuckets[key]
+        if (bucket) {
+          bucket.n += 1
+          bucket.total += Math.round(entry.duration)
+          bucket.max = Math.max(bucket.max, Math.round(entry.duration))
+        } else if (Object.keys(payload.longTaskBuckets).length < LONG_TASK_KEYS) {
+          payload.longTaskBuckets[key] = { n: 1, total: Math.round(entry.duration), max: Math.round(entry.duration) }
+        }
       }
     })
     po.observe({ type: 'longtask', buffered: true })

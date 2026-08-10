@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "prebuild": "node scripts/check-encoding.mjs && node scripts/gen-sitemap.mjs && node scripts/gen-critical.mjs --check",
+    "prebuild": "node scripts/check-encoding.mjs && node scripts/gen-sitemap.mjs && node scripts/gen-critical.mjs --check && node scripts/gen-structured-data.mjs --check",
     "build": "vite build && node scripts/check-budgets.mjs && node scripts/check-canonical.mjs && node scripts/check-csp.mjs",
     "build:only": "vite build",
     "preview": "vite preview",
@@ -25,14 +25,19 @@
     "check:contrast": "node scripts/check-contrast.mjs",
     "check:breakpoints": "node scripts/check-breakpoints.mjs",
     "check:effects": "node scripts/check-effect-budget.mjs",
-    "check:all": "npm run lint && npm run build && npm test && npm run check:encoding && npm run check:contrast && npm run check:breakpoints && npm run check:effects && npm run check:overflow && npm run check:layout",
+    "check:attrs": "node scripts/check-attr-selectors.mjs",
+    "check:dupes": "node scripts/check-css-dupes.mjs",
+    "check:all": "npm run lint && npm run build && npm test && npm run check:encoding && npm run check:contrast && npm run check:breakpoints && npm run check:effects && npm run check:overflow && npm run check:layout && npm run check:attrs && npm run check:dupes && npm run check:parity && npm run check:colorspace && npm run check:structured",
     "lint": "eslint .",
-    "check:csp": "node scripts/check-csp.mjs"
+    "check:csp": "node scripts/check-csp.mjs",
+    "gen:structured": "node scripts/gen-structured-data.mjs",
+    "check:structured": "node scripts/gen-structured-data.mjs --check",
+    "check:colorspace": "node scripts/check-color-space.mjs",
+    "check:parity": "node scripts/check-appearance-parity.mjs"
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
     "framer-motion": "^11.11.17",
-    "lenis": "^1.1.18",
     "matter-js": "^0.20.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

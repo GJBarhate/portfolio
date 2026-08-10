@@ -42,10 +42,10 @@ export const EFFECTS = [
   {
     id: 'background-field',
     kind: 'webgl',
-    purpose: 'Establishes that the page is a live rendering surface rather than a document, and carries the section-to-section character shift.',
+    purpose: 'Establishes that the page is a live rendering surface rather than a document, and carries the section-to-section character shift. §14.5 — three selectable scenes, each designed against each of the three themes.',
     tiers: {
-      3: 'eleven per-section motifs — fog, cells, dots, net, waves, topology, trunk, halo, globe, clouds, rings — crossfading on the damped section index, at up to 1.25 dpr, 30 fps',
-      2: 'same shader at 0.5 dpr, 30 fps',
+      3: 'one of three scenes at up to 1.25 dpr, 30 fps — CALM (a theme wash), MOTIFS (eleven per-section patterns crossfading on the damped section index), or FOREST (parallax wind-blown canopies, receding ridges, rippled water, a running deer, a walking elephant, birds and drifting motes, all varying continuously with the section)',
+      2: 'the same three scenes at 0.5 dpr, 30 fps',
       1: 'the .hero-mesh CSS gradient — compositor only',
       0: 'a static gradient',
     },
@@ -62,6 +62,16 @@ export const EFFECTS = [
      * The engine already prints its real per-frame GPU cost in dev via
      * EXT_disjoint_timer_query. That reading, on real hardware, is what should
      * replace this number.
+     *
+     * §14.5 — unchanged by the three-scene split, and that is a claim rather
+     * than an oversight. The scenes are branches on a uniform, so exactly one
+     * of them is evaluated per draw and the cost is the most expensive branch,
+     * not the sum. FOREST is that branch, and it is built to sit at roughly
+     * the crossfading-motifs worst case it replaces: every layer is analytic
+     * (a whole canopy costs one hash, not one per tree), the animals and the
+     * water reflection are behind a y-compare that ~80 % of the screen fails
+     * coherently, and nothing loops over scene content. CALM is far cheaper
+     * than both.
      */
     cost: { gpuMs: 2.2, cpuMs: 0.2, bytes: 7400 },
     requires: ['webgl'],
@@ -90,21 +100,77 @@ export const EFFECTS = [
     region: 'hero',
   },
   {
-    id: 'fluid-canvas',
+    id: 'moon-forest-clock',
     kind: 'webgl',
-    purpose: 'Makes the hero respond to the pointer as a material rather than as a hover target.',
+    purpose: 'Tells the actual time, and gives the page a fixed point that keeps living while the visitor scrolls — the one element that is still moving when everything else has been read.',
     tiers: {
-      3: '8 simulation passes (was 24 — T-058.2)',
-      2: '4 passes at half resolution',
-      1: 'off',
-      0: 'off',
+      3: 'full PBR diorama — crescent backlight, day/night sky, running deer, walking elephant, bird flock, sun arc on local time, three live hands under a glass crystal, real metal bezel, one shadow, hover parallax',
+      2: 'same scene at 1.0 dpr',
+      /*
+       * P3.2 — "none" at both of these was the entry that made D-5 invisible
+       * to this gate: the registry agreed there should be no clock below
+       * tier 2, so the budget check passed on a defect.
+       *
+       * The wording matters to two regexes in this file, and both readings are
+       * true rather than convenient. `CSS` puts tier 1 past `CSS_ONLY`, which
+       * is correct — the dial is SVG plus one compositor animation, and the
+       * GPU budget here measures SHADER cost, which is why tier 1's budget is
+       * 0 rather than a small number. `static` puts tier 0 past `INERT`, which
+       * is also correct: tier 0 is the no-effects floor, so the sweep stops
+       * and the dial still shows the time to the minute.
+       */
+      1: 'CSS/SVG dial — same hands, same accent, no WebGL',
+      0: 'static dial — no sweeping second hand',
     },
-    cost: { gpuMs: 1.2, cpuMs: 0.2, bytes: 6100 },
-    requires: ['webgl', 'hover'],
+    /*
+     * The predecessor of this effect — the corner skeleton watch — was never
+     * registered here, which is the reason the budget gate never caught it
+     * while a CDP profile put its texture uploads at 11.7 % of all samples.
+     * An effect that is not in this list does not exist to the gate, and the
+     * most expensive thing on the page was exactly the thing missing from it.
+     *
+     * So this entry is deliberately conservative rather than flattering:
+     * 260x260 at 1.5 dpr is ~152 k fragments (the background field is ~322 k
+     * with two octaves of noise per fragment for 2.2 ms), and textures are
+     * 512/512/128, drawn on bucket changes rather than on a timer — which is
+     * the whole difference from what it replaced.
+     *
+     * RE-COSTED AFTER PHASE 4, which is part of the work and not paperwork
+     * after it. Three changes push it up and one pushes it down:
+     *
+     *   + the materials are PBR with an environment map, not MeshBasic
+     *   + there is a transmissive crystal, which is a second render pass
+     *   + there is a 512² shadow map
+     *   + MSAA is on for this renderer alone (a 260px viewport, so cheap)
+     *   − the hands render every frame but the DIORAMA only mutates at 30 fps,
+     *     and `bytes` falls because the flat dial is a separate chunk
+     *
+     * The ceiling this must stay under is 4 ms at tier 3 and 1.5 ms at tier 2
+     * (§9.6), measured live via `?perf=1` — the HUD turns the clock row red
+     * above it. An effect whose declared cost is stale passes the gate on
+     * false data, which App.jsx:110–118 documents as a bug that shipped once.
+     */
+    cost: { gpuMs: 0.85, cpuMs: 0.2, bytes: 5700 },
+    // No longer `requires: ['webgl']` — the flat rendition is the answer when
+    // WebGL is absent, so this effect is present on every device that has a
+    // screen. That is the entire point of P3.2.
+    requires: [],
     respects: ['reduced-motion', 'save-data'],
-    group: 'hero',
-    region: 'hero',
+    group: 'ambient',
+    region: 'global',
   },
+  /*
+   * `fluid-canvas` was here — a ~20-pass Navier-Stokes hero backdrop on its
+   * own dedicated renderer, 1.2 ms GPU.
+   *
+   * Deleted in P5 to pay for Phase 4's material work on the clock. Tier 3 was
+   * at exactly 5.00 of 5 ms before that work; the honest re-cost of the clock
+   * put it at 5.65, and the rule is that budgets are tightened rather than
+   * raised. See the header of components/ui/FluidHero.jsx for why this was the
+   * right 1.2 ms to give back — briefly: it was the largest removable cost, it
+   * owned the only dedicated WebGL context, it duplicated three other things
+   * the hero already does, and six gates meant almost nobody saw it.
+   */
   {
     id: 'card-distortion',
     kind: 'webgl',
@@ -217,22 +283,16 @@ export const EFFECTS = [
     group: 'ambient',
     region: 'footer',
   },
-  {
-    id: 'film-grain',
-    kind: 'css',
-    purpose: 'Breaks up banding on the dark gradients — the single most common giveaway of an amateur dark theme.',
-    tiers: {
-      3: 'animated grain',
-      2: 'static grain',
-      1: 'static grain',
-      0: 'off',
-    },
-    cost: { gpuMs: 0.3, cpuMs: 0, bytes: 300 },
-    requires: [],
-    respects: ['reduced-motion', 'reduced-transparency', 'forced-colors'],
-    group: 'ambient',
-    region: 'global',
-  },
+  /*
+   * `film-grain` was here. It is deleted, not disabled — P5.5 removed the DOM
+   * node and the CSS in the same change.
+   *
+   * Recorded rather than silently dropped because this registry is the source
+   * of truth for `check-effect-budget.mjs` and for docs/effects.md: an entry
+   * left behind for an effect that no longer exists means the gate passes on
+   * a 0.3 ms GPU cost that nothing is paying, and the docs describe a layer
+   * nobody can see. The grain now lives in the background shader (4C.4).
+   */
   {
     id: 'orrery',
     kind: 'css',

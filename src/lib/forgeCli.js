@@ -21,14 +21,36 @@
  * stay in step: there is nothing to keep in step.
  */
 import { SOCIALS } from './content.js'
-import { getStore, resetStore, setStore } from './store.js'
+import { getStore, resetStore } from './store.js'
 import { getProfile } from './deviceProfile.js'
 import { getTier, setTier } from './raf.js'
+import {
+  THEME_IDS,
+  BACKDROP_IDS,
+  BACKDROPS,
+  MOTION_IDS,
+  MOTIONS,
+  getAppearance,
+  setBackdrop,
+  setMotion,
+  openAppearanceConsole,
+} from './appearance.js'
 
 export const CLI_VERSION = '5.0.0'
 
-export const THEMES = ['eclipse', 'ember', 'paper']
-export const MOTION_MODES = ['system', 'full', 'reduced', 'off']
+/*
+ * The vocabularies are IMPORTED, not restated.
+ *
+ * This file used to declare `THEMES = ['eclipse','ember','paper']` and
+ * `MOTION_MODES = [...]` of its own — a fifth and sixth copy of lists that
+ * also existed in ThemeContext, motion.js, the palette and the drawer. They
+ * are re-exported under the old names so nothing that imports them breaks,
+ * but there is one definition now and `check-appearance-parity.mjs` holds it
+ * level with the pre-paint script in index.html.
+ */
+export const THEMES = THEME_IDS
+export const MOTION_MODES = MOTION_IDS
+export const BG_SCENES = BACKDROP_IDS
 
 /**
  * The résumé card. Kept as data so the console renders it as one styled
@@ -87,6 +109,18 @@ export const COMMANDS = [
     },
   },
   {
+    // The console and the palette are two front-ends over this registry, so
+    // "open the panel" has to be a command here too — otherwise the terminal
+    // is the one surface that cannot reach the site's main settings UI.
+    name: 'appearance',
+    args: [],
+    describe: 'Open the appearance panel (theme, backdrop, motion)',
+    run: (ctx) => {
+      openAppearanceConsole({ source: 'cli' })
+      ctx.log('Appearance panel opened — or press Shift+A.', 'ok')
+    },
+  },
+  {
     name: 'theme',
     args: ['eclipse|ember|paper|system'],
     describe: 'Switch the palette',
@@ -105,12 +139,29 @@ export const COMMANDS = [
     describe: 'Set the motion level',
     complete: () => MOTION_MODES,
     run: (ctx, [mode]) => {
-      const current = getStore().motion
+      const current = getAppearance().motion
       if (!mode) return ctx.log(`Motion is "${current}". Usage: motion ${MOTION_MODES.join('|')}`, 'out')
       if (!MOTION_MODES.includes(mode)) return ctx.log(`Unknown mode "${mode}". Try: ${MOTION_MODES.join(', ')}`, 'err')
-      setStore({ motion: mode })
-      window.dispatchEvent(new CustomEvent('forge:set-motion', { detail: mode }))
-      ctx.log(`Motion set to ${mode}`, 'ok')
+      // One writer. This used to `setStore` AND dispatch an event, which is
+      // two half-writes that happened to add up.
+      setMotion(mode)
+      const label = MOTIONS.find((m) => m.id === mode)?.label ?? mode
+      ctx.log(`Motion set to ${label}`, 'ok')
+    },
+  },
+  {
+    // §14.5 — parity with the header toggle, the drawer row and the palette.
+    name: 'scene',
+    args: ['calm|motifs|forest'],
+    describe: 'Choose the backdrop',
+    complete: () => BG_SCENES,
+    run: (ctx, [id]) => {
+      const current = getAppearance().backdrop
+      if (!id) return ctx.log(`Background is "${current}". Usage: scene ${BG_SCENES.join('|')}`, 'out')
+      if (!BG_SCENES.includes(id)) return ctx.log(`Unknown scene "${id}". Try: ${BG_SCENES.join(', ')}`, 'err')
+      setBackdrop(id)
+      const b = BACKDROPS.find((x) => x.id === id)
+      ctx.log(`Background set to ${b.label} — ${b.meaning.toLowerCase()}, ${b.cost.toLowerCase()}`, 'ok')
     },
   },
   {

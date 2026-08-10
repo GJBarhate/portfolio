@@ -12,9 +12,9 @@ what stops the tenth effect from being the one nobody measured.
 
 | Tier | Effects running | GPU / frame | Budget | CPU / frame | Budget |
 |---|---:|---:|---:|---:|---:|
-| 3 | 15 | 4.80 ms | 5 ms | 1.75 ms | 3 ms |
-| 2 | 14 | 1.68 ms | 2 ms | 0.61 ms | 1.5 ms |
-| 1 | 7 | 0.00 ms | 0 ms | 0.04 ms | 0.5 ms |
+| 3 | 14 | 4.45 ms | 5 ms | 1.95 ms | 3 ms |
+| 2 | 14 | 1.56 ms | 2 ms | 0.68 ms | 1.5 ms |
+| 1 | 8 | 0.00 ms | 0 ms | 0.06 ms | 0.5 ms |
 | 0 | 0 | 0.00 ms | 0 ms | 0.00 ms | 0 ms |
 
 Tier 2 and below run reduced versions rather than the full effect, so their
@@ -25,11 +25,11 @@ descriptions promise (half resolution, half frame rate).
 
 ### `background-field` · webgl
 
-**Purpose.** Establishes that the page is a live rendering surface rather than a document, and carries the section-to-section character shift.
+**Purpose.** Establishes that the page is a live rendering surface rather than a document, and carries the section-to-section character shift. §14.5 — three selectable scenes, each designed against each of the three themes.
 
 | Tier 3 | Tier 2 | Tier 1 | Tier 0 |
 |---|---|---|---|
-| eleven per-section motifs — fog, cells, dots, net, waves, topology, trunk, halo, globe, clouds, rings — crossfading on the damped section index, at up to 1.25 dpr, 30 fps | same shader at 0.5 dpr, 30 fps | the .hero-mesh CSS gradient — compositor only | a static gradient |
+| one of three scenes at up to 1.25 dpr, 30 fps — CALM (a theme wash), MOTIFS (eleven per-section patterns crossfading on the damped section index), or FOREST (parallax wind-blown canopies, receding ridges, rippled water, a running deer, a walking elephant, birds and drifting motes, all varying continuously with the section) | the same three scenes at 0.5 dpr, 30 fps | the .hero-mesh CSS gradient — compositor only | a static gradient |
 
 Cost at tier 3: **2.2 ms GPU**, **0.2 ms CPU**, 7.2 KB.
 Requires: `webgl`.
@@ -49,18 +49,18 @@ Requires: `webgl`.
 Respects: `reduced-motion`, `save-data`.
 Group: `hero`.
 
-### `fluid-canvas` · webgl
+### `moon-forest-clock` · webgl
 
-**Purpose.** Makes the hero respond to the pointer as a material rather than as a hover target.
+**Purpose.** Tells the actual time, and gives the page a fixed point that keeps living while the visitor scrolls — the one element that is still moving when everything else has been read.
 
 | Tier 3 | Tier 2 | Tier 1 | Tier 0 |
 |---|---|---|---|
-| 8 simulation passes (was 24 — T-058.2) | 4 passes at half resolution | off | off |
+| full PBR diorama — crescent backlight, day/night sky, running deer, walking elephant, bird flock, sun arc on local time, three live hands under a glass crystal, real metal bezel, one shadow, hover parallax | same scene at 1.0 dpr | CSS/SVG dial — same hands, same accent, no WebGL | static dial — no sweeping second hand |
 
-Cost at tier 3: **1.2 ms GPU**, **0.2 ms CPU**, 6.0 KB.
-Requires: `webgl`, `hover`.
+Cost at tier 3: **0.85 ms GPU**, **0.2 ms CPU**, 5.6 KB.
+Requires: nothing.
 Respects: `reduced-motion`, `save-data`.
-Group: `hero`.
+Group: `ambient`.
 
 ### `card-distortion` · webgl
 
@@ -151,19 +151,6 @@ Group: `hero`.
 Cost at tier 3: **0.4 ms GPU**, **1.1 ms CPU**, 8.6 KB.
 Requires: nothing.
 Respects: `reduced-motion`, `save-data`.
-Group: `ambient`.
-
-### `film-grain` · css
-
-**Purpose.** Breaks up banding on the dark gradients — the single most common giveaway of an amateur dark theme.
-
-| Tier 3 | Tier 2 | Tier 1 | Tier 0 |
-|---|---|---|---|
-| animated grain | static grain | static grain | off |
-
-Cost at tier 3: **0.3 ms GPU**, **0 ms CPU**, 0.3 KB.
-Requires: nothing.
-Respects: `reduced-motion`, `reduced-transparency`, `forced-colors`.
 Group: `ambient`.
 
 ### `orrery` · css

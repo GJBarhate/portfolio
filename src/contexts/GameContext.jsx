@@ -5,6 +5,27 @@ import { getStore, setStore } from '../lib/store.js'
 const GameContext = createContext(null)
 const SECTION_IDS = ['about', 'stats', 'skills', 'projects', 'timeline', 'how-i-build', 'contact']
 
+/**
+ * How long an "achievement unlocked" card stays up — D-37.
+ *
+ * 4.2 s, and there are seven section unlocks, so a visitor scrolling at a
+ * normal pace had a stack of two or three of these parked over the top-right
+ * of the page more or less continuously. The card is a reward, not a
+ * notification: it has to be seen, and then it has to get out of the way.
+ *
+ * 2.2 s is comfortably above the ~1.4 s it takes to read four short words and
+ * a number, and it is short enough that consecutive unlocks queue rather than
+ * pile up.
+ */
+const TOAST_MS = 2200
+
+/**
+ * And at most this many on screen at once. Without a cap, crossing three
+ * section boundaries in one flick stacks three cards down the right-hand
+ * edge; the oldest is dropped instead.
+ */
+const TOAST_MAX = 2
+
 // T-030 — progress lives in the one versioned store. The `forge-progress`
 // key and its private try/catch(JSON.parse) are gone; a corrupt payload now
 // yields the documented default instead of throwing inside a state
@@ -24,10 +45,10 @@ export function GameProvider({ children }) {
     setUnlocked(next)
     setStore({ progress: { unlocked: next } })
     const toastId = `${id}-${Date.now()}`
-    setToasts((t) => [...t, { ...achievement, toastId }])
+    setToasts((t) => [...t, { ...achievement, toastId }].slice(-TOAST_MAX))
     setTimeout(() => {
       setToasts((t) => t.filter((x) => x.toastId !== toastId))
-    }, 4200)
+    }, TOAST_MS)
   }
 
   useEffect(() => {

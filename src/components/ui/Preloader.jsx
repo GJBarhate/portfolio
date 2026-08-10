@@ -9,9 +9,20 @@ import { markSeen } from '../../lib/store.js'
 // count runs *while* hero fonts and the poster stream in, not before them,
 // and since T-031.3 the hero name paints behind the curtain, so the metric
 // does not wait for any of this.
-const COUNT_DURATION = 700
+/*
+ * P5.10 — 700 -> 400 ms, and the hard cap 1400 -> 900.
+ *
+ * The curtain is a self-inflicted LCP delay by this file's own admission: it
+ * is drawn OVER the thing whose paint it is delaying. §10.3 offered three
+ * options — delete it, shorten it, or gate it on tier — and this takes the
+ * middle one, because the brief explicitly asks for a first-visit surprise
+ * (R10) and this is the frame for it. What it does not need to be is long:
+ * 400 ms is still a beat, and it is under the ~500 ms at which a delay stops
+ * reading as a transition and starts reading as a wait.
+ */
+const COUNT_DURATION = 400
 const LIFT_DURATION = 400
-const HARD_CAP = 1400
+const HARD_CAP = 900
 
 /**
  * First-visit curtain.
@@ -117,10 +128,41 @@ export default function Preloader({ onReveal }) {
     }
   }, [reduced])
 
+  /*
+   * P7.1 — `inert` on the page beneath, for as long as the curtain is up.
+   *
+   * The curtain covers the whole viewport, so anything behind it is visible to
+   * nobody and reachable by Tab. Marking `#root` inert takes the hero, the nav
+   * and every link out of the tab order and out of the accessibility tree for
+   * exactly the ~1.4 s the curtain exists, which is what makes the sighted and
+   * the screen-reader experience the same document again.
+   *
+   * This is the other half of dropping `aria-hidden="true"` from the curtain
+   * itself (D-10c). Without it, removing that attribute would have exposed
+   * BOTH layers at once, which is worse than either.
+   */
+  useEffect(() => {
+    if (gone) return
+    const root = document.getElementById('root')
+    if (!root) return
+    root.setAttribute('inert', '')
+    return () => root.removeAttribute('inert')
+  }, [gone])
+
   if (gone) return null
 
   return (
-    <div ref={rootRef} className="preloader" aria-hidden="true">
+    /*
+     * D-10c — `role="status"`, not `aria-hidden="true"`.
+     *
+     * This is a full-viewport element covering the whole page. Marking it
+     * aria-hidden meant a screen-reader user was navigating a page that the
+     * sighted user could not see — the two experiences were of different
+     * documents for up to 1.4 s. `aria-live="polite"` announces "Loading" once
+     * and nothing else; `inert` on the curtain keeps its own decorative
+     * contents out of the tab order without hiding the fact that it is there.
+     */
+    <div ref={rootRef} className="preloader" role="status" aria-live="polite">
       <div ref={innerRef} className="preloader__inner">
         <div className="preloader__monogram" style={{ border: 'none', boxShadow: 'none' }}>
           <svg width="44" height="44" viewBox="0 0 60 48" aria-hidden="true">
@@ -139,14 +181,20 @@ export default function Preloader({ onReveal }) {
         <div className="preloader__bar">
           <div ref={barRef} className="preloader__bar-fill" style={{ transform: 'scaleX(0)' }} />
         </div>
+        {/* D.1 — "FORGING INTERFACE" is the site's metaphor, not the
+            visitor's, and it is the first thing they read. */}
         <p className="font-mono text-[12px] tracking-[0.35em] text-[var(--ink-low)]">
-          FORGING INTERFACE
+          Building the page
         </p>
+        {/* D-10b — "PRESS START" was a false promise: nothing is bound to a
+            start affordance. ANY pointerdown, keydown, wheel or touchstart
+            dismisses the curtain, so the label now describes what the control
+            actually is — a skip. */}
         <p
           className="preloader__press font-mono text-[12px] tracking-[0.2em] mt-4"
           style={{ color: 'var(--accent-bright)' }}
         >
-          PRESS START
+          Tap anywhere to skip
         </p>
       </div>
       <div ref={countRef} className="preloader__count">0</div>

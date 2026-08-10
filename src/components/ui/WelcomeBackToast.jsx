@@ -1,13 +1,33 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 import { getStore, setStore } from '../../lib/store.js'
+import { claimOverlay } from '../../lib/overlayBus.js'
 
 // T-030 — both facts this component needs live in the one store.
+
+/*
+ * P2 — this used to time itself: up at 2.5 s, gone at 6 s, on two setTimeouts
+ * of its own. Both numbers were reasonable and neither was coordinated with
+ * anything else, so on a first visit it could land on top of the coach chip.
+ * It now asks the arbiter and lets the arbiter own the clock.
+ *
+ * 2.5 s is also inside the 10 s quiet period, which means this toast is now
+ * simply refused on a fresh load — correctly. "Welcome back" has nothing to
+ * say to someone who is still watching the page assemble.
+ */
+const VISIBLE_MS = 3500
 
 export default function WelcomeBackToast() {
   const [show, setShow] = useState(false)
   const [message, setMessage] = useState('')
+  const releaseRef = useRef(null)
+
+  const dismiss = useCallback(() => {
+    setShow(false)
+    releaseRef.current?.()
+    releaseRef.current = null
+  }, [])
 
   useEffect(() => {
     const store = getStore()
@@ -28,9 +48,20 @@ export default function WelcomeBackToast() {
       setMessage('Welcome back to the forge')
     }
 
-    const t1 = setTimeout(() => setShow(true), 2500)
-    const t2 = setTimeout(() => setShow(false), 7000)
-    return () => { clearTimeout(t1); clearTimeout(t2) }
+    const t1 = setTimeout(() => {
+      const release = claimOverlay('welcome-back', {
+        ttl: VISIBLE_MS,
+        onExpire: () => setShow(false),
+      })
+      if (!release) return
+      releaseRef.current = release
+      setShow(true)
+    }, 2500)
+    return () => {
+      clearTimeout(t1)
+      releaseRef.current?.()
+      releaseRef.current = null
+    }
   }, [])
 
   return (
@@ -48,7 +79,7 @@ export default function WelcomeBackToast() {
             {message}
           </span>
           <button
-            onClick={() => setShow(false)}
+            onClick={dismiss}
             className="text-[var(--ink-low)] hover:text-[var(--ink)] text-xs ml-1"
           >
             ✕

@@ -50,6 +50,10 @@ uniform vec3  uGlow;
 uniform float uIntensity;
 /* xy = tap origin in the same space as uMouse, z = life, 1 → 0. */
 uniform vec3  uRipple;
+/* §14.5 — 0 calm, 1 motifs, 2 forest. One program, three scenes: the branch
+   is on a uniform, so it is coherent across the entire draw and the GPU skips
+   the two scenes it is not drawing instead of executing all three. */
+uniform float uScene;
 
 varying vec2 vUv;
 
@@ -363,6 +367,394 @@ vec2 mGlobe(vec2 p, float t) {
   return vec2(grid * depth * 0.7, smoothstep(0.9, 1.0, 1.0 - r2) * 0.4 + grid * depth * 0.25);
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   THE FOREST — §14.5, uScene == 2, and the default.
+
+   A motif is a texture; this is a place. Sky, ridges receding into haze,
+   three tree lines moving in real wind, water with a rippled reflection,
+   drifting motes, birds, and animals on the near bank.
+
+   Three rules keep it inside the frame budget it has to live in:
+
+   1. Every layer is ANALYTIC. A tree line is not a loop over trees, it is
+      'fract()' domain repetition with one hash per cell — the whole canopy
+      costs the same as one tree. Nothing here iterates over scene content.
+
+   2. Everything is a HEIGHTFIELD compare. Each layer answers "is this pixel
+      below my skyline", which is one smoothstep against a curve, and layers
+      composite back-to-front by painting over. No sorting, no depth buffer.
+
+   3. The expensive parts are BANDED. The animals only exist in the bottom
+      fifth of the screen and the reflection only below the waterline, both
+      guarded by a 'p.y' compare. Those branches are spatially coherent — a
+      whole warp takes the same side — so most of the screen genuinely never
+      evaluates them rather than evaluating and discarding.
+
+   Colour comes from the theme, as everywhere else in this file: the scene is
+   built as depth + light and mapped through uSurface/uAccent/uGlow at the
+   end, which is why Eclipse, Ember and Paper each get their own forest rather
+   than the same forest with a filter over it.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 4C.1 / 4C.2 — three-point ramps and real aerial perspective ──────────
+ *
+ * Every depth in the forest used to be 'mix(ink, lit, k)': a straight line
+ * between two colours. That is what produces the plasticky midtone that reads
+ * as "cartoon" — in a real scene the shadowed end of a ramp is COOLER than a
+ * neutral interpolation and the lit end is WARMER, because shadows are lit by
+ * the sky and highlights by the sun. Inserting those two stops is the single
+ * cheapest thing that separates a photograph's colour from a gradient's.
+ *
+ * And the haze is wavelength-dependent (4C.2). Rayleigh scattering is stronger
+ * at short wavelengths, so distant things do not merely lose contrast, they go
+ * BLUE. Extinction per channel is two extra multiplies and it is most of what
+ * makes distance read as distance rather than as fog.
+ *
+ * Declared at file scope because GLSL ES 1.00 has no nested functions — worth
+ * stating, because writing them inside the forest routine (where they are
+ * used) compiles fine in every C-like language except this one. */
+vec3 aerialExtinction(float depth) {
+  /* R < G < B: blue is scattered out of the line of sight fastest. */
+  vec3 density = vec3(0.55, 0.78, 1.15);
+  return 1.0 - exp(-depth * density * 2.2);
+}
+vec3 depthRamp(vec3 ink, vec3 lit, float k, float depth) {
+  vec3 shadowTint = mix(ink, vec3(0.30, 0.42, 0.68), 0.16);
+  vec3 lightTint  = mix(lit, vec3(1.00, 0.86, 0.62), 0.14);
+  return mix(mix(shadowTint, lightTint, k), lit, aerialExtinction(depth));
+}
+
+float hash1(float n) { return fract(sin(n * 127.1) * 43758.5453); }
+
+/* Wind: one travelling gust plus a slow breathing envelope. Shared by every
+   canopy so the whole forest leans together — trees swaying out of phase with
+   each other reads as jelly, not as weather. */
+float windAt(float x, float t, float scale) {
+  float gust = 0.55 + 0.45 * sin(t * 0.23);
+  return (sin(x * 1.7 - t * 0.85) * 0.6 + sin(x * 3.9 - t * 1.31) * 0.4) * gust * scale;
+}
+
+/*
+ * One line of conifers, as a heightfield.
+ *
+ * 'density' cells across the width; each cell holds one tree whose height is
+ * its hash. The silhouette inside a cell is a triangle — '1 - |2f - 1|' — and
+ * the apex is displaced by the wind, more at the top than at the base, which
+ * is what makes them bend rather than slide.
+ */
+float treeLine(vec2 p, float t, float density, float base, float height, float sway) {
+  /*
+   * 4C.3 -- break the regularity.
+   *
+   * The domain repetition here is 'fract(x * density)' with one hash per cell,
+   * which is mathematically elegant and visually REGULAR: every tree occupies
+   * exactly the same width, so the eye reads a comb. Randomising HEIGHT alone
+   * does not help, because the tell is the spacing, not the profile.
+   *
+   * A second, much lower-frequency hash warps the domain before it is diced
+   * into cells, so cell WIDTH varies too -- clumps and clearings, which is how
+   * conifers actually grow. One sin and one multiply.
+   */
+  float clump = sin(p.x * 0.7 + hash1(floor(p.x * 0.35)) * 6.28) * 0.14;
+  float x = (p.x + clump) * density;
+  float cell = floor(x);
+  float f = fract(x);
+  float h = 0.45 + 0.55 * hash1(cell);
+  /* Neighbour cells overlap slightly so the canopy is continuous rather than
+     a row of separated spikes with sky between them. */
+  float hL = 0.45 + 0.55 * hash1(cell - 1.0);
+  float hR = 0.45 + 0.55 * hash1(cell + 1.0);
+  /* Asymmetric spikes: a real conifer is not an isoceles triangle. The lean is
+     hashed per cell so neighbours lean differently. */
+  float lean = (hash1(cell + 31.7) - 0.5) * 0.34;
+  float spike  = 1.0 - abs(f - 0.5 + lean) * 2.0;
+  float spikeL = 1.0 - abs(f + 0.5) * 2.0;
+  float spikeR = 1.0 - abs(f - 1.5) * 2.0;
+  float canopy = max(max(spike * h, spikeL * hL), spikeR * hR);
+  float top = base + canopy * height + windAt(p.x, t, sway) * canopy;
+  /* A soft edge of ~1.5 screen pixels: a hard step aliases into a crawling
+     staircase the moment the wind moves the canopy by a sub-pixel amount. */
+  return smoothstep(top + 0.004, top - 0.004, p.y);
+}
+
+/* A ridge: a sum of three sines, no hash, so it reads as landform rather than
+   as noise. Returns 1 below the skyline. */
+float ridge(vec2 p, float base, float amp, float f1, float ph) {
+  float y = base + amp * (0.62 * sin(p.x * f1 + ph)
+                        + 0.28 * sin(p.x * f1 * 2.3 + ph * 1.7)
+                        + 0.10 * sin(p.x * f1 * 4.1 + ph * 0.6));
+  return smoothstep(y + 0.005, y - 0.005, p.y);
+}
+
+/* Distance to a line segment — the primitive every animal below is drawn
+   from, and the only one worth having: a limb, a neck, a wing and a back are
+   all capsules once you stop trying to model them. */
+float segDist(vec2 p, vec2 a, vec2 b) {
+  vec2 pa = p - a;
+  vec2 ba = b - a;
+  float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-6), 0.0, 1.0);
+  return length(pa - ba * h);
+}
+
+/*
+ * A deer, mid-stride, from seven capsules.
+ *
+ * 'gait' drives a four-leg trot: fore and hind on each side in antiphase, the
+ * two sides half a cycle apart. The body lifts on the same clock so it bounds
+ * rather than glides. 's' is its height in scene units; everything else is
+ * proportional to it, so one number resizes the animal.
+ */
+float deerMask(vec2 q, float gait, float s) {
+  q /= s;
+  float w = 0.085;
+  float sw1 = sin(gait) * 0.55;
+  float sw2 = sin(gait + 3.14159) * 0.55;
+  /* body, neck, head */
+  float d = segDist(q, vec2(-0.55, 0.62), vec2(0.42, 0.66));
+  d = min(d, segDist(q, vec2(0.42, 0.66), vec2(0.72, 1.02)));
+  d = min(d, segDist(q, vec2(0.72, 1.02), vec2(0.95, 1.05)));
+  /* antlers — two short forks, the one detail that makes it read as a deer */
+  d = min(d, segDist(q, vec2(0.74, 1.06), vec2(0.66, 1.36)) * 1.7);
+  d = min(d, segDist(q, vec2(0.74, 1.06), vec2(0.92, 1.34)) * 1.7);
+  /* legs: hind pair, then fore pair */
+  d = min(d, segDist(q, vec2(-0.45, 0.60), vec2(-0.45 + sw1 * 0.42, 0.0)));
+  d = min(d, segDist(q, vec2(-0.30, 0.60), vec2(-0.30 + sw2 * 0.42, 0.0)));
+  d = min(d, segDist(q, vec2(0.26, 0.62), vec2(0.26 + sw2 * 0.42, 0.0)));
+  d = min(d, segDist(q, vec2(0.40, 0.62), vec2(0.40 + sw1 * 0.42, 0.0)));
+  return smoothstep(w, w * 0.45, d);
+}
+
+/*
+ * An elephant: heavier, slower, and read almost entirely from its outline —
+ * a thick back, a domed head, a hanging trunk and four columns. The trunk
+ * swings on the same clock as the walk, which is most of what sells it.
+ */
+float elephantMask(vec2 q, float gait, float s) {
+  q /= s;
+  float sw1 = sin(gait) * 0.32;
+  float sw2 = sin(gait + 3.14159) * 0.32;
+  float trunk = sin(gait * 0.5) * 0.16;
+  /* body — a fat capsule, so the stroke width IS the barrel */
+  float d = segDist(q, vec2(-0.52, 0.72), vec2(0.34, 0.74)) * 0.55;
+  /* head and trunk */
+  d = min(d, segDist(q, vec2(0.34, 0.74), vec2(0.68, 0.80)) * 0.75);
+  d = min(d, segDist(q, vec2(0.72, 0.72), vec2(0.86 + trunk, 0.34)));
+  d = min(d, segDist(q, vec2(0.86 + trunk, 0.34), vec2(0.92 + trunk * 1.6, 0.10)));
+  /* ear */
+  d = min(d, segDist(q, vec2(0.44, 0.78), vec2(0.46, 0.52)) * 0.6);
+  /* four columns */
+  d = min(d, segDist(q, vec2(-0.40, 0.70), vec2(-0.40 + sw1 * 0.20, 0.0)) * 0.7);
+  d = min(d, segDist(q, vec2(-0.22, 0.70), vec2(-0.22 + sw2 * 0.20, 0.0)) * 0.7);
+  d = min(d, segDist(q, vec2(0.12, 0.72), vec2(0.12 + sw2 * 0.20, 0.0)) * 0.7);
+  d = min(d, segDist(q, vec2(0.30, 0.72), vec2(0.30 + sw1 * 0.20, 0.0)) * 0.7);
+  return smoothstep(0.085, 0.038, d);
+}
+
+/* A bird: two swept strokes meeting at a shoulder, flapping. */
+float birdMask(vec2 q, float flap, float s) {
+  q /= s;
+  float a = 0.35 + sin(flap) * 0.45;
+  vec2 tipL = vec2(-1.0, a);
+  vec2 tipR = vec2(1.0, a);
+  float d = min(segDist(q, vec2(0.0, 0.0), tipL), segDist(q, vec2(0.0, 0.0), tipR));
+  return smoothstep(0.16, 0.05, d);
+}
+
+/*
+ * The forest.
+ *
+ * 'variant' is the damped section index, so scrolling walks through nine
+ * different forests rather than cutting between them: the ridge phase, the
+ * canopy density, the waterline and the haze all move continuously with it.
+ * Returns the composed colour; the caller applies vignette and grade.
+ */
+vec3 forest(vec2 p, float t, float variant, float lightTheme) {
+  /* Per-section character, all continuous in 'variant' so the crossfade is
+     free — no second evaluation, no blend, the scene simply IS different by
+     the time you have scrolled there. */
+  float v = variant;
+  float phase = v * 1.9;
+  float density = 5.0 + 2.6 * sin(v * 0.7);           /* how close the trees */
+  /* The bank sits at ~a third of the viewport, not a seventh.
+   *
+   * At 0.14 the entire scene lived in the bottom seventh of a FIXED
+   * background layer — which is the part of the viewport most reliably
+   * covered by the section's own content. A forest nobody can see is not a
+   * subtle forest, it is an expensive one. 0.32 puts the horizon, the ridges
+   * and the canopy in the band that stays visible in the gutters and between
+   * cards, and the legibility problem that creates is solved where it should
+   * be: a scrim behind the text, not by hiding the picture. */
+  float waterY = 0.32 + 0.06 * sin(v * 1.1);           /* where the bank is  */
+  float haze = 0.30 + 0.16 * sin(v * 0.53 + 1.2);      /* how far it recedes */
+  float canopyH = 0.150 + 0.040 * sin(v * 0.9 + 0.4);
+
+  /* ── The two ends of the scene's tonal range ────────────────────────────
+   *
+   * This is the part the first attempt got wrong, and it is worth stating why
+   * rather than just fixing it.
+   *
+   * Every layer was originally written as a small mix away from uSurface —
+   * 'trees are uSurface * 0.65', 'haze is uSurface toward uGlow by 0.16'. On
+   * Eclipse uSurface is very nearly black, so 65 % of it is also very nearly
+   * black: five layers were drawn, all of them within a few units of each
+   * other, and the whole forest rendered as a flat wash indistinguishable
+   * from the calm scene. A silhouette needs something to be a silhouette
+   * AGAINST.
+   *
+   * So the scene is built between two explicit poles and every layer picks a
+   * lightness between them. The poles flip polarity with the theme, which is
+   * what lets one set of layer weights render a night forest on Eclipse and a
+   * pale dawn forest on Paper without a second code path:
+   *
+   *   ink    the silhouette end. Dark in BOTH polarities — a tree is dark
+   *          against a cream sky exactly as it is against a black one.
+   *   lit    the light-source end. On a dark theme that is the accent glow at
+   *          the horizon; on a light theme it is the paper going toward white.
+   */
+  vec3 ink = mix(uSurface * 0.16, mix(uSurface, vec3(0.05, 0.08, 0.09), 0.86), lightTheme);
+  /* Nearly all the way to the glow on a dark theme. A silhouette needs
+     something bright to be a silhouette against, and on Eclipse every token in
+     play is dark: at 0.62 the horizon landed on a mid-dark teal, the canopy
+     was drawn 0.17 of the way from ink toward THAT, and the whole forest sat
+     inside a few units of the page background. */
+  vec3 lit = mix(mix(uSurface, uGlow, 0.92), mix(uSurface, vec3(1.0), 0.30), lightTheme);
+  /* The top of the sky is a WHISPER away from the page surface — 0.10, not
+     the 0.35 this started at. That first value filled the entire upper
+     viewport with a saturated teal, which is both the wrong picture (a sky is
+     darkest overhead, not brightest) and the wrong place to put it: the upper
+     two thirds of every section is where the text is. */
+  vec3 tint = mix(mix(uSurface, uAccent, 0.10), mix(uSurface, uAccent, 0.05), lightTheme);
+
+  /* ── Sky ────────────────────────────────────────────────────────────────
+     Deep overhead, bright only in a band at the horizon. The horizon IS the
+     light source, and everything below it is a silhouette against it — which
+     is the entire reason the layers read as depth rather than as stacked
+     shapes.
+
+     The cube on the ramp is what keeps the glow near the ground: linear, the
+     lift was still 45 % of the way to full brightness at mid-screen; cubed it
+     is 7 %, and the page above the treeline stays the theme's own surface. */
+  float sky = smoothstep(0.92, waterY, p.y);
+  vec3 col = mix(tint, lit, pow(sky, 3.0) * 0.72);
+  float sunX = 0.5 + sin(v * 0.8) * 0.55;
+  float sunGlow = exp(-9.0 * distance(p, vec2(sunX, waterY + 0.13)));
+  col = mix(col, lit, sunGlow * 0.50);
+
+  /* ── Far ridges, hazing toward the sky with distance ────────────────────
+     Aerial perspective: the further layer sits closer to the sky's lightness,
+     the nearer one closer to ink. Two ridges is enough to say "distance". */
+  float r1 = ridge(p, waterY + 0.26, 0.090, 1.5, phase);
+  float r2 = ridge(p, waterY + 0.16, 0.065, 2.4, phase + 2.1);
+  col = mix(col, depthRamp(ink, lit, 0.30 - haze * 0.09, 0.62 + haze * 0.20), r1);
+  col = mix(col, depthRamp(ink, lit, 0.18 - haze * 0.06, 0.44 + haze * 0.16), r2);
+
+  /* ── Three tree lines, each nearer, darker and swaying harder ───────────
+     Parallax comes from scaling x per layer: the far line moves a third as
+     far as the near one for the same scroll, which is depth for one multiply. */
+  float far  = treeLine(vec2(p.x * 0.55, p.y), t, density * 1.9, waterY + 0.075, canopyH * 0.55, 0.004);
+  float mid  = treeLine(vec2(p.x * 0.80, p.y), t, density * 1.25, waterY + 0.040, canopyH * 0.80, 0.008);
+  float near = treeLine(p, t, density, waterY - 0.010, canopyH, 0.014);
+
+  /* 4C.1 / 4C.2 -- THREE-point ramps with real aerial perspective.
+   *
+   * Every depth in this scene used to be 'mix(ink, lit, k)': a straight line
+   * between two colours. That is what produces the plasticky midtone that
+   * reads as "cartoon" -- in a real scene the shadowed end of a ramp is
+   * COOLER than a neutral interpolation and the lit end is WARMER, because
+   * shadows are lit by the sky and highlights by the sun.
+   *
+   * 4C.2 -- and the haze is wavelength-dependent. Rayleigh scattering is
+   * stronger at short wavelengths, so distant things do not merely lose
+   * contrast, they go BLUE. Applying the haze more to blue than to red is two
+   * extra multiplies and it is most of what makes distance read as distance
+   * rather than as fog. */
+  vec3 treeFar  = depthRamp(ink, lit, 0.17, 0.30 + haze * 0.22);
+  vec3 treeMid  = depthRamp(ink, lit, 0.085, 0.14 + haze * 0.12);
+  vec3 treeNear = depthRamp(ink, lit, 0.0, 0.0);
+  col = mix(col, treeFar, far);
+  col = mix(col, treeMid, mid);
+
+  /* ── Water: the scene above the bank, mirrored and rippled ──────────────
+     Only the canopy is re-evaluated for the reflection, not the whole scene.
+     A perfect mirror would cost a second full pass for something the ripple
+     is about to smear anyway. */
+  if (p.y < waterY) {
+    float depth = waterY - p.y;
+    float ripple = sin((p.x * 22.0) + t * 1.4 + depth * 30.0) * 0.004 * (0.35 + depth * 3.0);
+    vec2 mirrored = vec2(p.x + ripple, waterY + depth * 0.85);
+    float rTree = treeLine(vec2(mirrored.x * 0.80, mirrored.y), t, density * 1.25,
+                           waterY + 0.040, canopyH * 0.80, 0.008);
+    float rRidge = ridge(mirrored, waterY + 0.13, 0.055, 2.4, phase + 2.1);
+    /* The water reads a shade darker than the sky it mirrors — a reflection
+       that is as bright as its source looks like a hole, not a surface. */
+    vec3 water = mix(ink, lit, 0.30);
+    water = mix(water, mix(ink, lit, 0.16), rRidge * 0.6);
+    water = mix(water, treeMid, rTree * 0.55);
+    /* Specular glints on the crests, brightest under the horizon glow. */
+    float glint = smoothstep(0.9, 1.0, sin(p.x * 30.0 + t * 1.1 + sin(p.y * 40.0)));
+    water = mix(water, lit, glint * 0.16 * (1.0 - depth * 2.2));
+    col = mix(col, water, smoothstep(0.0, 0.012, depth));
+  }
+
+  /* ── Wildlife, on the near bank only ────────────────────────────────────
+     Guarded by a y-compare: above the bank this whole block is one comparison
+     and the animals cost nothing on ~80 % of the screen. */
+  if (p.y < waterY + 0.16) {
+    float groundY = waterY - 0.005;
+    /* The deer crosses left to right; the elephant walks the other way,
+       further back and slower, which is the parallax cue that separates
+       them without needing a second depth layer. */
+    float deerX = fract(t * 0.045 + variant * 0.13) * 1.9 - 0.45;
+    float deerLift = abs(sin(t * 2.6)) * 0.006;
+    float deer = deerMask(p - vec2(deerX, groundY + deerLift), t * 5.2, 0.085);
+
+    float eleX = 1.55 - fract(t * 0.018 + variant * 0.07) * 1.9;
+    float ele = elephantMask(p - vec2(eleX, groundY + 0.030), t * 1.7, 0.075);
+
+    /* The elephant sits between the mid and near tree lines, so it is drawn
+       a shade lighter than the deer — depth by tone, for one mix. */
+    col = mix(col, mix(ink, lit, 0.10), ele);
+    col = mix(col, ink, deer);
+  }
+
+  /* The near tree line is painted AFTER the animals, so they walk behind the
+     closest trunks — the single cheapest thing that turns four layers into a
+     space with a front and a back. */
+  col = mix(col, treeNear, near);
+
+  /* ── Birds ──────────────────────────────────────────────────────────────
+     Banded, like the animals. The flock occupies a 0.2-unit strip; without
+     the guard these three mask evaluations (six segment distances) ran for
+     every pixel on the screen including the whole sky above them, which is
+     most of the frame. */
+  if (p.y > waterY + 0.28 && p.y < waterY + 0.50) {
+    for (int i = 0; i < 3; i++) {
+      float fi = float(i);
+      float bx = fract(t * (0.030 + fi * 0.004) + fi * 0.37) * 1.9 - 0.45;
+      float by = waterY + 0.34 + fi * 0.055 + sin(t * 0.7 + fi * 2.1) * 0.022;
+      float b = birdMask(p - vec2(bx, by), t * 5.5 + fi * 1.9, 0.020);
+      col = mix(col, mix(ink, lit, 0.06), b * 0.7);
+    }
+  }
+
+  /* ── Motes: pollen by day, fireflies at night. Four hashed drifters. ────
+     Same reasoning — they drift in a band above the bank, so the four exp()
+     falloffs are charged to that band rather than to the whole viewport. */
+  if (p.y > waterY && p.y < waterY + 0.44) {
+    for (int i = 0; i < 4; i++) {
+      float fi = float(i);
+      vec2 mp = vec2(
+        fract(hash1(fi * 3.1) + t * (0.006 + fi * 0.002)) * 1.9 - 0.45,
+        waterY + 0.06 + hash1(fi * 7.7) * 0.34 + sin(t * 0.5 + fi) * 0.03
+      );
+      float m = exp(-900.0 * dot(p - mp, p - mp));
+      col = mix(col, lit, m * (0.35 + 0.3 * sin(t * 1.7 + fi * 2.2)));
+    }
+  }
+
+  return col;
+}
+
 vec2 motif(int id, vec2 p, float t) {
   if (id <= 0) return mFog(p, t);
   if (id == 1) return mCells(p, t);
@@ -391,7 +783,28 @@ void main() {
      computed on the CPU from the damped section index, so it is a real
      dissolve rather than a snap at the boundary — you watch one backdrop
      turn into the next as you scroll. */
-  vec2 mo = motif(int(uMotifA + 0.5), p, t);
+  /* Surface luminance decides every light/dark polarity in this shader — the
+     vignette below, and the forest's silhouette inks. Derived rather than
+     passed in, so it lerps with the palette during a theme sweep instead of
+     snapping a frame early. */
+  float lum = dot(uSurface, vec3(0.299, 0.587, 0.114));
+  float lightTheme = smoothstep(0.32, 0.58, lum);
+
+  /*
+   * The motif is evaluated ONLY in motif mode.
+   *
+   * This was the lag. 'motif()' ran unconditionally at the top of main and the
+   * forest ran afterwards inside its own branch, so the forest scene — the
+   * default — was paying for a full motif evaluation (two of them mid-scroll,
+   * during a crossfade) and then throwing the result away. Two complete
+   * backdrops per pixel, per frame, to draw one.
+   *
+   * 'uScene' is uniform across the draw, so this branch is coherent: every
+   * pixel takes the same side and the GPU genuinely skips the work.
+   */
+  vec2 mo = vec2(0.0);
+  if (uScene > 0.5 && uScene < 1.5) {
+  mo = motif(int(uMotifA + 0.5), p, t);
   /* Only pay for the second motif while a crossfade is actually running.
      The branch is on a uniform, so it is coherent across the whole draw — every
      pixel takes the same path and the GPU genuinely skips the work rather than
@@ -400,6 +813,7 @@ void main() {
      the single-motif version did. */
   if (uBlend > 0.002) {
     mo = mix(mo, motif(int(uMotifB + 0.5), p, t), uBlend);
+  }
   }
 
   float n = mo.x;
@@ -435,9 +849,18 @@ void main() {
    * this stays a wash of the theme palette rather than the saturated demo
    * colours these motifs are usually shown in. A background a recruiter
    * notices is a background that failed.
+   *
+   * D-38 — the non-hero floor was 0.42, and multiplied by tier 2's 0.75
+   * intensity that left every section past the hero at ~0.32 of full. Eleven
+   * motifs were being drawn and none of them could be made out; the reported
+   * version of this is "I only see the different backgrounds after I change
+   * something in the terminal", because raising the tier by hand was the only
+   * way to get them above the noise floor. 0.62 is still a wash — the
+   * contrast check in scripts/check-contrast.mjs covers the text that sits
+   * over it — and it is a wash you can actually see the shape of.
    */
   float heroness = 1.0 - smoothstep(0.0, 1.4, uSection);
-  float energy = uIntensity * (0.42 + heroness * 0.55);
+  float energy = uIntensity * (0.62 + heroness * 0.40);
 
   float field = n * energy + bloom * 0.16 * uIntensity
               + ripple * 0.30 * uIntensity;
@@ -449,10 +872,74 @@ void main() {
      noise. */
   col = mix(col, uGlow, clamp(mo.y * energy * 0.7 + bloom * 0.10 + ripple * 0.45, 0.0, 1.0));
 
-  /* Vignette keeps the centre readable and hides the quad's edges. */
+  /* ── Scene select ───────────────────────────────────────────────────────
+     'calm' keeps the wash and drops the motif entirely: the field becomes the
+     smooth theme gradient plus the pointer bloom, which is the version that
+     is never in the way of a paragraph. 'forest' replaces the composite
+     outright — it is a scene, not a pattern, so it owns its own colour. */
+  if (uScene < 0.5) {
+    float wash = 0.5 + 0.5 * fbm2(vec2(p.x * 0.7, p.y * 0.7 - t * 0.02));
+    col = mix(uSurface, mix(uSurface, uAccent, 0.42), wash * energy * 0.55);
+    col = mix(col, uGlow, bloom * 0.10 + ripple * 0.40);
+  } else if (uScene > 1.5) {
+    vec3 scene = forest(p, t, uSection, lightTheme);
+    /* The pointer still touches it — the bloom lifts the canopy where the
+       cursor is, and a tap still rings — but at a third of the motif version's
+       strength, because a forest already has somewhere for the eye to go. */
+    scene = mix(scene, uGlow, clamp(bloom * 0.06 + ripple * 0.22, 0.0, 1.0));
+    /*
+     * Against uSurface, NOT against the motif composite.
+     *
+     * Blending toward 'col' left (1 - uIntensity) of the motif underneath —
+     * 10 % at tier 2 — and 10 % of a contour-line motif over a forest whose
+     * upper half is nearly flat surface colour is not a subtle artifact, it is
+     * clearly visible topology lines in the sky. The tier's intensity should
+     * scale how far the SCENE departs from the page surface, which is what it
+     * means everywhere else in this shader.
+     */
+    col = mix(uSurface, scene, clamp(uIntensity, 0.0, 1.0));
+  }
+
+  /* Vignette keeps the centre readable and hides the quad's edges.
+   *
+   * D-48 -- it has to know which way "recede" points.
+   *
+   * A plain multiply is a DARKENING vignette, and it was written against
+   * Eclipse, where darker IS further away. Applied to Paper it multiplies a
+   * cream surface toward grey, so the light theme got a muddy ring instead of
+   * a horizon -- one of the two reasons the field read as "only works in
+   * Eclipse". The other was the 0.55 opacity override, now gone from
+   * index.css.
+   *
+   * The polarity is derived from the surface itself rather than passed in as a
+   * uniform, so it cannot fall out of step with the palette mid-sweep: a light
+   * surface recedes toward white, a dark one toward black, and the sweep
+   * between two themes crosses smoothly because lum is lerped along with
+   * everything else.
+   *
+   * NOTE: no backticks anywhere in this file's shader source. It is a JS
+   * template literal, and a backtick in a GLSL comment ends the string. */
   vec2 d = vUv - 0.5;
-  float vig = 1.0 - dot(d, d) * 0.85;
-  col *= vig;
+  float vig = dot(d, d) * 0.85;
+  col = mix(col * (1.0 - vig), col + vig * 0.55, lightTheme);
+
+  /* 4C.4 -- grain, here rather than as a DOM layer over the whole page.
+   *
+   * This replaces '.film-grain': a fixed, full-viewport element at z-index
+   * 9998 carrying an SVG feTurbulence data-URI and 'will-change: transform',
+   * i.e. a permanently promoted composited layer sitting on top of every
+   * heading, button and link on the site, re-composited every frame.
+   *
+   * Three lines here do the same job better, for two reasons. It costs no
+   * layer and no re-composite -- it is part of a fragment the GPU is already
+   * shading. And it is in the RIGHT PLACE: grain belongs to a rendered image,
+   * and what actually needed dithering was this shader's own smooth gradients,
+   * which is where 8-bit banding shows. The UI never needed it.
+   *
+   * Scaled by the surface luminance so the light theme gets less of it -- the
+   * same amplitude that breaks up a dark gradient is visible speckle on cream. */
+  float grain = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233)) + uTime * 0.35) * 43758.5453);
+  col += (grain - 0.5) * mix(0.020, 0.008, lightTheme);
 
   gl_FragColor = vec4(col, 1.0);
 }`
@@ -509,7 +996,7 @@ export function createBackgroundEngine(canvas) {
   gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0)
 
   const u = {}
-  for (const name of ['uResolution', 'uTime', 'uMouse', 'uScrollVel', 'uSection', 'uMotifA', 'uMotifB', 'uBlend', 'uSurface', 'uAccent', 'uGlow', 'uIntensity', 'uRipple']) {
+  for (const name of ['uResolution', 'uTime', 'uMouse', 'uScrollVel', 'uSection', 'uMotifA', 'uMotifB', 'uBlend', 'uSurface', 'uAccent', 'uGlow', 'uIntensity', 'uRipple', 'uScene']) {
     u[name] = gl.getUniformLocation(program, name)
   }
 

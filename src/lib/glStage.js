@@ -1,161 +1,47 @@
 /**
- * A single shared WebGL renderer for the whole page.
+ * WebGL renderer construction for the whole page, in one place.
  *
  * WebGL resources cannot be shared across contexts: every extra
  * `WebGLRenderer` re-compiles shaders and re-uploads textures, and browsers
  * cap contexts at roughly 8–16 — past which the OLDEST context is silently
- * lost and whatever it was drawing goes black. This site ran nine at once.
+ * lost and whatever it was drawing goes black. This site once ran nine.
  *
- * Three.js's recommended pattern for many small canvases is one full-viewport
- * renderer plus `setViewport`/`setScissor` per virtual canvas. Components
- * register `{ element, scene, camera }`; one frame callback walks the
- * registry, skips anything off-screen, and scissor-renders the rest into the
- * region occupied by each element.
+ * ── The shared scissor stage was removed ──────────────────────────────────
  *
- * Usage:
- *   const handle = register({ element, scene, camera, onFrame })
- *   handle.dispose()
+ * This module used to also implement three.js's "many small canvases" pattern:
+ * one full-viewport renderer plus `setViewport`/`setScissor` per registered
+ * element. It was ~90 lines — a fixed canvas, an IntersectionObserver, a
+ * ResizeObserver, a frame subscriber and a `register()` API — and **nothing
+ * ever called it.** Every scene on this site sits on top of an opaque section
+ * background, which is precisely the case the stage cannot serve (it draws
+ * behind `<main>`), so all three used the anchored escape hatch instead.
+ *
+ * Dead code that describes an architecture the code does not use is worse than
+ * no comment: the module's own documentation asserted a design that had never
+ * shipped. What remains is what is actually used.
+ *
+ * Three live contexts by design — the hero gem, the About desk and the corner
+ * clock — plus the background field, which owns its own raw-WebGL context in
+ * `lib/bgEngine.js`.
  */
 import { WebGLRenderer } from 'three'
-import { onFrame, getTier } from './raf.js'
+import { getTier } from './raf.js'
 import { applyFilmGrade } from './filmGrade.js'
 
-let renderer = null
-let canvas = null
-let stopFrame = null
-let io = null
-let ro = null
-const entries = new Set()
-
-function ensureRenderer() {
-  if (renderer) return renderer
-
-  canvas = document.createElement('canvas')
-  canvas.setAttribute('aria-hidden', 'true')
-  Object.assign(canvas.style, {
-    position: 'fixed',
-    inset: '0',
-    width: '100%',
-    height: '100%',
-    pointerEvents: 'none',
-    // Sits behind page content; individual scenes appear inside their own
-    // element's rectangle, so this reads as several independent canvases.
-    zIndex: '0',
-  })
-  document.body.appendChild(canvas)
-
-  // T-045.1 — without preventDefault on `webglcontextlost` the browser never
-  // sends `webglcontextrestored`, so a lost context here used to mean every
-  // registered scene was black for the rest of the session.
-  canvas.addEventListener('webglcontextlost', (event) => {
-    event.preventDefault()
-    stopFrame?.()
-    stopFrame = null
-  }, false)
-  canvas.addEventListener('webglcontextrestored', () => {
-    // The renderer rebuilds its own GL resources; what it cannot do is
-    // restart a frame loop it does not own.
-    resize()
-    if (!stopFrame) stopFrame = onFrame(renderAll, { band: 'ambient' })
-  }, false)
-
-  renderer = new WebGLRenderer({ canvas, alpha: true, antialias: false })
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, getTier() >= 3 ? 1.75 : 1.25))
-  renderer.setScissorTest(true)
-  resize()
-  // T-011 — a ResizeObserver on the root, not a `resize` listener: the canvas
-  // is `position: fixed; width: 100%`, so its size is the root box, and the
-  // observer does not fire for every URL-bar collapse mid-scroll.
-  ro = new ResizeObserver(resize)
-  ro.observe(document.documentElement)
-
-  io = new IntersectionObserver(
-    (records) => {
-      for (const r of records) {
-        for (const e of entries) {
-          if (e.element === r.target) e.visible = r.isIntersecting
-        }
-      }
-    },
-    { rootMargin: '10% 0px' }
-  )
-
-  stopFrame = onFrame(renderAll)
-  return renderer
-}
-
-function resize() {
-  if (!renderer) return
-  renderer.setSize(window.innerWidth, window.innerHeight, false)
-}
-
-function renderAll(t, dt) {
-  if (!renderer || entries.size === 0) return
-  const vh = window.innerHeight
-
-  for (const entry of entries) {
-    if (!entry.visible) continue
-    const rect = entry.element.getBoundingClientRect()
-    if (rect.width < 1 || rect.height < 1) continue
-    // Fully outside the viewport — the observer margin can lag a fast scroll.
-    if (rect.bottom < 0 || rect.top > vh) continue
-
-    entry.onFrame?.(t, dt, rect)
-
-    // WebGL's origin is bottom-left; the DOM's is top-left.
-    const left = rect.left
-    const bottom = vh - rect.bottom
-    renderer.setViewport(left, bottom, rect.width, rect.height)
-    renderer.setScissor(left, bottom, rect.width, rect.height)
-
-    if (entry.camera.isPerspectiveCamera) {
-      const aspect = rect.width / rect.height
-      if (entry.camera.aspect !== aspect) {
-        entry.camera.aspect = aspect
-        entry.camera.updateProjectionMatrix()
-      }
-    }
-    renderer.render(entry.scene, entry.camera)
-  }
-}
-
 /**
- * Register a scene to be drawn into the bounds of `element`.
- * @param {{element: HTMLElement, scene: object, camera: object, onFrame?: Function}} config
- * @returns {{dispose: () => void, renderer: object}}
+ * P0.8 — how many GL contexts are actually alive.
+ *
+ * The whole reason this module exists is that the site once ran nine contexts
+ * and lost the oldest ones silently. "How many are live right now" was
+ * nevertheless unanswerable without opening about:gpu, so every claim about it
+ * was an assertion. Every construction site in this file increments; every
+ * disposal decrements. `?perf=1` reads it, and so does the e2e budget.
  */
-export function register({ element, scene, camera, onFrame: cb }) {
-  ensureRenderer()
-  const entry = { element, scene, camera, onFrame: cb, visible: false }
-  entries.add(entry)
-  io.observe(element)
+let liveContexts = 0
 
-  return {
-    get renderer() { return renderer },
-    dispose() {
-      entries.delete(entry)
-      io?.unobserve(element)
-      if (entries.size === 0) teardown()
-    },
-  }
-}
-
-function teardown() {
-  stopFrame?.()
-  stopFrame = null
-  io?.disconnect()
-  io = null
-  ro?.disconnect()
-  ro = null
-  renderer?.dispose()
-  renderer = null
-  canvas?.remove()
-  canvas = null
-}
-
-/** The shared renderer, or null if nothing has registered yet. */
-export function getRenderer() {
-  return renderer
+/** Live `WebGLRenderer` count — the number `check-budgets` budgets at ≤ 3. */
+export function liveContextCount() {
+  return liveContexts
 }
 
 // The project-card hover distortion used to take an overlay renderer from
@@ -164,29 +50,37 @@ export function getRenderer() {
 // put 131 KB on the Projects path.
 
 /**
- * A renderer whose canvas lives INSIDE `element`.
+ * A renderer whose canvas lives INSIDE `element` — the only kind this site
+ * uses.
  *
- * The scissor stage draws into one fixed layer at z-index 0, i.e. behind
- * `<main>`. That is correct for a true background field like the particle
- * universe, but a scene anchored to an element that sits on top of an opaque
- * section background (the hero gem, the About desk) would be completely
- * hidden by it. Raising the stage above `<main>` is not an option either —
- * it would cover every heading on the page.
- *
- * So those scenes keep a canvas of their own. They are still lazily mounted,
- * tier-gated, viewport-gated and driven by the one shared frame loop, and
- * construction stays in this module so there is a single owner.
+ * Every 3-D scene here sits ON TOP of its section's opaque background, so a
+ * shared behind-content layer could not draw any of them, and raising such a
+ * layer above `<main>` would cover every heading on the page. Each scene
+ * therefore owns its canvas. They are still lazily mounted, viewport-gated
+ * and driven by the one shared frame loop, and construction stays in this
+ * module so there is a single owner of context lifetime.
  *
  * @param {HTMLElement} element
  * @returns {{renderer: object, dispose: () => void}}
  */
-export function createAnchoredRenderer(element) {
+export function createAnchoredRenderer(element, { antialias = false } = {}) {
   const el = document.createElement('canvas')
   el.setAttribute('aria-hidden', 'true')
   el.style.display = 'block'
   el.style.width = '100%'
   el.style.height = '100%'
-  const r = new WebGLRenderer({ canvas: el, alpha: true, antialias: false })
+  /*
+   * 4B.5 — `antialias` is now a per-caller decision rather than a blanket
+   * `false`.
+   *
+   * MSAA cost scales with pixel count, which is exactly why the blanket answer
+   * was wrong: it is unaffordable on a full-viewport field and nearly free on a
+   * 260 px dial. On that dial, a thin second hand without it has visible
+   * stair-stepping, and stair-stepping is one of the most reliable "this is a
+   * cheap render" signals there is.
+   */
+  const r = new WebGLRenderer({ canvas: el, alpha: true, antialias })
+  liveContexts += 1
   // Every anchored scene is graded here rather than in the component, so the
   // gem and the desk cannot end up on two different tone curves. See
   // filmGrade.js for why this is the largest single visual change available.
@@ -198,9 +92,31 @@ export function createAnchoredRenderer(element) {
   r.setPixelRatio(Math.min(window.devicePixelRatio, t >= 3 ? 1.75 : t >= 2 ? 1.25 : 1))
   element.appendChild(el)
 
+  let disposed = false
   return {
     renderer: r,
+    /**
+     * Compile this scene's programs OFF the blocking path.
+     *
+     * A `renderer.render()` on a scene whose programs are not yet linked
+     * compiles them synchronously, on the main thread, right then — which is a
+     * stall the visitor feels as the page locking up for a moment the first
+     * time each scene appears. It is one of the few WebGL costs that is
+     * genuinely expensive on real GPUs as well as on software ones, because
+     * the stall is in the driver's compiler, not in rasterisation.
+     *
+     * `compileAsync` uses `KHR_parallel_shader_compile` where the driver has
+     * it and falls back to the synchronous path where it does not, so this is
+     * never worse and is usually much better. Callers await it before their
+     * first frame.
+     */
+    async warmUp(scene, camera) {
+      try { await r.compileAsync(scene, camera) } catch { /* older three, or a lost context */ }
+    },
     dispose() {
+      if (disposed) return
+      disposed = true
+      liveContexts = Math.max(0, liveContexts - 1)
       r.dispose()
       // Explicitly drop the GPU context rather than waiting for GC — this is
       // what keeps the live-context count bounded as sections mount/unmount.
@@ -210,17 +126,12 @@ export function createAnchoredRenderer(element) {
   }
 }
 
-/**
- * A dedicated renderer for pipelines the scissor stage cannot express.
+/*
+ * `createDedicatedRenderer` was removed with its only caller.
  *
- * The fluid simulation ping-pongs between its own float render targets across
- * ~20 passes per step; that cannot be expressed as a viewport into a shared
- * scene graph. It is the one legitimate exception, and it only ever mounts on
- * a tier-3 machine with 8+ cores.
- *
- * @param {HTMLCanvasElement} canvasEl
- * @param {object} [opts]
+ * It existed for the hero fluid simulation, which ping-ponged between float
+ * render targets across ~20 passes per step and could not be expressed as a
+ * viewport into a shared scene. The simulation is gone; a factory whose only
+ * justification was one deleted caller is not an extension point, it is an
+ * unused branch that the next reader has to evaluate.
  */
-export function createDedicatedRenderer(canvasEl, opts = {}) {
-  return new WebGLRenderer({ canvas: canvasEl, alpha: true, antialias: false, ...opts })
-}

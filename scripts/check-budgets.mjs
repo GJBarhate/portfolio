@@ -22,47 +22,55 @@ const SHADERS_DIR = fileURLToPath(new URL('../src/shaders', import.meta.url))
 
 const KB = 1024
 const BUDGETS = {
-  entry: 75 * KB,
-  motion: 45 * KB,
+  /*
+   * P5 — every ceiling here moved DOWN. The rule is that budgets tighten and
+   * never loosen; where a target was not reached, the number is still lower
+   * than it was and the gap is recorded rather than quietly widened.
+   */
+  // 75 -> 60 KB (plan target). Measured 26.6 KB, so this is pure headroom
+  // reclamation: the ceiling was three times the actual figure and could not
+  // have caught anything.
+  entry: 60 * KB,
+  /*
+   * 45 -> 42 KB. The plan's target is 35 and it is NOT met — measured 41.6.
+   *
+   * The gap is honest and structural: this chunk is framer-motion itself, so
+   * its size is a function of the library, not of how much of it is used.
+   * Removing a few consumers moves it by nothing; only removing the last one
+   * removes the chunk. §10.5's "audit whether framer-motion is still earning
+   * its place at all" is that piece of work — a rewrite of ~15 components onto
+   * CSS and WAAPI — and it is not something to fold into a performance pass.
+   * Two consumers went in P5 (ExitIntent, and the deleted fluid hero); the
+   * ceiling comes down to match and will come down again as more follow.
+   */
+  motion: 42 * KB,
   three: 135 * KB,
   threeWebgpu: 190 * KB,
-  eagerTotal: 115 * KB,
+  // 115 -> 95 KB (plan target). Measured 26.6 KB.
+  eagerTotal: 95 * KB,
   /*
-   * 40 -> 44 KB, and the reason is recorded rather than quietly bumped.
+   * 46 -> 45 KB. The plan's target is 34 and it is NOT met — measured 44.4.
    *
-   * 40 KB was set when the page carried 12 registered effects. It now carries
-   * 14, and the two additions are the largest visual systems on the site: the
-   * orrery (Sun and eight planets, 2.6 KB) and the skill ring (a six-face 3-D
-   * carousel, 2.1 KB), both requested, both deliberately CSS rather than
-   * WebGL — see docs/gates/PHASE-5.md for why that trade was taken.
+   * What was actually removed in P5.2, all of it verified unused by extracting
+   * every identifier-shaped token from every .jsx/.js/.html file in the repo
+   * and intersecting against the stylesheet:
    *
-   * The measured total is 39.6 KB. Consolidating the duplicated rules inside
-   * those systems was tried first and moved the gzipped figure by less than
-   * 0.1 KB, because gzip already collapses that repetition; the only way to
-   * get materially under 40 was to delete the features. 44 restores the same
-   * ~10 % headroom the budget was written with, so it still fails on drift
-   * rather than sitting permanently on the line.
+   *   - the whole 8pt spacing utility scale (16 classes)
+   *   - the 12-column `.layout-grid` system and its `.col-span-*` helpers
+   *   - `.text-step-*`, `.fs-*` (except `fs-hero`), `.shadow-e*`, `.elev-*`
+   *   - 61 further rules whose entire selector was a class no component names
+   *   - 15 `@keyframes` blocks with no remaining referent
    *
-   * 44 -> 46 KB, same rule: recorded, not quietly bumped.
+   * That is ~16 KB of source and it moved the gzipped total by 1.3 KB, because
+   * gzip is extremely good at repetitive utility CSS — which is also why the
+   * "~100 dead selectors" estimate in the old comment was right about the
+   * count and wrong about the payoff.
    *
-   * Two changes spent it. The skill reactor stopped being `hidden md:block`
-   * and now has a phone geometry (~1 KB raw), and the run-complete celebration
-   * stopped being a full-screen modal and became a corner toast — a card with
-   * a lit rim, a specular sweep and a countdown rail costs more CSS than a
-   * centred box on a blurred backdrop did (~4 KB raw). Both were asked for,
-   * and both are the difference between an effect existing on a phone and not.
-   *
-   * Trimmed first, in this order: the toast's own reduced-motion block (every
-   * loop already divides by --motion-scale, so it was dead weight), the four
-   * hub ornaments in the reactor's phone block that already fit a 320px
-   * screen, and the dead CRT-flicker keyframes the modal was the only user of.
-   * That recovered ~0.4 KB gzipped and the measured total is 44.6 KB. There is
-   * a genuine ~100-selector dead utility layer left in index.css (the `*pt`
-   * spacing scale, `col-span-*`, `text-step-*`, `fs-*`, `shadow-e*`) which is
-   * the right place to win this back properly — it is a separate change, not
-   * something to fold into a feature.
+   * Closing the remaining 10 KB means deleting rules that are LIVE — i.e.
+   * removing visual design — and that is a product decision, not a performance
+   * one. It is not something to do silently inside a budget pass.
    */
-  cssTotal: 46 * KB,
+  cssTotal: 45 * KB,
   prerenderedHtml: 24 * KB,
   fontsTotal: 120 * KB,
   shadersTotal: 60 * KB,
@@ -83,7 +91,28 @@ const gzSize = (name) => {
   return gzipSync(readFileSync(join(ASSETS, name))).length
 }
 
-const chunkOf = (prefix) => js.find((f) => f.startsWith(prefix + '-'))
+/**
+ * Find a manual-chunk by name.
+ *
+ * `find` was `js.find(f => f.startsWith(prefix + '-'))`, and that broke
+ * silently the moment a SOURCE module produced a chunk with the same prefix as
+ * a VENDOR one. `src/lib/motion.js` became a shared chunk (`motion-BOlVc90U.js`,
+ * 0.5 KB) alongside the framer-motion vendor chunk (`motion-CQWpC76d.js`,
+ * 41.6 KB); `find` returned whichever `readdir` listed first, and the gate
+ * cheerfully reported "motion 0.5 KB / 45 KB — ✓" while not measuring
+ * framer-motion at all.
+ *
+ * A budget that passes by measuring the wrong file is worse than no budget.
+ * The vendor chunk is the largest candidate by construction — `manualChunks`
+ * only groups whole packages — so ties are resolved by size, and the count is
+ * reported so an ambiguity is visible rather than silent.
+ */
+const chunkCandidates = (prefix) => js.filter((f) => f.startsWith(prefix + '-'))
+const chunkOf = (prefix) => {
+  const candidates = chunkCandidates(prefix)
+  if (candidates.length <= 1) return candidates[0]
+  return candidates.reduce((biggest, f) => (gzSize(f) > gzSize(biggest) ? f : biggest))
+}
 const html = readFileSync(join(DIST, 'index.html'), 'utf8')
 
 // ── the eager set ─────────────────────────────────────────────────────────
@@ -124,7 +153,8 @@ for (const name of ['motion', 'three']) {
   const chunk = chunkOf(name)
   if (!chunk) { report.push([name, 0, BUDGETS[name]]); continue }
   const size = gzSize(chunk)
-  report.push([name, size, BUDGETS[name]])
+  const ambiguous = chunkCandidates(name).length
+  report.push([ambiguous > 1 ? `${name} (${ambiguous} candidates)` : name, size, BUDGETS[name]])
   if (size > BUDGETS[name]) failures.push(`${name} ${size} > ${BUDGETS[name]}`)
   // The hard part of the budget is not the size — it is the reachability.
   if (eager.includes(chunk)) {

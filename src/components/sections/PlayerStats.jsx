@@ -15,7 +15,7 @@ export default function PlayerStats() {
   const spotlight = useSpotlight()
 
   return (
-    <section id="stats" aria-labelledby="stats-heading" className="relative section-rhythm container-px mesh-gradient-b overflow-hidden">
+    <section id="stats" aria-labelledby="stats-heading" data-field="2" data-loop className="relative section-rhythm container-px overflow-hidden">
       <span className="ghost-numeral" aria-hidden="true">02</span>
       <div className="absolute top-[20%] right-[8%]"><Spark id="spark-stats" /></div>
 

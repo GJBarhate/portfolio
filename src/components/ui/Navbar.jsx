@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { onFrame } from '../../lib/raf.js'
 import { onScrollFrame } from '../../lib/scrollState.js'
-import { useSmoothScroll } from '../../contexts/SmoothScrollContext.jsx'
+import { scrollTo } from '../../lib/scroller.js'
 import { useSound } from '../../contexts/SoundContext.jsx'
-import { usePointer } from '../../lib/useMedia.js'
+import { PALETTE_HINT, PALETTE_KEYSHORTCUTS } from '../../lib/platform.js'
 import MagneticButton from './MagneticButton.jsx'
-import ThemeToggle from './ThemeToggle.jsx'
+import AppearanceButton from './AppearanceButton.jsx'
+import { openAppearanceConsole } from '../../lib/appearance.js'
 import RecruiterMode from './RecruiterMode.jsx'
 import MorphLink from './MorphLink.jsx'
 import Drawer from './Drawer.jsx'
@@ -22,14 +23,8 @@ const LINKS = [
   { id: 'contact', label: 'Contact' },
 ]
 
-/** The five games, each launchable in its own right (T-004.4). */
-const GAMES = [
-  { id: 'runner', icon: '🏃', label: 'Forge Runner' },
-  { id: 'ludo', icon: '🎲', label: 'Ludo: Recruiter' },
-  { id: 'snakes', icon: '🪜', label: 'Snakes & CV' },
-  { id: 'memory', icon: '🧠', label: 'Memory Match' },
-  { id: 'snake', icon: '🐍', label: 'Snake Classic' },
-]
+/* The per-game list lived here as well as in ArcadeHub, to feed a hover-only
+   dropdown. One list, in the hub, now — see the ARCADE button below. */
 
 const RING_R = 18
 const RING_C = 2 * Math.PI * RING_R
@@ -42,9 +37,7 @@ const openPalette = () => window.dispatchEvent(new CustomEvent('forge:open-palet
 export default function Navbar() {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState('')
-  const scroll = useSmoothScroll()
   const sound = useSound()
-  const { hover } = usePointer()
   const ringRef = useRef(null)
   const headerRef = useRef(null)
   const headerHeightRef = useRef(80)
@@ -147,16 +140,33 @@ export default function Navbar() {
 
   const goTo = useCallback((id) => {
     setOpen(false)
-    const el = document.getElementById(id)
-    if (!el) return
-    // T-012.2 — the measured header, not 80.
-    const offset = -(headerHeightRef.current + ANCHOR_GAP)
-    if (scroll?.lenis?.current) {
-      scroll.lenis.current.scrollTo(el, { offset })
-    } else {
-      el.scrollIntoView({ behavior: 'smooth' })
-    }
-  }, [scroll])
+    /*
+     * The scroll is DEFERRED by one task, and that is a bug fix rather than a
+     * flourish.
+     *
+     * `setOpen(false)` only schedules a React update. The drawer's scroll lock
+     * — root-level `overflow: hidden`, plus `position: fixed` on the body for
+     * iOS — is released in that component's effect CLEANUP, which runs after
+     * React commits. Calling `scrollTo` synchronously here therefore ran while
+     * the page was still locked, and `window.scrollTo` against
+     * `overflow: hidden` is a no-op.
+     *
+     * The effect: every section link in the MOBILE MENU silently did nothing.
+     * The drawer closed and the page stayed exactly where it was. Caught by
+     * `recruiter-path.spec.js` on a 390px viewport — "one click on Work must
+     * bring the work section into view" — reporting `viewport ratio 0`.
+     *
+     * A macrotask is enough and is the right size: React's commit and its
+     * effect cleanups both complete before the next task runs, so by the time
+     * this fires the page is genuinely scrollable. On desktop the drawer is
+     * closed already and the extra tick is imperceptible.
+     *
+     * D-30 — one scroll implementation. `scrollTo` reads the measured
+     * `--header-h` itself, so the heading lands below the header rather than
+     * underneath it, on every entry point that calls it.
+     */
+    setTimeout(() => scrollTo(id), 0)
+  }, [])
 
   const toggleMute = () => {
     sound?.setMuted((v) => !v)
@@ -195,69 +205,33 @@ export default function Navbar() {
         ))}
 
         {/*
-          T-004 / D-03 — the dropdown that had never rendered.
+          D-10h — one button, and the games are chosen inside the hub.
 
-          The wrapper was `<div className="relative">` and the panel below used
-          `group-hover:opacity-100 group-hover:visible`. Tailwind's `group-*`
-          variants only resolve against an ancestor carrying the literal class
-          `group`, which was absent — so a five-item panel sat in the bundle
-          and in the DOM and was never once visible in production.
+          This was a five-item panel gated on `hover`, which made it a keyboard
+          trap on exactly the machine most likely to hit it: a touch-capable
+          laptop reports `hover: none`, so the panel was not rendered at all,
+          and a keyboard user could Tab to ARCADE and reach none of the five
+          games. `focus-within` cannot rescue a panel that was never mounted.
 
-          Fixed, and then made real: `group` is present; `focus-within` opens
-          it too, because hover is not a contract and a keyboard user needs a
-          way in; `pointer-events` are enabled only while it is open, since a
-          permanently `pointer-events-none` panel would stay inert even once
-          visible; and the five rows are `<button role="menuitem">` elements
-          that each launch their own game rather than five decorative `<div>`s
-          that merely look like a menu.
+          Splitting one feature across a button and a hover menu also meant the
+          menu had to duplicate the hub's own game list — two places to add a
+          game, one of which was invisible to half the visitors.
 
-          The whole panel is gated on a fine pointer — on touch the drawer's
-          ARCADE row is already the correct affordance, and a hover panel that
-          can only be opened by a tap that also triggers the button behind it
-          is a trap.
+          So: the button opens the hub, the hub is where you pick. The games
+          themselves are untouched; the second, hover-only door is gone.
         */}
-        <div className="relative group">
-          <button
-            type="button"
-            onClick={() => launchGame(null)}
-            data-cursor="view"
-            aria-haspopup={hover ? 'menu' : undefined}
-            className="arcade-nav-btn relative px-3 py-1.5 rounded-full font-mono text-[12px] tracking-wider flex items-center gap-1.5 transition-all duration-fast"
-          >
-            <span className="relative z-10 flex items-center gap-1.5">
-              <span className="arcade-nav-icon text-[13px]" aria-hidden="true">🎮</span>
-              <span className="arcade-nav-text">ARCADE</span>
-              <span className="arcade-nav-dot w-1 h-1 rounded-full bg-emerald-400 shadow-[0_0_6px_rgb(52,211,153)]" aria-hidden="true" />
-            </span>
-          </button>
-
-          {hover && (
-            <div
-              className="arcade-menu absolute top-full left-1/2 -translate-x-1/2 mt-2 opacity-0 invisible pointer-events-none
-                         group-hover:opacity-100 group-hover:visible group-hover:pointer-events-auto
-                         group-focus-within:opacity-100 group-focus-within:visible group-focus-within:pointer-events-auto
-                         transition-all duration-fast"
-            >
-              <div className="bg-[var(--surface-1)] border border-[var(--accent-dim)] rounded-xl p-3 shadow-2xl min-w-[190px]" role="menu" aria-label="Arcade games">
-                <p className="font-mono text-[12px] tracking-[0.25em] text-[var(--accent-bright)] mb-2 text-center">5 GAMES</p>
-                <div className="space-y-1">
-                  {GAMES.map((g) => (
-                    <button
-                      key={g.id}
-                      type="button"
-                      role="menuitem"
-                      onClick={() => launchGame(g.id)}
-                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left hover:bg-[var(--surface-2)] focus-visible:bg-[var(--surface-2)] transition-colors"
-                    >
-                      <span className="text-[12px]" aria-hidden="true">{g.icon}</span>
-                      <span className="font-mono text-[12px] text-[var(--ink-mid)]">{g.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        <button
+          type="button"
+          onClick={() => launchGame(null)}
+          data-cursor="view"
+          className="arcade-nav-btn relative px-3 py-1.5 rounded-full font-mono text-[12px] tracking-wider flex items-center gap-1.5 transition-all duration-fast"
+        >
+          <span className="relative z-10 flex items-center gap-1.5">
+            <span className="arcade-nav-icon text-[13px]" aria-hidden="true">🎮</span>
+            <span className="arcade-nav-text">ARCADE</span>
+            <span className="arcade-nav-dot w-1 h-1 rounded-full bg-emerald-400 shadow-[0_0_6px_rgb(52,211,153)]" aria-hidden="true" />
+          </span>
+        </button>
       </nav>
 
       <div className="nav-cluster flex items-center gap-3 sm:gap-4">
@@ -265,26 +239,41 @@ export default function Navbar() {
           T-002.4 — the search affordance, visible at EVERY width.
 
           This is the door that did not exist. Below `lg` it is the only way
-          into the palette in the header; at `lg`+ it carries the ⌘K hint.
+          into the palette in the header; at `lg`+ it carries the `/` hint.
         */}
         <button
           type="button"
           onClick={openPalette}
           data-cursor="view"
           aria-label="Open search and commands"
-          aria-keyshortcuts="Meta+K Control+K"
-          className="nav-search w-8 h-8 rounded-full border border-[var(--glass-border)] bg-[var(--surface-2)] flex items-center justify-center hover:border-[var(--accent-dim)] transition-colors duration-fast text-[var(--ink-mid)]"
+          // Below 96rem the printed hint is hidden for want of room, so the
+          // tooltip carries it instead — the shortcut stays discoverable at
+          // every width rather than only on the widest screens.
+          title={`Search and commands (${PALETTE_HINT} or /)`}
+          aria-keyshortcuts={PALETTE_KEYSHORTCUTS}
+          className="nav-search rounded-full border border-[var(--glass-border)] bg-[var(--surface-2)] flex items-center justify-center hover:border-[var(--accent-dim)] transition-colors duration-fast text-[var(--ink-mid)]"
         >
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
             <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.6" />
             <path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
           </svg>
-          <span className="nav-search__hint font-mono" aria-hidden="true">⌘K</span>
+          {/* D-34 — the label follows the platform. A Windows visitor reading
+              `⌘K` reaches for the Windows key, and `Win+K` is an OS shortcut
+              the page never sees. */}
+          <span className="nav-search__hint font-mono" aria-hidden="true">{PALETTE_HINT}</span>
         </button>
 
         <RecruiterMode />
         <SparkCounter />
-        <ThemeToggle />
+        {/*
+          ONE appearance control, visible at every width.
+
+          It replaces three: the theme knob, the backdrop segmented control
+          (invisible below 1,792 px) and the popover that carried both. Losing
+          two controls from the cluster is also what makes room for this one to
+          be 44px and to carry a word rather than a glyph.
+        */}
+        <AppearanceButton />
 
         {/* Below 1024px this moves into the drawer. Six controls and a wordmark
             do not fit across a 320px phone, and the sound switch is the one
@@ -369,7 +358,7 @@ export default function Navbar() {
               <path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
             <span>SEARCH / COMMANDS</span>
-            <kbd className="drawer__kbd" aria-hidden="true">⌘K</kbd>
+            <kbd className="drawer__kbd" aria-hidden="true">{PALETTE_HINT}</kbd>
           </button>
 
           {/* Not "Sections": the header nav already claims that name, and two
@@ -392,9 +381,10 @@ export default function Navbar() {
           </nav>
 
           <div className="nav-drawer__tools">
+            {/* D.1 — a count is not a reason. */}
             <button type="button" onClick={() => launchGame(null)} className="nav-drawer__tool">
               <span aria-hidden="true">🎮</span>
-              <span>ARCADE · 5 GAMES</span>
+              <span>Play something</span>
             </button>
             <button
               type="button"
@@ -405,18 +395,28 @@ export default function Navbar() {
               <span aria-hidden="true">{sound?.muted ? '🔇' : '🔊'}</span>
               <span>SOUND {sound?.muted ? 'OFF' : 'ON'}</span>
             </button>
+            {/*
+              ONE row, opening the SAME panel the header button opens.
+
+              This used to be two rows — a CYCLING "THEME · NEXT" and a CYCLING
+              "BACKDROP · FOREST" — and motion, the third setting, had no row
+              at all. So the drawer offered a third interaction model for two
+              settings a visitor had already met as a sliding knob and a
+              segmented control, and silently omitted the one they would want
+              if the page felt busy.
+
+              The theme row also hardcoded `['eclipse','ember','paper']`
+              (D-10g), so a fourth theme would have been invisible here while
+              appearing everywhere else. Nothing in this file knows the theme
+              list any more.
+            */}
             <button
               type="button"
-              onClick={() => {
-                const order = ['eclipse', 'ember', 'paper']
-                const current = document.documentElement.dataset.theme
-                const next = order[(order.indexOf(current) + 1) % order.length]
-                window.dispatchEvent(new CustomEvent('forge:set-theme', { detail: next }))
-              }}
+              onClick={() => { setOpen(false); openAppearanceConsole({ source: 'drawer' }) }}
               className="nav-drawer__tool"
             >
               <span aria-hidden="true">◐</span>
-              <span>THEME · NEXT</span>
+              <span>Appearance</span>
             </button>
             <button
               type="button"
@@ -427,7 +427,9 @@ export default function Navbar() {
               className="nav-drawer__tool"
             >
               <span aria-hidden="true">◉</span>
-              <span>RECRUITER MODE</span>
+              {/* D.1 — nobody knows what "recruiter mode" does before clicking
+                  it. The label describes the PAGE, not the visitor. */}
+              <span>Recruiter view — the short version</span>
             </button>
             <a
               href={RESUME_PATH}

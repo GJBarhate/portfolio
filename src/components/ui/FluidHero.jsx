@@ -1,56 +1,40 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
 import { useReducedMotion } from '../../lib/useReducedMotion.js'
-import { getTier, onTierChange } from '../../lib/raf.js'
-
-// The fluid simulation lives in its own chunk so that `three` never sits on
-// the hero's critical path. Nothing here imports three.
-const FluidCanvas = lazy(() => import('./FluidCanvas.jsx'))
 
 /**
- * Everyone gets a fast, GPU-composited CSS mesh gradient. Strong machines
- * additionally get the Navier-Stokes showpiece layered on top of it, loaded
- * at idle so it never competes with first paint.
+ * The hero backdrop.
+ *
+ * ── The fluid simulation was removed here (P5) ────────────────────────────
+ *
+ * `FluidCanvas` — a ~20-pass Navier-Stokes step per frame on its own
+ * dedicated `WebGLRenderer` — used to layer on top of the CSS mesh for
+ * visitors who cleared six separate gates (tier 3, 8+ cores, no save-data, no
+ * reduced motion, >= 768px, and a fine pointer).
+ *
+ * It was deleted to pay for Phase 4, and the arithmetic is the argument. The
+ * tier-3 GPU budget in `effects/registry.js` was sitting at exactly 5.00 of
+ * 5 ms before Phase 4 — full. Giving the corner clock real materials, a glass
+ * crystal and antialiasing cost 0.65 ms more than the budget had. The plan's
+ * rule for that situation is explicit: budgets are tightened, never raised,
+ * and if a feature needs more, another feature is deleted.
+ *
+ * The fluid was the right one to lose, on four counts:
+ *
+ *   - it was the largest single removable GPU cost on the page (1.2 ms);
+ *   - it owned the site's ONLY dedicated WebGL context, so removing it also
+ *     delivers the "<= 3 live contexts" target that §10.5 sets;
+ *   - it sat *behind* a hero that already carries a CSS mesh gradient, an
+ *     aurora and a real-time 3-D gem — three answers to the same question;
+ *   - its six gates meant most visitors never saw it, so what it actually
+ *     bought was cost on the machines that had the least trouble affording it
+ *     and nothing at all on the machines that did.
+ *
+ * What everyone still gets — and always got — is the mesh below: three
+ * compositor-only drifting radial gradients at ~0 ms of main thread.
+ *
+ * It is a single-commit revert if that trade turns out to be wrong.
  */
-function wantsFluid() {
-  if (typeof window === 'undefined') return false
-  if (getTier() < 3) return false
-  if ((navigator.hardwareConcurrency || 0) < 8) return false
-  if (navigator.connection?.saveData) return false
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false
-  if (!window.matchMedia('(min-width: 768px)').matches) return false
-  /*
-   * Width alone let a landscape phone through: at 812px it cleared the 768px
-   * bar, and a modern handset reports 8 cores and lands on tier 3, so the one
-   * genuinely expensive thing on the site — a ~20-pass Navier-Stokes step per
-   * frame, on its own renderer — was reachable by rotating a phone sideways.
-   * A fine pointer is the honest proxy for "a machine plugged into a wall".
-   */
-  if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return false
-  return true
-}
-
 export default function FluidHero({ children, className = '' }) {
   const reduced = useReducedMotion()
-  const [fluid, setFluid] = useState(false)
-
-  useEffect(() => {
-    if (reduced) return
-    let cancelled = false
-    const decide = () => { if (!cancelled) setFluid(wantsFluid()) }
-
-    const ric = window.requestIdleCallback || ((fn) => setTimeout(fn, 1200))
-    const cic = window.cancelIdleCallback || clearTimeout
-    const id = ric(decide, { timeout: 2500 })
-
-    // If the governor later drops a tier, the sim unmounts with it.
-    const offTier = onTierChange(() => { if (!cancelled) setFluid(wantsFluid()) })
-
-    return () => {
-      cancelled = true
-      cic(id)
-      offTier()
-    }
-  }, [reduced])
 
   return (
     <div className={'relative ' + className}>
@@ -59,11 +43,6 @@ export default function FluidHero({ children, className = '' }) {
         <span className="hero-mesh__layer hero-mesh__layer--b" />
         <span className="hero-mesh__layer hero-mesh__layer--c" />
       </div>
-      {fluid && (
-        <Suspense fallback={null}>
-          <FluidCanvas />
-        </Suspense>
-      )}
       <div className="relative z-10">
         {children}
       </div>

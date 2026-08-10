@@ -2,11 +2,26 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useGame } from '../../contexts/GameContext.jsx'
 import { useSound } from '../../contexts/SoundContext.jsx'
 import { useEffect, useRef } from 'react'
+import { claimOverlay } from '../../lib/overlayBus.js'
 
+/**
+ * P2.3 — the achievement toast now asks for the slot too.
+ *
+ * It is the one overlay on the list that is *earned* rather than volunteered:
+ * it appears because the visitor did something. That is why it is not simply
+ * refused when the budget is spent — it still holds the slot so nothing lands
+ * on top of it, but it claims `budgeted: false`, because an interruption the
+ * visitor caused is not an interruption.
+ *
+ * The GameContext already owns the timing (toasts remove themselves from
+ * `game.toasts`), so the claim is held for as long as there is a toast and
+ * released when the list empties.
+ */
 export default function AchievementToast() {
   const game = useGame()
   const sound = useSound()
   const seen = useRef(new Set())
+  const releaseRef = useRef(null)
 
   useEffect(() => {
     if (!game) return
@@ -17,6 +32,27 @@ export default function AchievementToast() {
       }
     })
   }, [game, sound])
+
+  const toastCount = game?.toasts.length ?? 0
+  useEffect(() => {
+    if (!toastCount) {
+      releaseRef.current?.()
+      releaseRef.current = null
+      return
+    }
+    if (releaseRef.current) return
+    releaseRef.current = claimOverlay('achievement', {
+      // The context removes the toast on its own schedule; the bus must not
+      // take the slot back while one is still on screen.
+      ttl: Infinity,
+      budgeted: false,
+    })
+  }, [toastCount])
+
+  useEffect(() => () => {
+    releaseRef.current?.()
+    releaseRef.current = null
+  }, [])
 
   if (!game) return null
 

@@ -18,6 +18,20 @@ export default function MorphLink({ children, className = '', ...props }) {
   const text = typeof children === 'string' ? children : ''
   const chars = [...text]
 
+  /*
+   * P7 — the per-character spans are HIDDEN from assistive technology, and the
+   * word is provided once as real text.
+   *
+   * The effect splits "Work" into four `inline-block` spans so each glyph can
+   * animate its own weight and tracking. The accessible-name algorithm inserts
+   * a separator between block-level children, so the computed name of every
+   * primary nav item was "W o r k" — announced letter by letter, and not
+   * matchable by name at all. Found by a Playwright `getByRole('button',
+   * { name: /^work$/i })` failing to locate the main navigation, which is a
+   * fair proxy for a screen-reader user failing to find it too.
+   *
+   * The visible glyphs become decoration; one `sr-only` copy carries the word.
+   */
   return (
     <span
       className={'inline-block ' + className}
@@ -25,13 +39,14 @@ export default function MorphLink({ children, className = '', ...props }) {
       onMouseLeave={onLeave}
       {...props}
     >
+      {text && <span className="sr-only">{text}</span>}
+      <span aria-hidden="true">
       {chars.map((ch, i) => {
         const delay = i * 0.035
         return (
           <span
             key={i}
             className="inline-block transition-all duration-base ease-out"
-            aria-hidden={ch === ' ' ? undefined : undefined}
             style={{
               fontWeight: hovered ? 700 : 400,
               fontStretch: hovered ? '120%' : '100%',
@@ -44,6 +59,7 @@ export default function MorphLink({ children, className = '', ...props }) {
           </span>
         )
       })}
+      </span>
     </span>
   )
 }

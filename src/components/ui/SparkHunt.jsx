@@ -1,17 +1,34 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { useSound } from '../../contexts/SoundContext.jsx'
 import { getStore, setStore } from '../../lib/store.js'
+import { claimOverlay } from '../../lib/overlayBus.js'
+import { isRecruiter, onRecruiterChange } from '../../lib/recruiter.js'
 
 const SPARK_IDS = ['spark-hero', 'spark-stats', 'spark-skills', 'spark-timeline', 'spark-footer']
+
+/** How long the completion toast stays. The rail below animates over it. */
+const TOAST_MS = 6000
 
 // T-030 — one key, one parse. See src/lib/store.js.
 const loadSparks = () => getStore().sparks
 
-const SparkContext = createContext({ collected: [], total: 5, collect: () => {}, reset: () => {} })
+const SparkContext = createContext({ collected: [], total: 5, enabled: true, collect: () => {}, reset: () => {} })
 
 export function SparkProvider({ children }) {
   const [collected, setCollected] = useState(loadSparks)
   const sound = useSound()
+
+  /*
+   * P2.5 — the hunt does not EXIST in Recruiter Mode.
+   *
+   * `html[data-recruiter] .spark-collectible { display: none }` hid the five
+   * dots and left five buttons in the accessible tree, five React components
+   * mounted, and the completion toast eligible to fire. A mode whose entire
+   * purpose is "this page does less" cannot be implemented by making things
+   * invisible.
+   */
+  const [enabled, setEnabled] = useState(() => !isRecruiter())
+  useEffect(() => onRecruiterChange((on) => setEnabled(!on)), [])
 
   const collect = useCallback((id) => {
     setCollected((prev) => {
@@ -38,7 +55,7 @@ export function SparkProvider({ children }) {
   }, [])
 
   return (
-    <SparkContext.Provider value={{ collected, total: SPARK_IDS.length, collect, reset }}>
+    <SparkContext.Provider value={{ collected, total: SPARK_IDS.length, enabled, collect, reset }}>
       {children}
     </SparkContext.Provider>
   )
@@ -54,67 +71,147 @@ export function useSparks() {
 }
 
 export function Spark({ id, className = '' }) {
-  const { collected, collect } = useSparkHunt()
+  const { collected, collect, total, enabled } = useSparkHunt()
   const found = collected.includes(id)
 
-  if (found) return null
+  if (!enabled || found) return null
 
   return (
     <button
       onClick={() => collect(id)}
       className={`spark-collectible ${className}`}
-      aria-label="Collect hidden spark"
+      /* D.1 — "Collect hidden spark" tells a screen-reader user what the
+         control is called and nothing about the game they are in. The number
+         is the part a sighted visitor gets free from the counter. */
+      aria-label={`Hidden spark — ${collected.length + 1} of ${total}. Collect it.`}
     >
       <span className="spark-glow" />
     </button>
   )
 }
 
+/**
+ * P2.7 — the counter is always there.
+ *
+ * It used to render nothing until the first spark was found, which made the
+ * whole hunt undiscoverable: there are five 18px dots scattered through a long
+ * page and no indication anywhere that they exist or are worth clicking. A
+ * collectible nobody knows about is dead code with a runtime cost.
+ *
+ * So `0/5` is always visible, and *quiet* until the first find — ink-low, no
+ * glow, no accent. It is a question mark, not an announcement, which is the
+ * right volume for an easter egg: enough to make the first dot legible as part
+ * of something, not enough to compete with the work.
+ */
 export function SparkCounter() {
-  const { collected, total } = useSparkHunt()
+  const { collected, total, enabled } = useSparkHunt()
+  const started = collected.length > 0
+  const complete = collected.length === total
 
-  if (collected.length === 0) return null
+  if (!enabled) return null
 
   return (
-    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-[var(--glass-border)] bg-[var(--surface-2)]">
-      <span className="spark-mini" />
-      <span className="font-mono text-[12px] tracking-wider text-[var(--accent-bright)]">
+    <div
+      className="spark-counter"
+      data-started={started ? 'true' : 'false'}
+      title={started ? `${collected.length} of ${total} hidden sparks found` : `Five sparks are hidden in this page. None found yet.`}
+    >
+      <span className="spark-mini" aria-hidden="true" />
+      <span className="spark-counter__value">
         {collected.length}/{total}
+      </span>
+      {/* The visible text is a bare fraction; on its own it is meaningless
+          read aloud. */}
+      <span className="sr-only">
+        {complete
+          ? `All ${total} hidden sparks found.`
+          : `${collected.length} of ${total} hidden sparks found.`}
       </span>
     </div>
   )
 }
 
+/**
+ * The completion toast — the D-4 rewrite.
+ *
+ * Every one of the four original faults is fixed by *deleting* the local
+ * mechanism and deferring to the bus, which is the point: the component now
+ * describes what it wants ("6 seconds, once ever, and only if nothing more
+ * important is happening") and the arbiter decides.
+ *
+ * What is left here is the one thing that genuinely belongs to this component:
+ * Escape and click-outside, because the bus does not own the DOM.
+ */
 export function SparkCompleteToast() {
   const { collected, total } = useSparkHunt()
   const [show, setShow] = useState(false)
+  const releaseRef = useRef(null)
+
+  const dismiss = useCallback(() => {
+    setShow(false)
+    releaseRef.current?.()
+    releaseRef.current = null
+  }, [])
 
   useEffect(() => {
-    if (collected.length === total && total > 0) {
-      const timer = setTimeout(() => setShow(true), 800)
-      return () => clearTimeout(timer)
+    if (collected.length !== total || total === 0) return
+
+    // 800 ms so the celebration follows the collection rather than landing on
+    // top of it — the fifth spark's own sound and glow need a beat.
+    const timer = setTimeout(() => {
+      const release = claimOverlay('spark-complete', {
+        ttl: TOAST_MS,
+        // Never twice. This is the fix for the report that the popup "returns
+        // forever": completion is stored, so without this the effect fired on
+        // every subsequent page load for the rest of the visitor's life.
+        once: true,
+        onExpire: () => setShow(false),
+      })
+      // Refused — recruiter mode, the quiet period, the budget, or already
+      // seen. Rendering nothing is the correct response to a refusal.
+      if (!release) return
+      releaseRef.current = release
+      setShow(true)
+    }, 800)
+
+    return () => {
+      clearTimeout(timer)
+      releaseRef.current?.()
+      releaseRef.current = null
     }
   }, [collected.length, total])
+
+  useEffect(() => {
+    if (!show) return
+    const onKey = (e) => { if (e.key === 'Escape') dismiss() }
+    const onDown = (e) => { if (!e.target.closest?.('.spark-toast')) dismiss() }
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('pointerdown', onDown)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('pointerdown', onDown)
+    }
+  }, [show, dismiss])
 
   if (!show) return null
 
   return (
-        <div
-          className="toast-rise fixed bottom-8 left-1/2 -translate-x-1/2 z-50 glass sheen rounded-2xl px-6 py-4 border border-[var(--accent-dim)] text-center"
-        >
-          <p className="font-mono text-[12px] tracking-[0.3em] text-[var(--warm)] mb-1">
-            ALL SPARKS COLLECTED
-          </p>
-          <p className="font-display text-lg">Forge Master</p>
-          <p className="text-[12px] text-[var(--ink-mid)] mt-1">
-            You found all 5 hidden sparks
-          </p>
-          <button
-            onClick={() => setShow(false)}
-            className="mt-3 font-mono text-[12px] text-[var(--ink-low)] hover:text-[var(--ink)]"
-          >
-            DISMISS
-          </button>
-        </div>
+    <div className="spark-toast toast-rise" role="status" aria-live="polite">
+      {/* The countdown rail, reusing the pattern RunComplete already ships —
+          a celebration that is about to leave should say so, or its
+          disappearance reads as a bug. */}
+      <span
+        className="spark-toast__rail"
+        style={{ '--toast-ms': `${TOAST_MS}ms` }}
+        aria-hidden="true"
+      />
+      {/* D.1 — plain language. "ALL SPARKS COLLECTED" uses a word the visitor
+          was never taught, in a register nothing else on the page uses. */}
+      <p className="spark-toast__title">You found all five</p>
+      <p className="spark-toast__name">Forge Master — nice.</p>
+      <button type="button" onClick={dismiss} className="spark-toast__close">
+        Close
+      </button>
+    </div>
   )
 }

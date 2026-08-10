@@ -14,29 +14,6 @@
  * pushes what the visitor is reading off the screen.
  */
 
-/**
- * @param {{ variant?: 'prose'|'cards'|'stats'|'lanes'|'timeline'|'form'|'ticker',
- *           minHeight?: string, label?: string }} props
- */
-export default function SectionSkeleton({ variant = 'prose', minHeight, label }) {
-  const height = minHeight || DEFAULT_HEIGHTS[variant] || '60svh'
-  return (
-    <div
-      className="section-rhythm container-px section-skeleton"
-      aria-hidden="true"
-      data-variant={variant}
-      style={{ minBlockSize: height, containIntrinsicSize: `auto ${height}` }}
-    >
-      <div className="section-shell l-stack" style={{ '--gap': 'var(--space-m)' }}>
-        <div className="skel skel--eyebrow" />
-        <div className="skel skel--title" />
-        {label && <span className="sr-only">Loading {label}</span>}
-        {SHAPES[variant]?.()}
-      </div>
-    </div>
-  )
-}
-
 const DEFAULT_HEIGHTS = {
   prose: '52svh',
   cards: '90svh',
@@ -83,4 +60,27 @@ const SHAPES = {
     </div>
   ),
   ticker: () => null,
+}
+
+/**
+ * @param {{ variant?: 'prose'|'cards'|'stats'|'lanes'|'timeline'|'form'|'ticker',
+ *           minHeight?: string, label?: string }} props
+ */
+export default function SectionSkeleton({ variant = 'prose', minHeight, label }) {
+  const height = minHeight || DEFAULT_HEIGHTS[variant] || '60svh'
+  return (
+    <div
+      className="section-rhythm container-px section-skeleton"
+      aria-hidden="true"
+      data-variant={variant}
+      style={{ minBlockSize: height, containIntrinsicSize: `auto ${height}` }}
+    >
+      <div className="section-shell l-stack" style={{ '--gap': 'var(--space-m)' }}>
+        <div className="skel skel--eyebrow" />
+        <div className="skel skel--title" />
+        {label && <span className="sr-only">Loading {label}</span>}
+        {SHAPES[variant]?.()}
+      </div>
+    </div>
+  )
 }

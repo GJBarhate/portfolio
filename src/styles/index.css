@@ -150,6 +150,17 @@
   --accent-bright: oklch(82% 0.130 195);
   --accent-dim:    oklch(54% 0.110 195);
   --accent-ghost:  oklch(72% 0.120 195 / 0.12);
+  /*
+   * 4D.1 — the desaturated companion, for LARGE fills.
+   *
+   * Same lightness and hue, roughly a third of the chroma. Large areas of
+   * high-chroma colour are the single most reliable "cartoon" signal in a UI:
+   * saturation is a spotlight, and a spotlight covering 30 % of the screen is
+   * just a bright room. The rule this token exists to enforce is that full
+   * chroma is reserved for at most ~5 % of the pixels — a focus ring, an
+   * active dot, a second hand — and anything larger uses this instead.
+   */
+  --accent-muted:  oklch(72% 0.045 195);
   /* A plain hex, deliberately: WebGL uniforms and canvas fillStyle cannot
      interpolate oklch, and this is the value those layers sample. */
   --accent-glow:   #7fe3e5;
@@ -196,7 +207,9 @@
   );
 
   /* === Scroll-linked hue grade === */
-  --grade-hue: 0deg;
+  /* `--grade-hue` was declared here and written on <html> every 6th scroll
+     frame. Nothing ever read it — see SmoothScrollContext for the whole
+     story. The per-theme `--grade-base-hue` below is the live one. */
   --grade-base-hue: 195;
 
   /* === Glow tokens === */
@@ -244,6 +257,7 @@
   @media (color-gamut: p3) {
     :root {
       --accent:        oklch(76% 0.145 195);
+      --accent-muted:  oklch(76% 0.052 195);
       --accent-bright: oklch(87% 0.120 195);
       --accent-dim:    oklch(56% 0.130 195);
       --warm:          oklch(80% 0.150 68);
@@ -274,6 +288,7 @@
   --ink-low: oklch(60% 0.020 85);
 
   --accent:        oklch(80% 0.105 85);
+  --accent-muted:  oklch(80% 0.040 85);
   --accent-bright: oklch(87% 0.110 85);
   --accent-dim:    oklch(58% 0.090 85);
   --accent-ghost:  oklch(80% 0.105 85 / 0.12);
@@ -305,6 +320,7 @@
 
   /* Accents must go DARKER, not lighter, to carry contrast on a pale field. */
   --accent:        oklch(52% 0.115 205);
+  --accent-muted:  oklch(52% 0.042 205);
   --accent-bright: oklch(45% 0.130 205);
   --accent-dim:    oklch(68% 0.080 205);
   --accent-ghost:  oklch(52% 0.115 205 / 0.12);
@@ -464,9 +480,11 @@ body {
   transition: background-color 0.35s var(--ease-forge), color 0.35s var(--ease-forge);
 }
 
+/* §13.8 — selection as brand. Defined once; a second `::selection` block used
+   to sit ~3,000 lines further down and silently win both declarations. */
 ::selection {
-  background: var(--accent-dim);
-  color: var(--ink);
+  background: color-mix(in oklch, var(--accent) 30%, transparent);
+  color: var(--ink-hi);
 }
 
 a { color: inherit; text-decoration: none; }
@@ -497,9 +515,13 @@ a { color: inherit; text-decoration: none; }
   top: max(0px, env(safe-area-inset-top, 0px));
 }
 
-/* === Focus visible === */
+/* === Focus visible ===
+   The custom cursor hides the native one, which makes a weak focus ring both
+   an a11y gap and a polish gap — so the ring is `--accent-bright`, not
+   `--accent`. That value used to be set by a SECOND `:focus-visible` block
+   further down the sheet; this is the merge of the two. */
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-bright);
   outline-offset: 3px;
   border-radius: 4px;
 }
@@ -522,9 +544,6 @@ a { color: inherit; text-decoration: none; }
   0%, 100% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
 }
-
-.glow-text { text-shadow: var(--glow-sm) var(--accent-dim); }
-
 .tabular { font-variant-numeric: tabular-nums; }
 
 /* === Hero aurora — cursor-tracked blobs + grid + scanline ===
@@ -822,42 +841,83 @@ a { color: inherit; text-decoration: none; }
   box-shadow: 0 0 12px var(--accent-dim);
 }
 
-/* === Film grain overlay (site-wide) ===
-   No mix-blend-mode and a slow, stepped transform: blend modes on a fixed
-   full-viewport layer force the GPU to re-composite the entire page every
-   frame, which tanks scroll FPS on weaker machines. */
-.film-grain {
-  position: fixed;
-  inset: -10%;
-  pointer-events: none;
-  z-index: 9998;
-  opacity: 0.035;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
-  background-repeat: repeat;
-  animation: grain 1.2s steps(3) infinite;
-  will-change: transform;
-}
-@keyframes grain {
-  0%, 100% { transform: translate(0, 0); }
-  33% { transform: translate(-1.5%, -2%); }
-  66% { transform: translate(2%, 1.5%); }
-}
-/* Touch devices: static grain — the jitter isn't worth the battery/repaints */
-@media (hover: none), (width <= 48rem) {
-  .film-grain { animation: none; will-change: auto; }
-}
+/* === Film grain — DELETED (P5.5 / 4C.4) ==================================
+ *
+ * This was a `position: fixed; inset: -10%; z-index: 9998` layer carrying an
+ * SVG `feTurbulence` data-URI, `will-change: transform`, and a stepped
+ * animation — i.e. a permanently promoted, full-viewport composited layer
+ * sitting ON TOP OF THE ENTIRE PAGE, on every frame, on every device.
+ *
+ * Two things were wrong with it, and only one of them is performance:
+ *
+ *   - it cost a compositor layer and a full-page re-composite for a 3.5 %
+ *     opacity texture, which is D-8.3;
+ *   - it was in the wrong PLACE. Grain is a property of a rendered image, not
+ *     of a user interface. Laying it over the headings, the buttons and the
+ *     résumé link meant the site's own chrome was being dithered, which is
+ *     not what film grain is for.
+ *
+ * Both are answered by moving it into the background shader (4C.4), where it
+ * is three lines of per-pixel dither applied to the thing that actually needs
+ * dithering — the dark gradients that band. Deleted in all three places at
+ * once: this rule, the DOM node in App.jsx, and the `film-grain` entry in
+ * effects/registry.js. Deleting the first two and leaving the third would let
+ * `check-effect-budget.mjs` keep passing on an effect that no longer exists.
+ */
 
-/* === Grade wash (scroll-linked hue-shift overlay) === */
+/* === Grade wash (scroll-linked hue-shift overlay) ===
+   D-8.1: this class had TWO definitions, here and at what used to be line
+   2830 ("E19 Scroll-linked hue grade"), written months apart. The second one
+   silently won `background` and `opacity` while inheriting `mix-blend-mode`
+   and `transition` from this one, so the rendered wash was a blend of two
+   blocks that neither author had ever seen together. Merged here, at the
+   earlier position, with the values that were actually winning.
+   `scripts/check-css-dupes.mjs` now fails the build on a recurrence. */
 .grade-wash {
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 0;
+  /*
+   * P5.6 — `mix-blend-mode` on a fullscreen fixed element forces the
+   * compositor to keep the whole page in ONE blended stacking context, on
+   * every frame, forever. For a 4 %-opacity vertical hue drift.
+   *
+   * It stays, because at tier 3 it is the thing that keeps the page from
+   * looking like flat CSS — but it is now the only tier that pays for it. See
+   * the tier-1/2 override below.
+   */
   mix-blend-mode: soft-light;
-  opacity: 0.5;
-  background: radial-gradient(120% 80% at 50% 0%, hsl(calc(var(--grade-base-hue) * 1deg + var(--grade-hue)) 45% 50% / 0.18), transparent 60%);
+  opacity: 0.6;
+  background: linear-gradient(
+    180deg in oklch,
+    color-mix(in oklch, oklch(50% 0.02 var(--grade-base-hue)) 4%, transparent) 0%,
+    transparent 30%,
+    transparent 70%,
+    color-mix(in oklch, oklch(50% 0.02 calc(var(--grade-base-hue) + 8)) 4%, transparent) 100%
+  );
   transition: background 0.6s var(--ease-forge);
 }
+/* Below tier 3 the blend layer is not worth a permanently blended page: the
+   machines that cannot afford it are exactly the ones the compositor cost
+   falls hardest on. `display: none` rather than `opacity: 0` — an invisible
+   blended layer still costs a blended stacking context. */
+:where([data-gfx-tier='1'], [data-gfx-tier='2']) .grade-wash { display: none; }
+
+/*
+ * P5.12 — release every promoted compositor layer below tier 3.
+ *
+ * `will-change` is a promise to the compositor that costs GPU memory for as
+ * long as it is set, whether or not the element is moving. There are 32 of
+ * them in this sheet; on a tier-1 phone that is 32 layers held permanently for
+ * effects the tier ladder has already turned off.
+ *
+ * `index.css` already released them under `prefers-reduced-motion` — this is
+ * the same rule applied to the other signal that means "this machine cannot
+ * afford it". Deliberately `:where()` so it adds no specificity and any rule
+ * that genuinely needs promotion at tier 2 can simply say so.
+ */
+:where([data-gfx-tier='1'], [data-gfx-tier='2']) :where(*) { will-change: auto; }
 
 /* === Hero mesh gradient — the default hero backdrop ===
    Three radial-gradient layers drifting on registered custom properties.
@@ -925,32 +985,12 @@ a { color: inherit; text-decoration: none; }
     radial-gradient(ellipse 90% 80% at 35% 40%, color-mix(in oklch, var(--accent-dim) 50%, transparent), transparent 55%),
     radial-gradient(ellipse 60% 50% at 70% 60%, color-mix(in oklch, var(--violet-dim) 35%, transparent), transparent 50%),
     radial-gradient(circle at 50% 50%, var(--surface-1), var(--surface-0) 70%);
-}
-
-/* === Mesh gradient section backgrounds === */
-.mesh-gradient-a {
-  background:
-    radial-gradient(ellipse 100% 70% at 20% 10%, color-mix(in oklch, var(--accent) 16%, transparent), transparent 55%),
-    radial-gradient(ellipse 80% 60% at 80% 90%, color-mix(in oklch, var(--violet) 12%, transparent), transparent 55%);
-  transition: background 0.6s var(--ease-forge);
-}
-.mesh-gradient-b {
-  background:
-    radial-gradient(ellipse 90% 60% at 70% 20%, color-mix(in oklch, var(--violet) 18%, transparent), transparent 55%),
-    radial-gradient(ellipse 70% 50% at 20% 80%, color-mix(in oklch, var(--accent) 12%, transparent), transparent 55%);
-  transition: background 0.6s var(--ease-forge);
-}
-/* Animated mesh drift for sections */
+}/* Animated mesh drift for sections */
 @keyframes meshDrift {
   0% { background-position: 0% 0%; }
   50% { background-position: 100% 100%; }
   100% { background-position: 0% 100%; }
 }
-.mesh-animated {
-  background-size: 200% 200%;
-  animation: meshDrift 20s ease-in-out infinite alternate;
-}
-
 /* === Glass panel — with bevel & emboss (AE layer-style port):
    1px light top hairline + 1px dark bottom edge makes surfaces read as
    machined objects instead of flat rectangles. === */
@@ -969,15 +1009,7 @@ a { color: inherit; text-decoration: none; }
     inset 0 -1px 0 0 rgba(0, 0, 0, 0.28);
   transition: background-color 0.6s var(--ease-forge), border-color 0.6s var(--ease-forge);
 }
-.glass--live {
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
-}
-
 /* === Surface system — elevation ladder (dual-layer: tight dark + wide soft) === */
-.elev-1 { box-shadow: 0 1px 2px rgba(0,0,0,0.35), 0 6px 16px -8px rgba(0,0,0,0.35); }
-.elev-2 { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 14px 34px -14px rgba(0,0,0,0.45); }
-.elev-3 { box-shadow: 0 3px 6px rgba(0,0,0,0.45), 0 28px 64px -24px rgba(0,0,0,0.55); }
 
 /* Recessed well — inputs, code panes, game screens */
 
@@ -1113,15 +1145,9 @@ a { color: inherit; text-decoration: none; }
 }
 
 /* === Scroll hint — descending shimmer line === */
-@keyframes scrollHint {
-  0%   { transform: translateY(-100%); }
-  60%  { transform: translateY(100%); }
-  100% { transform: translateY(100%); }
-}
 
 /* === Marquee === */
 @keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-@keyframes outroMarquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
 /* === Avatar: posterized duotone illustration (not a raw photo) === */
 .avatar-stylized {
@@ -1457,34 +1483,7 @@ a { color: inherit; text-decoration: none; }
 .marquee-mask {
   mask-image: linear-gradient(90deg in oklch, transparent, white 10%, white 90%, transparent);
   -webkit-mask-image: linear-gradient(90deg in oklch, transparent, white 10%, white 90%, transparent);
-}
-
-/* === Hover states with intent === */
-/* Links: animated underline sweep */
-.link-sweep {
-  position: relative;
-  display: inline-block;
-}
-.link-sweep::after {
-  content: '';
-  position: absolute;
-  bottom: -2px;
-  left: 0;
-  width: 100%;
-  height: 1.5px;
-  background: var(--accent);
-  transform: scaleX(0);
-  transform-origin: right;
-  transition: transform 0.4s var(--ease-forge);
-}
-.link-sweep:hover::after {
-  transform: scaleX(1);
-  transform-origin: left;
-}
-/* Icon micro-bounce on hover */
-.icon-bounce { transition: transform 0.3s var(--ease-anticipate); }
-.icon-bounce:hover { transform: translateY(-2px) scale(1.08); }
-
+}/* Icon micro-bounce on hover */
 /* === Enhanced glass hover glow === */
 .glass-glow {
   transition: box-shadow 0.5s var(--ease-forge), border-color 0.5s var(--ease-forge);
@@ -1529,11 +1528,28 @@ a { color: inherit; text-decoration: none; }
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-  .film-grain { display: none; }
 }
 
-/* === Content-visibility optimization for below-fold sections === */
-section:not(#hero) {
+/* === Content-visibility optimization for below-fold sections ===
+ *
+ * `main >`, and the scope is not cosmetic — an unscoped `section` selector is
+ * a trap that took a real victim.
+ *
+ * `contain-intrinsic-size: auto 800px` tells the browser "assume this box is
+ * 800px tall until you have laid it out". That is correct for a page section
+ * and catastrophic for anything smaller that happens to be a `<section>`:
+ * the Appearance Console's three groups are `<section role=…>` elements
+ * inside a 704px scrolling dialog, and each of them was being reserved 800px.
+ * The panel's scroll height was 3,380px for ~400px of content, so the Motion
+ * group and the footer sat below a screen and a half of empty space.
+ *
+ * The same applies to `footer` in the block further down: the console's own
+ * `<footer>` was 813px tall for one line of text.
+ *
+ * Every page section is inside `<main>` and every overlay is outside it, so
+ * that is the boundary. */
+main > section:not(#hero),
+main section:not(#hero) {
   content-visibility: auto;
   contain-intrinsic-size: auto 800px;
 }
@@ -1561,9 +1577,7 @@ section:not(#hero) {
   justify-content: center;
   transition: transform 0.75s var(--ease-forge);
   will-change: transform;
-}
-.preloader--lift { transform: translateY(-101%); }
-.preloader__inner {
+}.preloader__inner {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1620,53 +1634,280 @@ section:not(#hero) {
   50% { opacity: 1; }
 }
 
-/* === Theme Atelier — the theme selector panel === */
-.atelier-panel {
-  position: absolute;
-  top: calc(100% + 12px);
-  right: 0;
-  width: min(320px, calc(100vw - 32px));
-  border-radius: 18px;
-  padding: 10px;
-  background: color-mix(in oklch, var(--surface-1) 88%, transparent);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid var(--glass-border);
-  box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 24px 60px -20px rgba(0,0,0,0.6),
-              inset 0 1px 0 var(--glass-highlight);
+/* ══════════════════════════════════════════════════════════════════════════
+   The Appearance Console — one panel for theme × backdrop × motion.
+
+   Replaces `.theme-toggle` (a 92×32 knob with three unlabelled positions),
+   `.atelier-panel` (a popover carrying theme rows AND backdrop rows) and
+   `.scene-toggle` (a segmented control that was `display: none` below
+   1,792 CSS px — i.e. invisible on every laptop and every phone). Net CSS is
+   DOWN, which is the phase's acceptance criterion, not up.
+
+   Two layouts, one component: a bottom sheet under 40rem where a thumb is,
+   an anchored dialog above it.
+   ══════════════════════════════════════════════════════════════════════════ */
+.appearance-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal, 90);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  /* Deliberately light. This dialog changes what the page LOOKS like, so the
+     page has to stay visible behind it — a heavy scrim would hide the very
+     thing every card is previewing. */
+  background: color-mix(in oklch, var(--surface-0) 45%, transparent);
+  animation: appearanceScrimIn calc(var(--dur-fast) * var(--motion-scale, 1)) var(--ease-forge) both;
 }
-.atelier-card {
+@keyframes appearanceScrimIn { from { opacity: 0; } to { opacity: 1; } }
+
+.appearance {
+  inline-size: min(30rem, 100%);
+  max-block-size: min(88svh, 44rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: clamp(16px, 3vw, 22px);
+  border-radius: 22px 22px 0 0;
+  /*
+   * OPAQUE, deliberately.
+   *
+   * This started as `color-mix(… 94%, transparent)` to match the other glass
+   * surfaces, and that 6 % is a bug in this particular panel: the theme
+   * preview cards exist to show what a palette looks like, and a moving forest
+   * bleeding through them corrupts the exact colours the visitor is being
+   * asked to judge. It also made the panel impossible to screenshot-baseline —
+   * 27 of the 36 matrix cells failed on instability, and the 9 that passed
+   * were precisely the ones with motion set to Minimal, which is what
+   * identified the leak.
+   *
+   * The page stays visible *around* the panel, through the scrim. That was the
+   * design intent; showing it *through* the swatches never was.
+   */
+  background: var(--surface-1);
+  border: 1px solid var(--glass-border);
+  border-block-end: 0;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 0.4), 0 -18px 60px -20px rgb(0 0 0 / 0.6),
+              inset 0 1px 0 var(--glass-highlight);
+  animation: appearanceSheetIn calc(var(--dur-base) * var(--motion-scale, 1)) var(--ease-forge) both;
+}
+@keyframes appearanceSheetIn {
+  from { opacity: 0; transform: translateY(calc(24px * var(--motion-distance, 1))); }
+  to   { opacity: 1; transform: none; }
+}
+/* An anchored dialog once there is room for one, rather than a sheet stuck to
+   the bottom of a 1440px screen. */
+@media (width >= 40rem) {
+  .appearance-scrim {
+    align-items: flex-start;
+    justify-content: flex-end;
+    padding: calc(var(--header-h, 64px) + 10px) clamp(16px, 3vw, 28px) 16px;
+  }
+  .appearance { border-radius: 20px; border-block-end: 1px solid var(--glass-border); }
+}
+
+.appearance__head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  width: 100%;
-  text-align: left;
-  padding: 10px 12px;
+  margin-block-end: 6px;
+}
+.appearance__title {
+  font-family: var(--font-display, inherit);
+  font-size: 18px;
+  letter-spacing: 0.01em;
+  color: var(--ink-hi);
+}
+.appearance__close {
+  inline-size: 44px;
+  block-size: 44px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: var(--surface-2);
+  color: var(--ink-mid);
+  font-size: 20px;
+  line-height: 1;
+  transition: color var(--dur-fast) var(--ease-forge), border-color var(--dur-fast) var(--ease-forge);
+}
+.appearance__close:hover { color: var(--ink-hi); border-color: var(--accent-dim); }
+
+.appearance__group { padding-block: 12px; border-block-start: 1px solid var(--glass-border); }
+.appearance__group:first-of-type { border-block-start: 0; }
+.appearance__group-title {
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--ink-low);
+  margin-block-end: 10px;
+}
+.appearance__options { display: grid; gap: 8px; }
+.appearance__options[data-columns='3'] { grid-template-columns: repeat(3, 1fr); }
+.appearance__options[data-columns='4'] { grid-template-columns: repeat(2, 1fr); }
+@media (width >= 26rem) {
+  .appearance__options[data-columns='4'] { grid-template-columns: repeat(4, 1fr); }
+}
+
+.appearance__option {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  /* §6.6 — every target clears 44px, including on the 4-across theme row at
+     320px, where each card is ~68px wide and ~92px tall. */
+  min-block-size: 44px;
+  padding: 8px;
   border-radius: 12px;
-  border: 1px solid transparent;
-  background: transparent;
+  border: 1px solid var(--glass-border);
+  background: var(--surface-2);
+  text-align: center;
   cursor: pointer;
-  transition: border-color 0.35s var(--ease-forge), background-color 0.35s var(--ease-forge),
-              transform 0.35s var(--ease-forge);
+  transition: border-color var(--dur-fast) var(--ease-forge),
+              background-color var(--dur-fast) var(--ease-forge);
 }
-.atelier-card:hover {
-  background: color-mix(in oklch, var(--card-accent, var(--accent)) 8%, transparent);
-  border-color: color-mix(in oklch, var(--card-accent, var(--accent)) 40%, transparent);
-  transform: translateX(2px);
+.appearance__option:hover { border-color: var(--accent-dim); }
+.appearance__option[data-checked='true'] {
+  border-color: var(--accent);
+  background: color-mix(in oklch, var(--accent-muted) 22%, var(--surface-2));
 }
-.atelier-card[aria-pressed="true"] {
-  border-color: color-mix(in oklch, var(--card-accent, var(--accent)) 60%, transparent);
-  background: color-mix(in oklch, var(--card-accent, var(--accent)) 10%, transparent);
+.appearance__option-label {
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--ink);
 }
-.atelier-swatch {
-  position: relative;
-  width: 44px;
-  height: 30px;
+.appearance__dot { margin-inline-start: 5px; color: var(--accent-bright); }
+.appearance__cost { font-size: 12px; color: var(--ink-low); }
+.appearance__glyph { font-size: 16px; line-height: 1.2; color: var(--accent); }
+
+/*
+ * The live theme preview.
+ *
+ * `data-theme` on the card re-scopes the entire token set, so these four bars
+ * are drawn in the real palette — the same custom properties the page uses —
+ * rather than in hand-copied hex values that drift the first time a token
+ * moves. That is the whole reason this is a preview and not a swatch, and it
+ * costs zero JavaScript.
+ */
+.appearance__preview {
+  display: block;
   border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.14);
+  padding: 7px;
+  background: var(--surface-0);
+  border: 1px solid var(--glass-border);
   overflow: hidden;
+}
+.appearance__preview-name {
+  display: block;
+  block-size: 6px;
+  inline-size: 78%;
+  border-radius: 2px;
+  background: var(--ink-hi);
+}
+.appearance__preview-rule {
+  display: block;
+  block-size: 3px;
+  inline-size: 42%;
+  margin-block: 5px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.appearance__preview-row { display: flex; gap: 4px; }
+.appearance__preview-btn {
+  block-size: 9px;
+  inline-size: 40%;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--accent) 60%, transparent);
+}
+.appearance__preview-card {
+  block-size: 9px;
+  flex: 1;
+  border-radius: 3px;
+  background: var(--surface-2);
+  border: 1px solid var(--glass-border);
+}
+/* The Auto card has no palette of its own to show, so it shows the two it
+   chooses between rather than an arbitrary third look. */
+.appearance__preview[data-system='true'] {
+  background: linear-gradient(115deg, #0e1114 0 48%, #f8f4ec 52% 100%);
+}
+
+.appearance__group-hint {
+  margin-block-start: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--ink-low);
+  min-block-size: 2.9em;
+}
+
+.appearance__foot {
+  padding-block-start: 12px;
+  border-block-start: 1px solid var(--glass-border);
+  font-size: 12px;
+  color: var(--ink-low);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px;
+}
+.appearance__foot kbd {
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid var(--glass-border);
+  background: var(--surface-2);
+}
+/* Below 40rem the sheet is already the whole width; a shortcut nobody can
+   press on a phone is noise. */
+.appearance__shortcut { display: none; }
+@media (hover: hover) and (pointer: fine) { .appearance__shortcut { display: block; } }
+
+/* ── The header trigger ─────────────────────────────────────────────────── */
+.appearance-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  /* 44px, not the 32px the controls it replaces used — §6.6. */
+  min-block-size: 44px;
+  padding-inline: 10px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: var(--surface-2);
+  color: var(--ink-mid);
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: border-color var(--dur-fast) var(--ease-forge), color var(--dur-fast) var(--ease-forge);
+}
+.appearance-btn:hover { border-color: var(--accent-dim); color: var(--ink); }
+.appearance-btn__swatch {
+  display: flex;
+  inline-size: 22px;
+  block-size: 22px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 0.14);
   flex-shrink: 0;
 }
+.appearance-btn__swatch > span { flex: 1; }
+/*
+ * The word is dropped where the header is tight; the swatch plus the
+ * accessible name and the tooltip carry it. Unlike the control this replaces,
+ * the BUTTON is never hidden — only its label is.
+ *
+ * 100rem, not 64rem, and the number is measured rather than chosen.
+ * `check-layout.mjs` reported CONTROL-OFF-SCREEN for the RESUME call-to-action
+ * at 1152 and 1440: with the label the button is 132px, the widest item in a
+ * cluster that also carries search, the recruiter chip, the spark counter, the
+ * sound switch, the progress ring and the CTA, and at 1440 the row overflowed
+ * by 3px. That is the same failure mode that drove the old `.scene-toggle` to
+ * 112rem — the difference is that this control stays fully usable without its
+ * label, and the setting it opens is no longer hiding behind it.
+ */
+.appearance-btn__label { display: none; }
+@media (width >= 100rem) { .appearance-btn__label { display: inline; } }
 
 @layer utilities {
   /* §2.3 — one container, one gutter formula. */
@@ -1702,7 +1943,10 @@ section:not(#hero) {
 #timeline,
 #how-i-build,
 #contact,
-footer {
+/* `body > footer`, not `footer`: see the note on the `main > section` rule
+   above. The Appearance Console has a `<footer>` of its own and it is one
+   line tall, not 800px. */
+body > footer {
   content-visibility: auto;
   contain-intrinsic-size: auto 800px;
 }
@@ -1711,23 +1955,10 @@ footer {
   contain-intrinsic-size: none;
 }
 
-/* === Spacing audit: 8pt grid utilities === */
-.gap-8pt { gap: 8px; }
-.gap-16pt { gap: 16px; }
-.gap-24pt { gap: 24px; }
-.gap-32pt { gap: 32px; }
-.gap-48pt { gap: 48px; }
-.gap-64pt { gap: 64px; }
-.p-8pt { padding: 8px; }
-.p-16pt { padding: 16px; }
-.p-24pt { padding: 24px; }
-.p-32pt { padding: 32px; }
-.p-48pt { padding: 48px; }
-.mb-8pt { margin-bottom: 8px; }
-.mb-16pt { margin-bottom: 16px; }
-.mb-24pt { margin-bottom: 24px; }
-.mb-32pt { margin-bottom: 32px; }
-.mb-48pt { margin-bottom: 48px; }
+/* The 8pt gap/padding/margin utility scale that used to be here is deleted
+   (P5.2). Not one of its 16 classes was referenced from any component: the
+   site lays out with Tailwind utilities and with the `--space-*` ladder, and
+   this was a third spacing system that had been written and never adopted. */
 
 
 /* === §4.4 Cinematic section transitions — scroll-driven dissolve reveal ===
@@ -1825,17 +2056,10 @@ footer {
 }
 
 /* === Variable-font weight/width morph === */
-@keyframes fontMorph {
-  0%, 100% { font-weight: 400; font-stretch: 100%; }
-  50% { font-weight: 700; font-stretch: 120%; }
-}
 
 
 
 /* === SVG self-draw animation === */
-@keyframes dashDraw {
-  to { stroke-dashoffset: 0; }
-}
 
 /* === Curtain page transition === */
 
@@ -1886,72 +2110,6 @@ footer {
 .arcade-nav-dot {
   animation: pulse 2s ease-in-out infinite;
 }
-
-
-
-/* === Global layout grid: 12 columns, 24px gutters, max-w-1200px === */
-.layout-grid {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  gap: 24px;
-  max-width: 1200px;
-  margin-left: auto;
-  margin-right: auto;
-  padding-left: 24px;
-  padding-right: 24px;
-}
-.layout-grid--full { max-width: 100%; padding: 0; }
-/* Span helpers */
-.col-span-1 { grid-column: span 1; }
-.col-span-2 { grid-column: span 2; }
-.col-span-3 { grid-column: span 3; }
-.col-span-4 { grid-column: span 4; }
-.col-span-5 { grid-column: span 5; }
-.col-span-6 { grid-column: span 6; }
-.col-span-7 { grid-column: span 7; }
-.col-span-8 { grid-column: span 8; }
-.col-span-9 { grid-column: span 9; }
-.col-span-10 { grid-column: span 10; }
-.col-span-11 { grid-column: span 11; }
-.col-span-12 { grid-column: span 12; }
-
-/* === Type utilities — T-022: consumers of the ONE scale in type.css ======
-   These used to carry their own `clamp()` values, which made them a third
-   competing type system whose sizes did not match either of the other two.
-   The classes stay (they are used across 60 components); the numbers left. */
-.text-micro { font-size: var(--step--2); letter-spacing: 0.08em; text-transform: uppercase; }
-.text-caption { font-size: var(--step--1); }
-.text-body { font-size: var(--step-0); line-height: var(--lh-body); }
-.text-body-lg { font-size: var(--step-1); line-height: var(--lh-body); }
-.text-h3 { font-size: var(--step-2); font-family: 'Clash Display', 'Clash Fallback', sans-serif; letter-spacing: var(--tracking-heading); }
-.text-h2 { font-size: var(--step-3); font-family: 'Clash Display', 'Clash Fallback', sans-serif; letter-spacing: var(--tracking-heading); line-height: var(--lh-heading); }
-.text-h1 { font-size: var(--step-4); font-family: 'Clash Display', 'Clash Fallback', sans-serif; letter-spacing: var(--tracking-display); line-height: var(--lh-heading); }
-.text-display { font-size: var(--step-5); font-family: 'Clash Display', 'Clash Fallback', sans-serif; letter-spacing: var(--tracking-display); line-height: var(--lh-display); }
-
-.shadow-e1 { box-shadow: 0 1px 2px rgba(0,0,0,0.35), 0 6px 16px -8px rgba(0,0,0,0.35); }
-.shadow-e2 { box-shadow: 0 2px 4px rgba(0,0,0,0.4), 0 14px 34px -14px rgba(0,0,0,0.45); }
-.shadow-e3 { box-shadow: 0 3px 6px rgba(0,0,0,0.45), 0 28px 64px -24px rgba(0,0,0,0.55); }
-.shadow-e4 { box-shadow: 0 4px 12px rgba(0,0,0,0.5), 0 48px 100px -36px rgba(0,0,0,0.65); }
-
-
-
-.glow-outer { box-shadow: 0 0 20px color-mix(in oklch, var(--accent) 25%, transparent); }
-.glow-outer--accent { box-shadow: 0 0 28px color-mix(in oklch, var(--accent, var(--accent)) 30%, transparent); }
-
-.glow-inner { box-shadow: inset 0 0 24px color-mix(in oklch, var(--accent) 12%, transparent); }
-.glow-inner--active { box-shadow: inset 0 0 32px color-mix(in oklch, var(--accent) 20%, transparent); }
-
-
-
-
-
-.color-overlay:not(.fixed):not(.absolute):not(.sticky) { position: relative; }
-.color-overlay::after {
-  content: ''; position: absolute; inset: 0; border-radius: inherit;
-  background: color-mix(in oklch, var(--accent) 20%, transparent);
-  mix-blend-mode: color; pointer-events: none; z-index: 1;
-}
-
 /* Conic sheen text (§5 shortlist) — a rotating light band clipped to the
    glyphs, distinct from .text-gradient's linear shift. */
 .text-gradient--sweep {
@@ -2030,111 +2188,36 @@ footer {
   from { opacity: 0; transform: translateY(30px); }
   to { opacity: 1; transform: translateY(0); }
 }
-@keyframes revealScale {
-  from { opacity: 0; transform: scale(0.92); }
-  to { opacity: 1; transform: scale(1); }
-}
 .reveal {
   animation: revealUp 0.7s var(--ease-forge) both;
   animation-timeline: view();
   animation-range: entry 0% entry 60%;
-}
-.reveal--scale {
-  animation: revealScale 0.8s var(--ease-forge) both;
-  animation-timeline: view();
-  animation-range: entry 0% entry 55%;
-}
-.reveal--delay { animation-delay: 0.15s; }
-.reveal--delay-2 { animation-delay: 0.3s; }
-/* Scroll-driven progress fill (native CSS, zero JS) */
-@keyframes progressFill {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
-}
-.scroll-fill {
-  transform-origin: left;
-  animation: progressFill 1s linear both;
-  animation-timeline: view();
-  animation-range: entry 0% entry 80%;
-}
+}/* Scroll-driven progress fill (native CSS, zero JS) */
 /* Scroll-driven image reveal — clip from bottom */
-@keyframes clipReveal {
-  from { clip-path: inset(100% 0 0 0); }
-  to { clip-path: inset(0 0 0 0); }
-}
-.scroll-clip {
-  animation: clipReveal 0.8s var(--ease-forge) both;
-  animation-timeline: view();
-  animation-range: entry 0% entry 60%;
-}
 /* Scroll-driven fade-slide from left */
-@keyframes revealLeft {
-  from { opacity: 0; transform: translateX(-30px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-.reveal--left {
-  animation: revealLeft 0.7s var(--ease-forge) both;
-  animation-timeline: view();
-  animation-range: entry 0% entry 60%;
-}
+/* One reduced-motion block for the whole reveal family. There used to be a
+   second one further down the sheet covering `.reveal`, `.scroll-progress--css`
+   and `.parallax-layer--css` with `!important`, which meant `.reveal` was
+   neutralised twice with different declarations and the `!important` copy was
+   the only one that actually did anything. Merged; `!important` kept, because
+   the scroll-driven animations these turn off are themselves set from a
+   higher-specificity `html[data-sda='on']` rule. */
 @media (prefers-reduced-motion: reduce) {
-  .reveal, .reveal--scale, .scroll-fill, .scroll-clip, .reveal--left { animation: none; opacity: 1; transform: none; clip-path: none; }
-}
-
-/* === Liquid-glass v2 — layered blur, refraction edge, hairlines === */
-
-
-
-
-/* === Slow luxury button fill (600ms) === */
-.btn-luxury {
-  position: relative; isolation: isolate; overflow: hidden;
-  background: transparent; border: 1px solid var(--accent-dim);
-  color: var(--ink); padding: 0.6rem 1.5rem; border-radius: 9999px;
-  font-family: 'JetBrains Mono', 'Mono Fallback', monospace; font-size: 12px; letter-spacing: 0.12em;
-  transition: color 0.6s var(--ease-forge), border-color 0.6s var(--ease-forge);
-  cursor: pointer;
-}
-.btn-luxury::before {
-  content: ''; position: absolute; inset: 0; border-radius: inherit;
-  background: var(--accent); transform: scaleX(0); transform-origin: left;
-  transition: transform 0.6s var(--ease-forge); z-index: -1;
-}
-.btn-luxury:hover { color: var(--surface-0); border-color: var(--accent); }
-.btn-luxury:hover::before { transform: scaleX(1); }
-.btn-luxury:active::before { transform: scaleX(0.95); }
-
-/* === Animated icons — micro state changes === */
-.icon-morph { transition: transform 0.5s var(--ease-anticipate), opacity 0.4s var(--ease-forge); }
-.icon-morph--open { transform: rotate(90deg); }
-.icon-morph--close { transform: rotate(0deg); }
-.icon-check { stroke-dasharray: 30; stroke-dashoffset: 30; transition: stroke-dashoffset 0.5s var(--ease-forge); }
-.icon-check--visible { stroke-dashoffset: 0; }
-@keyframes iconPulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.15); }
-}
-.icon-pulse { animation: iconPulse 2s ease-in-out infinite; }
-
-/* === Parallax layers (use with framer-motion useScroll/useTransform) === */
-.parallax-layer { will-change: transform; }
-.parallax-slow { transform: translateY(calc(var(--scroll-y, 0) * 0.15)); }
-.parallax-medium { transform: translateY(calc(var(--scroll-y, 0) * 0.3)); }
-.parallax-fast { transform: translateY(calc(var(--scroll-y, 0) * 0.5)); }
-
-/* === Curtain page transition - strong lift with gradient === */
-.curtain--strong {
-  background: linear-gradient(180deg in oklch, var(--surface-0) 0%, var(--surface-1) 50%, var(--surface-0) 100%);
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
-  transition: clip-path 0.9s var(--ease-forge);
-}
-.curtain--strong.active { clip-path: polygon(0 0, 100% 0, 100% 0, 0 0); }
-
-/* === Game engineering: no autoplay sound, rAF pause === */
-.game-container { position: relative; touch-action: manipulation; }
-.game-canvas { display: block; width: 100%; height: auto; image-rendering: pixelated; }
-.game-hud { font-family: 'JetBrains Mono', 'Mono Fallback', monospace; font-size: 12px; letter-spacing: 0.1em; }
-@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .reveal--scale,
+  .reveal--left,
+  .scroll-fill,
+  .scroll-clip,
+  .scroll-progress--css,
+  .parallax-layer--css {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    clip-path: none !important;
+    filter: none !important;
+  }
+}/* === Parallax layers (use with framer-motion useScroll/useTransform) === */
+.parallax-layer { will-change: transform; }.curtain--strong.active { clip-path: polygon(0 0, 100% 0, 100% 0, 0 0); }@media (prefers-reduced-motion: reduce) {
   .game-canvas { display: none; }
   .game-turn-based { display: block; }
 }
@@ -2286,13 +2369,33 @@ select:focus-visible {
 
 /* === §4.1 Spark Hunt collectible === */
 .spark-collectible {
+  /*
+   * §6.6 — the VISIBLE dot stays 18px; the TARGET is 44px.
+   *
+   * An 18×18 button is a quarter of the minimum comfortable touch target, and
+   * this one is deliberately tucked into decorative corners — which is the
+   * game, but it meant a phone visitor who spotted a spark frequently could
+   * not hit it. The glow keeps its size (a 44px dot would stop being hidden);
+   * the box around it grows and centres the glow inside itself, so the hit
+   * area is real rather than a pseudo-element that can be overlapped.
+   */
   position: relative;
-  width: 18px;
-  height: 18px;
+  display: inline-grid;
+  place-items: center;
+  inline-size: 44px;
+  block-size: 44px;
   border: none;
   background: none;
   cursor: pointer;
   z-index: 10;
+}
+.spark-collectible .spark-glow {
+  /* The glow was `inset: 0` on an 18px box; it is now explicitly sized so
+     growing the target does not grow the dot. */
+  position: absolute;
+  inset: auto;
+  inline-size: 18px;
+  block-size: 18px;
 }
 .spark-glow {
   position: absolute;
@@ -2329,6 +2432,95 @@ select:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .spark-glow, .spark-glow::after, .spark-mini { animation: none; }
 }
+
+/* P2.7 — the counter is permanent, and quiet until the hunt starts.
+   It used to render nothing at 0/5, which is why nobody ever found a spark:
+   there was no signal anywhere on the page that there was anything to find. */
+.spark-counter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-inline: 10px;
+  min-block-size: 44px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: var(--surface-2);
+  transition: color var(--dur-base) var(--ease-forge), border-color var(--dur-base) var(--ease-forge);
+}
+.spark-counter__value {
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+}
+/* Before the first find: no accent, no glow, no pulse. Present, not loud. */
+.spark-counter[data-started='false'] { color: var(--ink-low); }
+.spark-counter[data-started='false'] .spark-mini {
+  background: var(--ink-low);
+  box-shadow: none;
+  animation: none;
+}
+.spark-counter[data-started='true'] {
+  color: var(--accent-bright);
+  border-color: var(--accent-dim);
+}
+
+/* === The spark completion toast (D-4) ===================================
+   A toast, and it now behaves like one: it claims the overlay slot, it has a
+   visible countdown, and the bus takes the slot back after 6s whether or not
+   anyone clicks. The previous version had none of those and stayed until
+   dismissed — from a button that another overlay's backdrop could cover. */
+.spark-toast {
+  position: fixed;
+  inset-block-end: calc(2rem + env(safe-area-inset-bottom, 0px));
+  inset-inline-start: 50%;
+  translate: -50% 0;
+  z-index: var(--z-toast, 80);
+  inline-size: min(21rem, calc(100vw - 2rem));
+  padding: 16px 20px 14px;
+  border-radius: 16px;
+  overflow: hidden;
+  text-align: center;
+  background: var(--surface-1);
+  border: 1px solid var(--accent-dim);
+  box-shadow: 0 2px 4px rgb(0 0 0 / 0.4), 0 24px 60px -20px rgb(0 0 0 / 0.55);
+}
+/* The countdown rail — the visitor can see the toast is leaving on its own,
+   which is what stops a disappearing card from reading as a glitch. */
+.spark-toast__rail {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  block-size: 2px;
+  inline-size: 100%;
+  transform-origin: left;
+  background: var(--accent);
+  animation: sparkToastRail var(--toast-ms, 6000ms) linear both;
+}
+@keyframes sparkToastRail { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+.spark-toast__title {
+  font-family: var(--font-display, inherit);
+  font-size: 17px;
+  color: var(--ink-hi);
+}
+.spark-toast__name {
+  margin-block-start: 2px;
+  font-size: 12px;
+  color: var(--ink-mid);
+}
+.spark-toast__close {
+  margin-block-start: 10px;
+  min-block-size: 44px;
+  padding-inline: 16px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
+  color: var(--ink-mid);
+}
+.spark-toast__close:hover { color: var(--ink-hi); border-color: var(--accent-dim); }
+/* At Minimal motion the rail must not animate — but it must also not sit at
+   full width implying nothing is happening, so it is simply not drawn. */
+html[data-motion='off'] .spark-toast__rail { display: none; }
 
 /* === §4.6 Idle pixel bot === */
 @keyframes botWalk {
@@ -2382,10 +2574,6 @@ body { font-size: max(12px, 1rem); }
   transition: top 0.6s var(--ease-forge);
   filter: drop-shadow(0 0 6px var(--accent));
 }
-.avatar-track__node {
-  transition: all 0.4s var(--ease-forge);
-}
-
 .avatar-track__node--active {
   background: var(--accent);
   border-color: var(--accent);
@@ -2813,34 +3001,13 @@ body { font-size: max(12px, 1rem); }
 }
 
 /* === E11 Text scramble decode on headings === */
-@keyframes scrambleReveal {
-  0% { opacity: 0; transform: translateY(4px); }
-  50% { opacity: 0.5; }
-  100% { opacity: 1; transform: translateY(0); }
-}
-.scramble-char {
-  display: inline-block;
-  animation: scrambleReveal 0.3s var(--ease-forge) both;
-}
 @media (prefers-reduced-motion: reduce) {
   .scramble-char { animation: none; opacity: 1; }
 }
 
-/* === E19 Scroll-linked hue grade — page hue drifts 8° across the run === */
-.grade-wash {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background: linear-gradient(
-    180deg in oklch,
-    color-mix(in oklch, oklch(50% 0.02 var(--grade-base-hue)) 4%, transparent) 0%,
-    transparent 30%,
-    transparent 70%,
-    color-mix(in oklch, oklch(50% 0.02 calc(var(--grade-base-hue) + 8)) 4%, transparent) 100%
-  );
-  opacity: 0.6;
-}
+/* === E19 Scroll-linked hue grade — page hue drifts 8° across the run ===
+   The rule itself now lives with the other `.grade-wash` declarations in §
+   "Grade wash", above; this was the duplicate half. */
 
 /* === E22 Exit-intent spark hint === */
 @keyframes exitWave {
@@ -2896,11 +3063,17 @@ body { font-size: max(12px, 1rem); }
 }
 
 /* === E7 Melt transition — blur+contrast dissolve at section joints === */
+/* The melt-in for sections below the fold. The `from` keyframe uses
+   `scale(0.98)` — never more than 1. With `animation-fill-mode: both` and an
+   `animation-timeline: view()`, every below-fold section permanently holds
+   the `from` keyframe, so a scale above 1 registers in `scrollWidth` even
+   though `overflow-x: hidden` hides it visually. A `scale(1.02)` here was the
+   whole 4 px of the 200 %-zoom overflow (T-027 / tests/hero.spec.js). */
 @keyframes meltIn {
   0% {
     opacity: 0;
     filter: blur(12px) contrast(1.4) saturate(0.6);
-    transform: scale(1.02);
+    transform: scale(0.98);
   }
   100% {
     opacity: 1;
@@ -3011,7 +3184,6 @@ body { font-size: max(12px, 1rem); }
   .hero-aurora__blob--c,
   .mesh-animated,
   .chromatic-aberration,
-  .film-grain,
   .text-gradient--sweep
 ) {
   animation: none !important;
@@ -3114,16 +3286,8 @@ body { font-size: max(12px, 1rem); }
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .reveal,
-  .scroll-progress--css,
-  .parallax-layer--css {
-    animation: none !important;
-    opacity: 1 !important;
-    transform: none !important;
-    filter: none !important;
-  }
-}
+/* (The reduced-motion reveal block that used to sit here is merged into the
+   single one in §"reveal family", above.) */
 
 /* ════════════════════════════════════════════════════════════════════════
    @property registrations (P4.3)
@@ -3134,90 +3298,9 @@ body { font-size: max(12px, 1rem); }
    ════════════════════════════════════════════════════════════════════════ */
 @property --angle       { syntax: '<angle>';      initial-value: 0deg;  inherits: false; }
 @property --glow-spread { syntax: '<percentage>'; initial-value: 40%;   inherits: false; }
-@property --sheen-pos   { syntax: '<percentage>'; initial-value: -100%; inherits: false; }
-
-/* Animated conic border — replaces the old .sheen keyframe hack. */
-.conic-border {
-  position: relative;
-  isolation: isolate;
-}
-.conic-border::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: conic-gradient(
-    from var(--angle),
-    var(--accent), var(--violet), var(--warm), var(--accent)
-  );
-  /* Longhands only, deliberately.
-     Written as `mask: … ; mask-composite: exclude`, the production minifier
-     re-orders the declarations so the SHORTHAND lands last — and a shorthand
-     resets `mask-composite` to `add`. The ring mask then does nothing and the
-     conic gradient floods the whole element instead of drawing a 1px border.
-     That was shipping on five separate effects; the skill card's version
-     showed as a hard-edged spike of light across the card face on hover.
-     A longhand cannot be reset by a shorthand that is not there. */
-  mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
-  mask-clip: content-box, border-box;
-  mask-composite: exclude;
-  -webkit-mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
-  -webkit-mask-clip: content-box, border-box;
-  -webkit-mask-composite: xor;
-  animation: conicSpin 6s linear infinite;
-  pointer-events: none;
-  z-index: -1;
-}
-@keyframes conicSpin { to { --angle: 360deg; } }
-
-/* CTA halo — the spread itself interpolates, so no JS drives it. */
-.halo-pulse {
-  box-shadow: 0 0 var(--glow-spread) color-mix(in oklch, var(--accent) 28%, transparent);
-  animation: haloBreathe 4s ease-in-out infinite;
-}
-@keyframes haloBreathe {
-  0%, 100% { --glow-spread: 24%; }
-  50%      { --glow-spread: 56%; }
-}
-
-/* ════════════════════════════════════════════════════════════════════════
-   Three-material system (P4.4)
-
-   Replaces "glass everywhere". Layered box-shadows — four stops with
-   tightening radii — read as far more expensive than a single large blur and
-   cost considerably less to composite.
-   ════════════════════════════════════════════════════════════════════════ */
-
-/* MATTE — page and section backgrounds. Flat surface plus film grain. */
-.matte {
-  background: var(--surface-0);
-}
-
-/* SATIN — cards and panels. The default material for almost everything. */
-
-
-
-/* CHROME — reserved for ONE hero element and the primary CTA. If it appears
-   more than twice on a page it has stopped being special. */
-.chrome-text {
-  background: var(--grad-signature);
-  background-size: 200% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: chromeShift 8s ease-in-out infinite alternate;
-}
-@keyframes chromeShift {
-  from { background-position: 0% 50%; }
-  to   { background-position: 100% 50%; }
-}
-
-/* Elevation via color-mix rather than stacked opacity layers. */
+@property --sheen-pos   { syntax: '<percentage>'; initial-value: -100%; inherits: false; }/* Elevation via color-mix rather than stacked opacity layers. */
 .card         { background: var(--surface-1); }
 .card:hover   { background: color-mix(in oklch, var(--surface-1) 88%, var(--accent) 12%); }
-.card--active { background: color-mix(in oklch, var(--surface-2) 92%, var(--accent) 8%); }
-
 :where([data-gfx-tier='1']) :is(.conic-border::before, .halo-pulse, .chrome-text) {
   animation: none !important;
 }
@@ -3230,15 +3313,6 @@ body { font-size: max(12px, 1rem); }
 /* ── Fluid type scale ─────────────────────────────────────────────────────
    The tokens themselves live in `src/styles/type.css` (T-022) — one scale,
    two-axis clamped. These are the utilities that consume it. */
-.text-step--2 { font-size: var(--step--2); }
-.text-step--1 { font-size: var(--step--1); }
-.text-step-0  { font-size: var(--step-0); }
-.text-step-1  { font-size: var(--step-1); }
-.text-step-2  { font-size: var(--step-2); }
-.text-step-3  { font-size: var(--step-3); }
-.text-step-4  { font-size: var(--step-4); }
-.text-step-5  { font-size: var(--step-5); }
-.text-step-6  { font-size: var(--step-6); }
 
 /* ── Container queries ───────────────────────────────────────────────────
    A project card appears in the Cinema deck, in the Grid and in the Command
@@ -3258,13 +3332,8 @@ h1, h2, h3, h4, .font-display { text-wrap: balance; }
 p, li, figcaption { text-wrap: pretty; }
 
 /* ── Focus: a real, visible keyboard affordance ──────────────────────────
-   The custom cursor hides the native one, which made the absence of a strong
-   focus ring both an a11y gap and a polish gap. */
-:focus-visible {
-  outline: 2px solid var(--accent-bright);
-  outline-offset: 3px;
-  border-radius: 4px;
-}
+   The ring itself is defined once, in §"Focus visible" near the top of this
+   sheet. What is left here is the halo, which only these three take. */
 a:focus-visible,
 button:focus-visible,
 [tabindex]:focus-visible {
@@ -3287,11 +3356,6 @@ html {
     transition: opacity 0.35s var(--ease-forge), filter 0.35s var(--ease-forge);
   }
 }
-
-/* ── Spring easing on the interactions that should feel physical ──────── */
-.spring-press { transition: transform 0.45s var(--ease-spring); }
-.spring-press:active { transform: scale(0.97); }
-
 /* ══════════════════════════════════════════════════════════════════════════
    §14 — BACKGROUND ENGINE
    One canvas behind everything. Tier 1 / mobile / reduced-motion never mount
@@ -3308,7 +3372,103 @@ html {
   z-index: 0;
   opacity: 0.85;
 }
-[data-theme='paper'] .bg-engine { opacity: 0.55; }
+/* §14.5 — the backdrop switch used to live here as `.scene-toggle`: a
+ * segmented pill in the header, `display: none` until 112rem (1,792 CSS px)
+ * because at any narrower width it pushed the RESUME button off the right
+ * edge. That is wider than a 1440 laptop, a 1600 laptop and every phone, so
+ * the setting had a header control that essentially nobody could see, plus a
+ * second UI in the theme popover and a third (cycling) UI in the drawer.
+ *
+ * All three are gone. The backdrop is one group in the Appearance Console,
+ * with the same interaction model as theme and motion, at every width. ~95
+ * lines of CSS deleted; see §"The Appearance Console" above for what replaced
+ * them. */
+
+/* §14.6 — the legibility scrim.
+ *
+ * The forest scene puts a lit horizon, a canopy and moving wildlife in the
+ * lower half of a FIXED layer, and the page's own text scrolls over all of
+ * it. Two ways to keep that readable, and only one of them is right:
+ *
+ *   dim the picture      what the first pass did, by holding the whole scene
+ *                        down in the bottom seventh of the viewport. It works,
+ *                        and it works by deleting the thing it is protecting.
+ *   scrim the text       a soft wash between the canvas and <main>, densest
+ *                        where the scene is brightest. The picture stays; the
+ *                        paragraph gets its contrast back.
+ *
+ * It sits at z-index 0 like the canvas and is painted after it in DOM order,
+ * so it lands between the background and `main` (z-index 1) without either
+ * one needing to know it exists. `pointer-events: none` throughout — this is
+ * three gradients, not a surface.
+ *
+ * The gradient is vertical and bottom-weighted because that is where the
+ * scene's light is. The top of the viewport is already the theme surface, so
+ * scrimming it would only mute the page for nothing.
+ */
+.bg-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  /*
+   * Mild, and close to uniform. The instinct is a heavy bottom-weighted
+   * gradient — the scene's light is at the bottom, so scrim the bottom — and
+   * that is exactly wrong: it erases the only part of the picture that IS a
+   * picture. Note also that scrimming toward `--surface-0` is a NO-OP wherever
+   * the background is already the surface colour, which is the whole upper
+   * half of the forest. So a strong scrim up there costs nothing and protects
+   * nothing, and a strong scrim at the horizon costs everything.
+   *
+   * What is left is a light, even knock-back: enough to take the glare off the
+   * horizon band, not enough to flatten the canopy. The heavy lifting for
+   * contrast is done where it always was — the cards are opaque, the headings
+   * are large, and `scripts/check-contrast.mjs` asserts the role pairs.
+   */
+  background:
+    linear-gradient(
+      to top,
+      color-mix(in oklch, var(--surface-0) 46%, transparent) 0%,
+      color-mix(in oklch, var(--surface-0) 40%, transparent) 34%,
+      color-mix(in oklch, var(--surface-0) 26%, transparent) 68%,
+      color-mix(in oklch, var(--surface-0) 16%, transparent) 100%
+    );
+}
+/* Calm needs no help — it is already a flat wash of the surface colour. The
+   motif scene needs a little; the forest needs the most. Tuning the scrim per
+   scene is what lets the forest be bold without the other two being muddy. */
+[data-bg-scene='calm'] .bg-scrim { opacity: 0; }
+[data-bg-scene='motifs'] .bg-scrim { opacity: 0.55; }
+[data-bg-scene='forest'] .bg-scrim { opacity: 1; }
+
+/* Paper is a light theme, so its scrim is the cream going opaque rather than
+   a darkening — mixing toward `--surface-0` does the right thing in both
+   polarities, but the light theme needs more of it: dark text over a bright
+   horizon is a worse pairing than light text over the same band. */
+[data-theme='paper'] .bg-scrim {
+  background:
+    linear-gradient(
+      to top,
+      color-mix(in oklch, var(--surface-0) 62%, transparent) 0%,
+      color-mix(in oklch, var(--surface-0) 54%, transparent) 34%,
+      color-mix(in oklch, var(--surface-0) 38%, transparent) 68%,
+      color-mix(in oklch, var(--surface-0) 26%, transparent) 100%
+    );
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  /* Somebody who has asked for less transparency is asking for exactly this:
+     the content plane, solid. */
+  .bg-scrim { background: var(--surface-0); opacity: 1; }
+}
+
+/* D-48 — `[data-theme='paper'] .bg-engine { opacity: 0.55 }` used to live here.
+   Half-transparency over the CSS gradient wash is what made Paper's background
+   a flat pastel field with none of the eleven motifs visible in it — the
+   reported "the 3-D background is another level in Eclipse and not in the
+   other themes". The light theme now carries the same presence as the dark
+   ones; what changed instead is the vignette's polarity inside the shader,
+   which is the thing that was actually wrong on a cream surface. */
 
 /* The "PNG export" of the shader — every visitor sees this composition, and
    on a weak machine it is the whole background. */
@@ -3333,10 +3493,6 @@ body::before {
   text-wrap: balance;
 }
 .fs-hero    { font-size: var(--fs-hero); line-height: 0.92; letter-spacing: -0.03em; }
-.fs-display { font-size: var(--fs-display); line-height: 1.05; }
-.fs-h3      { font-size: var(--fs-h3); }
-.fs-body    { font-size: var(--fs-body); line-height: 1.65; }
-.fs-caption { font-size: var(--fs-caption); }
 
 /* §13.7 — digits stop jittering mid-count. */
 .count-up, .stat-value, [data-tabular] { font-variant-numeric: tabular-nums; }
@@ -3360,72 +3516,12 @@ body::before {
   inherits: false;
   initial-value: 0px;
 }
-
-/* §13.2 — conic border-glow. One element, masked to the border, no stacked
-   box-shadows. Runs only on hover/focus and carries data-loop so the gate can
-   park it. */
-.border-glow {
-  position: relative;
-  isolation: isolate;
-}
-.border-glow::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: conic-gradient(
-    from var(--grad-angle),
-    transparent 0 70%,
-    var(--card-accent, var(--accent)) 85%,
-    transparent 100%
-  );
-  /* Longhands only, deliberately.
-     Written as `mask: … ; mask-composite: exclude`, the production minifier
-     re-orders the declarations so the SHORTHAND lands last — and a shorthand
-     resets `mask-composite` to `add`. The ring mask then does nothing and the
-     conic gradient floods the whole element instead of drawing a 1px border.
-     That was shipping on five separate effects; the skill card's version
-     showed as a hard-edged spike of light across the card face on hover.
-     A longhand cannot be reset by a shorthand that is not there. */
-  mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
-  mask-clip: content-box, border-box;
-  mask-composite: exclude;
-  -webkit-mask-image: linear-gradient(#000 0 0), linear-gradient(#000 0 0);
-  -webkit-mask-clip: content-box, border-box;
-  -webkit-mask-composite: xor;
-  opacity: 0;
-  transition: opacity var(--dur-fast) var(--ease-forge);
-  pointer-events: none;
-}
-.border-glow:hover::before,
-.border-glow:focus-within::before {
-  opacity: 1;
-  animation: grad-spin var(--dur-cinema) linear infinite;
-}
-@keyframes grad-spin {
-  to { --grad-angle: 500deg; }
-}
-
-/* §13.4 — Glass 2.0. The blur lives on `.glass--live` only: backdrop-filter is
-   the most expensive paint on a low-end GPU, so the cap is 6 simultaneously
-   visible blurred surfaces per viewport. Grain is ONE page-wide overlay
-   (.film-grain), never per card. */
-.glass--live {
-  backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
-  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.4);
-}
 :where([data-gfx-tier='1']) .glass--live {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
   background: var(--surface-1);
 }
 
-/* §13.8 — selection as brand. */
-::selection {
-  background: color-mix(in oklch, var(--accent) 30%, transparent);
-  color: var(--ink-hi);
-}
 html {
   /* Kills the layout shift when a modal toggles overflow. */
   scrollbar-gutter: stable;
@@ -3444,12 +3540,9 @@ html {
   border-color: var(--glass-border);
 }
 /* Holds the box while the three chunk is in flight. There is no opt-in chip
-   any more — the desk mounts itself as the card nears the viewport. */
-.about-scene__skeleton {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(140deg in oklch, var(--surface-2), var(--surface-1));
-}
+   any more — the desk mounts itself as the card nears the viewport. The rule
+   itself is in §"chunk in flight" further down; the static-gradient copy that
+   used to be here was fully overridden by it. */
 
 /* §5 J1 — one duration, always. Hover changes the WAAPI playback rate, which
    is a thing you can actually ramp; `animation-duration` is not. */
@@ -3944,12 +4037,16 @@ html {
    the only "feature" on the list that makes the page do LESS work.
    ══════════════════════════════════════════════════════════════════════════ */
 html[data-recruiter] .bg-engine,
-html[data-recruiter] .film-grain,
 html[data-recruiter] .grade-wash,
 html[data-recruiter] .ghost-numeral,
 html[data-recruiter] .arcade-hero-hint,
 html[data-recruiter] .hero-cta--arcade,
 html[data-recruiter] .spark-collectible,
+/* P2.7 made the counter permanently visible, which means it now needs an
+   explicit recruiter rule — before, `0/5` simply never rendered and the
+   omission was invisible. The collectibles themselves are hidden one line up,
+   so a counter for a hunt you cannot play would be pure noise. */
+html[data-recruiter] .spark-counter,
 html[data-recruiter] .marquee-mask,
 html[data-recruiter] .about-scene,
 html[data-recruiter] .xp-bar,
@@ -3978,7 +4075,10 @@ html[data-recruiter] .recruiter-chip__dot,
 html[data-recruiter] .now-status__ping {
   animation-play-state: running !important;
 }
-html[data-recruiter] #hero { height: auto; min-height: 72vh; padding-block: 12vh; }
+/* `min-height` for this selector is set in §16.6 alongside `.hero-section`,
+   where it carries the `dvh` progressive enhancement. Setting it here too just
+   meant the vh-only value was overwritten a few thousand lines later. */
+html[data-recruiter] #hero { height: auto; padding-block: 12vh; }
 html[data-recruiter] .section-rhythm {
   padding-top: clamp(48px, 6vh, 72px);
   padding-bottom: clamp(48px, 6vh, 72px);
@@ -4000,8 +4100,12 @@ html[data-recruiter] .section-rhythm {
               background-color var(--dur-fast) var(--ease-forge);
 }
 .recruiter-chip:hover { color: var(--ink); border-color: var(--accent-dim); }
+/* 4D.1 — a whole chip filled at full chroma was the loudest thing in the
+   header, competing with the work. The muted companion keeps the "this is on"
+   signal and stops it shouting; the border stays full chroma, which is the
+   ~5 % of pixels that should. */
 .recruiter-chip[data-on='true'] {
-  background: var(--accent);
+  background: var(--accent-muted);
   color: var(--surface-0);
   border-color: var(--accent);
 }
@@ -4069,8 +4173,10 @@ html[data-recruiter] .section-rhythm {
   opacity: clamp(0, calc(1 - var(--hero-p, 0) / 0.65), 1);
   will-change: transform, opacity;
 }
+/* `transform` lives in §16.3 (Depth), where the parallax offset is composed
+   with the pointer lean. The scroll-only version that used to be here was
+   silently replaced by it, so the layer never actually leaned from this rule. */
 .hero-back {
-  transform: translate3d(0, calc(var(--hero-p, 0) * 90px), 0);
   opacity: clamp(0.25, calc(1 - var(--hero-p, 0) * 0.834), 1);
   will-change: transform, opacity;
 }
@@ -4131,7 +4237,12 @@ html[data-recruiter] .section-rhythm {
   display: inline-block;
   color: var(--ink);
   transform-origin: 50% 100%;
-  will-change: transform;
+  /* No `will-change: transform`.
+     It was pinning FOURTEEN permanent compositor layers directly on top of the
+     LCP element, for an animation the browser promotes on its own while it is
+     running — `will-change` buys nothing here and costs a layer per glyph for
+     the entire session. The rule exists to warn about a change that is ABOUT
+     to happen, not to decorate one that never stops. */
 }
 .name-runner__glyph .kinetic-char { color: inherit; }
 /* T-031.3 — the name PAINTS while the curtain is still down.
@@ -4160,12 +4271,24 @@ html[data-recruiter] .section-rhythm {
   82% { transform: translate3d(0.015em, 0.025em, 0) rotate(1.5deg) scale(1.03, 0.98); }
   100% { opacity: 1; transform: none; }
 }
+/* The resting stride — deliberately much smaller than the arrival.
+ *
+ * This used to reach ±6deg of rotation and scale between 0.92 and 1.12, which
+ * on a 47px mobile headline is a ±3px baseline wobble and a visibly different
+ * size per letter. Screenshotted at 390x844 the name read as "Gaurav Bar hate"
+ * with four letters scattered off the baseline — not as a running wave.
+ *
+ * The arrival animation is where the character belongs: it plays once, the
+ * visitor is watching it, and it can be as athletic as it likes. What runs
+ * FOREVER, under the site's own most important line of text, has to be
+ * something you notice only if you look for it. Roughly a third of the former
+ * amplitude, and no rotation past 2deg. */
 @keyframes runnerStride {
   0%, 58%, 100% { transform: none; }
-  66% { transform: translate3d(-0.035em, -0.14em, 0) rotate(-6deg) scale(0.92, 1.1); }
-  75% { transform: translate3d(0.045em, 0.065em, 0) rotate(5deg) scale(1.12, 0.86); }
-  84% { transform: translate3d(0.02em, -0.045em, 0) rotate(-2deg) scale(0.97, 1.04); }
-  92% { transform: translate3d(0, 0.012em, 0) scale(1.02, 0.98); }
+  66% { transform: translate3d(-0.012em, -0.045em, 0) rotate(-1.8deg) scale(0.98, 1.035); }
+  75% { transform: translate3d(0.015em, 0.022em, 0) rotate(1.6deg) scale(1.035, 0.96); }
+  84% { transform: translate3d(0.007em, -0.015em, 0) rotate(-0.7deg) scale(0.99, 1.014); }
+  92% { transform: translate3d(0, 0.004em, 0) scale(1.007, 0.994); }
 }
 @keyframes runnerPace {
   from { left: 0.035em; }
@@ -4222,13 +4345,10 @@ html[data-recruiter] .section-rhythm {
 .hero-runner__limb--leg-b { animation: heroRunnerLimbA 0.34s ease-in-out infinite alternate; }
 .hero-runner__limb--arm-b,
 .hero-runner__limb--leg-a { animation: heroRunnerLimbB 0.34s ease-in-out infinite alternate; }
-@keyframes heroSprinter {
-  0% { transform: translate3d(0, 0, 0) scaleX(0.96); opacity: 0; }
-  8% { opacity: 1; }
-  42% { transform: translate3d(15rem, -0.18rem, 0) scaleX(1.04); }
-  78% { transform: translate3d(34rem, 0, 0) scaleX(0.96); opacity: 1; }
-  100% { transform: translate3d(48rem, -0.12rem, 0) scaleX(1.02); opacity: 0; }
-}
+/* `@keyframes heroSprinter` is defined once, in §16.4, in container units. The
+   fixed-rem version that used to sit here was fully superseded — a second
+   `@keyframes` of the same name replaces the first outright — so it was dead
+   weight that still read like the live definition. */
 @keyframes heroRunnerLimbA { to { transform: rotate(19deg); } }
 @keyframes heroRunnerLimbB { to { transform: rotate(-19deg); } }
 .hero-run-lane[data-anim-paused='true'] .hero-runner,
@@ -4416,9 +4536,18 @@ html[data-recruiter] .section-rhythm {
   font-size: 12px;
 }
 
-/* The header's search button. Below `lg` it is an icon; at `lg`+ the ⌘K hint
+/* The header's search button. Below `lg` it is an icon; at `lg`+ the `/` hint
    appears beside it, because that is where a keyboard is likely to exist. */
-.nav-search { flex-shrink: 0; gap: 5px; }
+/* §6.6 — 44px, unconditionally. This was `w-8 h-8` (32px) from Tailwind
+   utilities in the markup, which failed the touch-target minimum at every
+   width and not only under `pointer: coarse`. The size lives here now so the
+   two responsive variants below extend it rather than fight it. */
+.nav-search {
+  flex-shrink: 0;
+  gap: 5px;
+  inline-size: 44px;
+  block-size: 44px;
+}
 .nav-search__hint {
   display: none;
   font-size: 12px;
@@ -4430,19 +4559,9 @@ html[data-recruiter] .section-rhythm {
   .nav-search__hint { display: inline; }
 }
 
-/* ── §6.3 knob pulse: CSS, gated, no Framer loop in the navbar ─────────── */
-.theme-toggle { transition: box-shadow var(--dur-cinema) var(--ease-forge); }
-.theme-toggle__pulse { animation: knob-pulse 2.2s ease-in-out infinite; }
-@keyframes knob-pulse {
-  0%, 100% { opacity: 0.7; }
-  50%      { opacity: 1; }
-}
-
-.atelier-panel--in { animation: atelierIn 0.28s var(--ease-forge) both; }
-@keyframes atelierIn {
-  from { opacity: 0; transform: translateY(-8px) scale(0.97); }
-  to   { opacity: 1; transform: none; }
-}
+/* The knob pulse and the atelier entrance that used to be here belonged to
+   `.theme-toggle` and `.atelier-panel`, both deleted with the Appearance
+   Console. Their keyframes went with them. */
 
 /*
  * The `-50%` that used to be in these keyframes is gone.
@@ -4465,8 +4584,8 @@ html[data-recruiter] .section-rhythm {
    animations whose *resting* state is their last keyframe. Everything else
    here now multiplies --motion-scale and needs no override at all. */
 @media (prefers-reduced-motion: reduce) {
-  .nav-drawer__link, .theme-toggle__pulse,
-  .atelier-panel--in, .toast-rise { animation: none; opacity: 1; translate: 0 0; }
+  .nav-drawer__link, .toast-rise,
+  .appearance, .appearance-scrim { animation: none; opacity: 1; translate: 0 0; }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -4708,22 +4827,7 @@ html[data-recruiter] .section-rhythm {
   12%  { opacity: 1; }
   88%  { opacity: 1; }
   100% { background-position: 50% 100%; opacity: 0; }
-}
-
-/* ══════════════════════════════════════════════════════════════════════════
-   W4 — now / uses status pill
-   ══════════════════════════════════════════════════════════════════════════ */
-.now-status {
-  transition: border-radius var(--dur-fast) var(--ease-forge),
-              padding var(--dur-fast) var(--ease-forge);
-}
-.now-status[data-open='true'] { border-radius: 16px; }
-.now-status__detail { color: var(--ink-low); animation: heroRise 0.24s var(--ease-forge) both; }
-.now-status__ping { animation: nowPing 2s cubic-bezier(0, 0, 0.2, 1) infinite; }
-@keyframes nowPing {
-  75%, 100% { transform: scale(2); opacity: 0; }
-}
-
+}.now-status[data-open='true'] { border-radius: 16px; }
 /* Avatar hover state, previously a React `hovering` flag that only ever fed a
    box-shadow. */
 .avatar-showcase[data-hovering='true'] .avatar-showcase__card {
@@ -5018,6 +5122,68 @@ header.site-header {
   .hero-forge-slot { width: 420px; height: 420px; }
 }
 
+/* ── 16.2b The corner clock ────────────────────────────────────────────────
+   The gem keeps the hero's main slot; the moon-forest clock is the smaller
+   companion pinned to the bottom-left of the VIEWPORT. `position: fixed` — it
+   stays where it is while the visitor scrolls, and it is mounted from App
+   rather than from Hero, so it is persistent across the whole page rather
+   than confined to the first screen.
+
+   z-index 60 and not 9999: it sits ABOVE the page and BELOW everything modal
+   (navbar 100, drawer, palette, arcade). A decoration that can cover a dialog
+   is a bug waiting for the one visitor who needs the dialog. */
+/*
+ * P3.3 — a SIZE LADDER, not a delete.
+ *
+ * This block used to end with `@media (width < 64rem) { display: none }` and
+ * a comment explaining that "below `md` the clock is not a smaller clock, it
+ * is no clock". That reasoning is right about 260px on a 360px screen and
+ * wrong about the conclusion: the answer to "too big" is "smaller", and a
+ * phone gets a watch rather than a hole.
+ *
+ *   >= 80rem   260px, the full diorama
+ *   >= 64rem   200px
+ *   >= 48rem   150px
+ *   below      72px compact dial, docked in the safe area
+ */
+.forge-clock {
+  position: fixed;
+  left: max(clamp(1rem, 4vw, 20px), env(safe-area-inset-left, 0px));
+  bottom: max(clamp(1rem, 4vh, 20px), env(safe-area-inset-bottom, 0px));
+  inline-size: 72px;
+  block-size: 72px;
+  z-index: 60;
+  /* The disc re-enables its own pointer events for the hover tilt; the box
+     around it must never eat a click meant for the page. */
+  pointer-events: none;
+  filter: drop-shadow(0 0 20px color-mix(in oklch, var(--accent) 38%, transparent));
+  animation: forge-clock-in 900ms var(--ease-forge, cubic-bezier(0.22, 1, 0.36, 1)) both;
+}
+@media (width >= 48rem) { .forge-clock { inline-size: 150px; block-size: 150px; } }
+@media (width >= 64rem) { .forge-clock { inline-size: 200px; block-size: 200px; } }
+@media (width >= 80rem) { .forge-clock { inline-size: 260px; block-size: 260px; } }
+@keyframes forge-clock-in {
+  from { opacity: 0; transform: translate3d(0, 16px, 0) scale(0.94); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* The flat SVG rendition that used to live here is gone. There is one clock
+   and it is the WebGL diorama — see components/ui/Clock.jsx for why a plain
+   watch face on the machines most likely to be judging the work was the wrong
+   trade. */
+html[data-motion='off'] .forge-clock { animation: none; }
+/* Recruiter mode folds away the arcade chrome; the clock is chrome.
+   D-1: this read `[data-recruiter='true']` for its entire life. RecruiterMode
+   writes the attribute as an EMPTY string, so the rule never once matched and
+   the clock stayed on screen in the one mode built to remove it. Every other
+   recruiter rule in this file already uses the presence form; this one did not,
+   and `scripts/check-attr-selectors.mjs` now fails the build on the whole
+   class rather than on this instance. */
+html[data-recruiter] .forge-clock { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .forge-clock { animation: none; }
+}
+
 /* ── 16.3 Depth ───────────────────────────────────────────────────────────
    The backdrop leans WITH the viewer and the gem leans AGAINST them. Opposed
    motion across a shared signal is what separates two flat layers into near
@@ -5204,7 +5370,7 @@ header.site-header {
      than being managed. */
   .nav-cluster > .nav-search,
   .nav-cluster > .recruiter-chip,
-  .nav-cluster > .theme-toggle,
+  .nav-cluster > .appearance-btn,
   .nav-cluster > .nav-burger,
   .nav-cluster > .spark-counter {
     min-inline-size: 44px;
@@ -5312,7 +5478,7 @@ header.site-header {
     -webkit-backdrop-filter: none !important;
   }
   .glass--live,
-  .atelier-panel,
+  .appearance,
   .welcome-toast,
   .exit-intent__tooltip,
   .progressive-blur::before {
@@ -5333,7 +5499,7 @@ header.site-header {
   .glass, .glass--live, .card, .clay-btn, .surface {
     border-color: var(--ink-mid) !important;
   }
-  .film-grain, .grade-wash {
+  .grade-wash {
     display: none !important;
   }
 }
@@ -5348,7 +5514,7 @@ header.site-header {
   .glass, .glass--live, .card, .clay-btn, button, a {
     border: 1px solid currentColor;
   }
-  .grade-wash, .film-grain, .bg-engine {
+  .grade-wash, .bg-engine {
     display: none;
   }
 }
@@ -5918,7 +6084,33 @@ header.site-header {
 
    That recovers ~160px, and the tighter gaps recover the rest. Above 90rem
    everything comes back. */
-@media (64rem <= width < 90rem) {
+/*
+ * 90rem -> 100rem, and the number is measured.
+ *
+ * This block compacts the header between `lg` and "wide": the section links
+ * tighten, the sound switch and the progress ring stand down, and the
+ * recruiter chip keeps its dot and loses its word (156px -> 32px). Its upper
+ * bound used to be 90rem, i.e. it stopped applying at exactly 1440 — and
+ * `check-layout.mjs` then reported the RESUME call-to-action off-screen at
+ * 1440, because the full-width chip came back before there was room for it.
+ *
+ * The chip got wider in P6's copy pass ("RECRUITER" -> "Short version", which
+ * is the honest label but seven characters longer), so the width at which the
+ * expanded row actually fits moved with it. 100rem is where it does.
+ */
+@media (64rem <= width < 100rem) {
+  /* The gutter is `clamp(20px, 4vw, 48px)` site-wide, which at 1152–1600 is
+     the full 48px on each side — 96px of the row spent on air while the
+     RESUME call-to-action was being pushed against the edge by 1–2px. The
+     header alone takes the narrower gutter through this band; every section
+     below keeps the wide one, because that is about reading measure and this
+     is about fitting eight controls in a row. */
+  /* `.site-header.container-px`, not `.site-header`: the gutter comes from
+     `.container-px` in `@layer utilities`, and a single-class rule ties with
+     it on specificity and then loses on source order. Measured 46.08px still
+     applied after the first attempt — the header has to out-specify the
+     utility it is overriding. */
+  .site-header.container-px { padding-inline: 28px; }
   .site-header nav[aria-label='Sections'] {
     gap: 1.15rem;
   }

@@ -1,7 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { claimOverlay } from '../../lib/overlayBus.js'
 
 const IDLE_MS = 30_000
+/** The bot walks across the bottom of the screen and leaves. */
+const WALK_MS = 12_500
+
+/*
+ * P2.3 — one of the two overlays that never claimed the slot.
+ *
+ * It is the least intrusive thing on the list — a 24px robot at the bottom
+ * edge, `pointer-events: none`, that appears only after 30 s of no input — and
+ * it is still an uninvited moving thing, which is exactly what the budget is
+ * counting. Unregistered, it could walk underneath the run-complete card.
+ *
+ * Priority 0, alongside the coach chip: if anything else wants the slot, the
+ * bot does not appear, and nobody will ever know.
+ */
 
 export default function IdleEasterEgg() {
   const [idle, setIdle] = useState(false)
@@ -31,10 +46,29 @@ export default function IdleEasterEgg() {
     }
   }, [])
 
+  const releaseRef = useRef(null)
+
   useEffect(() => {
-    if (idle) {
-      const t = setTimeout(() => setWalked(true), 12500)
-      return () => clearTimeout(t)
+    if (!idle) {
+      releaseRef.current?.()
+      releaseRef.current = null
+      return
+    }
+    const release = claimOverlay('idle-easter-egg', {
+      ttl: WALK_MS,
+      onExpire: () => setWalked(true),
+    })
+    if (!release) {
+      // Refused: recruiter mode, the quiet period, or the budget is spent.
+      // Mark it walked so the render below stays empty rather than showing a
+      // bot that the arbiter has not granted.
+      setWalked(true)
+      return
+    }
+    releaseRef.current = release
+    return () => {
+      releaseRef.current?.()
+      releaseRef.current = null
     }
   }, [idle])
 

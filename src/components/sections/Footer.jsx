@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Spark } from '../ui/SparkHunt.jsx'
 import { SOCIALS } from '../../lib/content.js'
+import { PALETTE_HINT } from '../../lib/platform.js'
 
 const NAME_LETTERS = [...'GAURAV BARHATE']
 
@@ -47,7 +48,7 @@ export default function Footer() {
   // The id is what the background engine observes to know it has reached the
   // end of the page and can switch to the rings motif.
   return (
-    <footer id="footer" className="relative border-t border-[var(--glass-border)] py-12 container-px">
+    <footer id="footer" data-field="8" data-loop className="relative border-t border-[var(--glass-border)] py-12 container-px">
       <Signature />
 
       {/* Outlined wordmark — letters fill with gold on hover, spark #5 hides inside */}
@@ -89,7 +90,10 @@ export default function Footer() {
           title="Open the arcade"
         >
           <span aria-hidden="true">🎮</span>
-          PRESS ⌘K · ↑↑↓↓ FOR SECRETS
+          {/* D-34 — the hint has to name the key this visitor actually has.
+              `⌘K` on Windows reads as Win+K, which is an OS shortcut the page
+              never receives. */}
+          PRESS {PALETTE_HINT} &middot; ↑↑↓↓ FOR SECRETS
         </button>
       </div>
 
@@ -115,7 +119,11 @@ export default function Footer() {
         </div>
         <div className="flex items-center gap-6">
           <span className="font-mono text-[12px] text-[var(--ink-low)]">
-            press <kbd className="px-1.5 py-0.5 rounded border border-[var(--glass-border)] text-[var(--ink-mid)]">&#8984;K</kbd> for commands
+            {/* D-34.2 — this one was a missed migration: the file imports
+                PALETTE_HINT and uses it correctly 26 lines above, while this
+                span kept a hardcoded `&#8984;K`. It therefore printed the Mac
+                command glyph on Windows and on every phone. */}
+            press <kbd className="px-1.5 py-0.5 rounded border border-[var(--glass-border)] text-[var(--ink-mid)]">{PALETTE_HINT}</kbd> for commands
           </span>
           <button
             onClick={scrollTop}

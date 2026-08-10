@@ -1,12 +1,52 @@
+import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTheme } from '../../contexts/ThemeContext.jsx'
+import { claimOverlay } from '../../lib/overlayBus.js'
 
+/** Long enough to read two lines and press a button; short enough to leave. */
+const VISIBLE_MS = 8000
+
+/**
+ * P2.3 / D-10f — the theme suggestion joins the bus.
+ *
+ * `ThemeContext` decides WHETHER there is a suggestion; this decides whether
+ * the visitor gets to see it, which is a different question and was previously
+ * nobody's. It also fires 3 s after a theme change, i.e. potentially inside the
+ * quiet period, where the arbiter now refuses it outright.
+ */
 export default function TimeSuggestionToast() {
   const { suggestion, acceptSuggestion, dismissSuggestion } = useTheme()
+  const [granted, setGranted] = useState(false)
+  const releaseRef = useRef(null)
+
+  useEffect(() => {
+    if (!suggestion) {
+      releaseRef.current?.()
+      releaseRef.current = null
+      setGranted(false)
+      return
+    }
+    const release = claimOverlay('time-suggestion', {
+      ttl: VISIBLE_MS,
+      onExpire: dismissSuggestion,
+    })
+    if (!release) {
+      // Refused. Clear the suggestion so the context does not hold a pending
+      // one forever waiting for a slot that is never coming.
+      dismissSuggestion()
+      return
+    }
+    releaseRef.current = release
+    setGranted(true)
+    return () => {
+      releaseRef.current?.()
+      releaseRef.current = null
+    }
+  }, [suggestion, dismissSuggestion])
 
   return (
     <AnimatePresence>
-      {suggestion && (
+      {suggestion && granted && (
         <motion.div
           initial={{ opacity: 0, y: 20, x: '-50%' }}
           animate={{ opacity: 1, y: 0, x: '-50%' }}
@@ -30,13 +70,13 @@ export default function TimeSuggestionToast() {
               onClick={acceptSuggestion}
               className="px-3 py-1.5 rounded-full bg-[var(--accent)] text-[var(--surface-0)] text-[12px] font-mono tracking-wider"
             >
-              SWITCH
+              Switch
             </button>
             <button
               onClick={dismissSuggestion}
               className="px-3 py-1.5 rounded-full border border-[var(--glass-border)] text-[var(--ink-low)] text-[12px] font-mono hover:text-[var(--ink)] transition-colors"
             >
-              DISMISS
+              No thanks
             </button>
           </div>
         </motion.div>

@@ -21,7 +21,7 @@ import { checkWebGL, getThemeColors } from '../../lib/threeUtils.js'
 import { onFrame, getTier } from '../../lib/raf.js'
 import { createAnchoredRenderer } from '../../lib/glStage.js'
 import { onTilt } from '../../lib/tilt.js'
-import { makeEnvironment } from '../../lib/filmGrade.js'
+import { makeEnvironment, srgb } from '../../lib/filmGrade.js'
 import { armScrollVelocity, getScrollVelocity } from '../../lib/scrollVelocity.js'
 
 // §3.2 — a floating, rotating low-poly "forge" gem with emissive edges.
@@ -36,14 +36,31 @@ export default function HeroForgeObject({ className = '' }) {
 
     const webgl = checkWebGL()
     if (!webgl.supported) return
-    if (getTier() < 2) return
+
+    /*
+     * NOT refused for being expensive — this was `if (getTier() < 2) return`.
+     *
+     * Same bug class as the background field and, before it, the About desk:
+     * the hero gem is the first 3-D object a visitor sees, and it silently
+     * rendered NOTHING whenever the frame governor demoted to tier 1. Because
+     * the governor demotes under load, the object most likely to be missing
+     * was the one on the busiest screen — the hero, during the lazy-chunk
+     * wave. That is "the 3D image does not show properly": an empty box where
+     * the gem should be, on exactly the machines that trigger it.
+     *
+     * Tier now buys RESOLUTION, not existence — the rule `glStage.js` has
+     * always stated and which three separate components were quietly breaking.
+     */
+    const tier = getTier()
 
     const colors = getThemeColors()
     const accent = new Color(colors.accent)
 
     // Anchored canvas: this scene sits on top of the hero's opaque backdrop,
     // so it cannot be drawn by the behind-content scissor stage.
-    const { renderer, dispose: disposeRenderer } = createAnchoredRenderer(container)
+    const { renderer, dispose: disposeRenderer, warmUp } = createAnchoredRenderer(container)
+    // Tier buys resolution, not existence.
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, tier >= 3 ? 1.75 : tier >= 2 ? 1.25 : 1))
 
     const scene = new Scene()
     const camera = new PerspectiveCamera(38, 1, 0.1, 100)
@@ -99,7 +116,7 @@ export default function HeroForgeObject({ className = '' }) {
      * every facet crosses a different part of the spectrum as it comes round.
      */
     const mat = new MeshPhysicalMaterial({
-      color: new Color('#161616'),
+      color: srgb('#161616'),
       emissive: accent,
       /*
        * 0.28 -> 0.10.
@@ -298,6 +315,14 @@ export default function HeroForgeObject({ className = '' }) {
     // than merely track it.
     if (!reduced) armScrollVelocity()
 
+    /*
+     * The still-frame flag, declared before anything that can invalidate it.
+     * Under Minimal motion the gem is drawn once and then only when a theme
+     * change, a resize, a spark or a drag makes the last frame wrong.
+     */
+    let drawnOnce = false
+    const invalidate = () => { drawnOnce = false }
+
     const observer = new MutationObserver(() => {
       const c = getThemeColors()
       const next = new Color(c.accent)
@@ -311,6 +336,8 @@ export default function HeroForgeObject({ className = '' }) {
       scene.environment = envTex
       mat.needsUpdate = true
       prev.dispose()
+      // New palette, new picture — redraw even if the gem is frozen.
+      invalidate()
     })
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
 
@@ -325,6 +352,8 @@ export default function HeroForgeObject({ className = '' }) {
       camera.aspect = w / h
       camera.updateProjectionMatrix()
       renderer.setSize(w, h, false)
+      // A resized canvas is a new picture; the still frame is stale.
+      invalidate()
     }
     const ro = new ResizeObserver(resize)
     ro.observe(container)
@@ -335,7 +364,23 @@ export default function HeroForgeObject({ className = '' }) {
     // tier. Re-asking every frame meant a tier change mid-session froze it in
     // mid-air — and a solid object stopped dead reads as a broken page, which
     // is a worse outcome than the frames it was trying to save.
+    /*
+     * Link the shaders before the first frame, not during it.
+     *
+     * A `render()` on a scene whose programs are not yet linked compiles them
+     * synchronously on the main thread, right then — a stall the visitor feels
+     * as the page locking up the moment this scene first appears. It is one of
+     * the few WebGL costs that is expensive on real GPUs too, because the
+     * stall is in the driver's shader compiler rather than in rasterisation.
+     * `compileAsync` uses KHR_parallel_shader_compile where it exists and
+     * falls back to the sync path where it does not, so it is never worse.
+     */
+    let shadersReady = false
+    warmUp(scene, camera).then(() => { shadersReady = true })
+
+
     const stop = onFrame((_, rawDt) => {
+      if (!shadersReady) return
       if (!inView) return
       // Radians per *second*, so the object looks identical on 60 Hz and
       // 144 Hz displays. Clamped so a stalled tab cannot spin it wildly.
@@ -383,7 +428,19 @@ export default function HeroForgeObject({ className = '' }) {
         sparkGeo.attributes.position.needsUpdate = true
       }
 
+      /*
+       * Under Minimal motion the gem is a STILL object, so redrawing it 60
+       * times a second is 60 identical frames of GPU work for a picture that
+       * cannot change. It is drawn once and then only when something actually
+       * invalidates it — a theme change, a resize, a spark burst, a drag.
+       *
+       * This is the other half of "Minimal": the content stays, and the cost
+       * genuinely goes away. Freezing the animation while still submitting
+       * every frame would have honoured the label and none of the intent.
+       */
+      if (reduced && drawnOnce && sparkLife <= 0 && !dragging) return
       renderer.render(scene, camera)
+      drawnOnce = true
     }, { band: 'ambient', critical: true })
 
     return () => {

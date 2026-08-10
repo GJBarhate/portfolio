@@ -33,7 +33,7 @@ const CHAPTERS = [
 
 export default function HowIBuild() {
   return (
-    <section id="how-i-build" aria-labelledby="how-i-build-heading" className="relative section-rhythm container-px overflow-hidden">
+    <section id="how-i-build" aria-labelledby="how-i-build-heading" data-field="6" data-loop className="relative section-rhythm container-px overflow-hidden">
       <span className="ghost-numeral" aria-hidden="true">06</span>
 
       <div className="relative z-[1] section-shell">

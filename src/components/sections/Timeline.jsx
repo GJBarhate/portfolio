@@ -11,7 +11,7 @@ import SplitText from '../ui/SplitText.jsx'
  */
 export default function Timeline() {
   return (
-    <section id="timeline" aria-labelledby="timeline-heading" className="relative section-rhythm container-px mesh-gradient-a overflow-hidden melt-enter">
+    <section id="timeline" aria-labelledby="timeline-heading" data-field="5" data-loop className="relative section-rhythm container-px overflow-hidden melt-enter">
       <span className="ghost-numeral" aria-hidden="true">05</span>
       <div className="absolute top-[30%] right-[6%]"><Spark id="spark-timeline" /></div>
 

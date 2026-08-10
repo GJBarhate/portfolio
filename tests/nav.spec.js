@@ -90,29 +90,44 @@ test.describe('navigation', () => {
     await expect.poll(() => page.evaluate(() => location.hash), { timeout: 5000 }).not.toBe('')
   })
 
-  test('arcade dropdown — hovering ARCADE reveals five launchable games', async ({ page, isMobile }) => {
-    test.skip(isMobile, 'the hover panel is gated on (hover: hover) and (pointer: fine)')
+  /*
+   * These two used to assert the hover dropdown: that hovering ARCADE revealed
+   * five `role="menuitem"` entries, and that focusing it did the same.
+   *
+   * That panel is gone (D-10h). It was gated on `(hover: hover)`, so on a
+   * touch-capable laptop — which reports `hover: none` — it was not rendered at
+   * all, and a keyboard user could reach the ARCADE button and none of the five
+   * games behind it. `focus-within` cannot rescue a panel that was never
+   * mounted. It also duplicated the hub's own game list, so adding a game meant
+   * editing two places, one of which half the visitors could not see.
+   *
+   * The contract now is simpler and testable on every device: ONE button, which
+   * opens the hub, where the games are chosen. That is what these assert.
+   */
+  test('ARCADE opens the hub — one button', async ({ page, isMobile }) => {
+    // The header's section nav (which carries this button) is `hidden lg:flex`;
+    // on a phone the drawer's "Play something" row is the affordance, and
+    // drawer.spec.js covers it.
+    test.skip(isMobile, 'the header nav is a drawer below lg')
     await open(page)
     const trigger = page.locator('.arcade-nav-btn')
     await expect(trigger).toBeVisible()
+    // No second, hover-only door.
+    await expect(page.locator('.arcade-menu')).toHaveCount(0)
 
-    const menu = page.locator('.arcade-menu [role="menu"]')
-    // Before the hover the panel is present but not visible — that half was
-    // never in doubt. The bug was that it stayed that way forever.
-    await expect(page.locator('.arcade-menu')).toHaveCSS('visibility', 'hidden')
-
-    await trigger.hover()
-    await expect(menu).toBeVisible()
-    await expect(menu.locator('[role="menuitem"]')).toHaveCount(5)
-
-    await menu.locator('[role="menuitem"]').first().click()
+    await trigger.click()
     await expect(page.locator('.arcade-cabinet')).toBeVisible()
   })
 
-  test('arcade dropdown — keyboard focus opens it too', async ({ page, isMobile }) => {
-    test.skip(isMobile, 'hover panel, desktop only')
+  test('ARCADE is reachable and operable by keyboard', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'the header nav is a drawer below lg')
     await open(page)
-    await page.locator('.arcade-nav-btn').focus()
-    await expect(page.locator('.arcade-menu [role="menu"]')).toBeVisible()
+    const trigger = page.locator('.arcade-nav-btn')
+    await trigger.focus()
+    await expect(trigger).toBeFocused()
+    // The keyboard path and the pointer path are the SAME path now, which is
+    // the entire point of removing the hover panel.
+    await page.keyboard.press('Enter')
+    await expect(page.locator('.arcade-cabinet')).toBeVisible()
   })
 })

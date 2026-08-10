@@ -30,10 +30,25 @@ describe('resolveTier', () => {
     expect(resolveTier({ ...base, cores: 64, memory: 64, measuredMs: 0.01 }).tier).toBeLessThanOrEqual(3)
   })
 
-  it('drops to 0 when motion is not wanted', () => {
+  /*
+   * D-46 — reduced motion caps the tier; it does not switch the graphics off.
+   *
+   * This asserted `tier === 0`, and that assertion was the bug: tier 0 means
+   * no WebGL, so every visitor whose OS had "show animations" off — which on
+   * Windows is a single unrelated-looking toggle — lost the background engine
+   * entirely and saw one flat gradient behind all eight sections instead of
+   * eight motifs. The preference is about movement, and it is honoured by
+   * freezing the shader clock in BackgroundEngine rather than by refusing to
+   * draw. Only an explicit `Motion: off` still means nothing at all.
+   */
+  it('caps at tier 2 when motion is reduced, keeping the motifs', () => {
     const profile = resolveTier({ ...base, reducedMotion: true })
-    expect(profile.tier).toBe(0)
+    expect(profile.tier).toBe(2)
     expect(profile.reasons.join(' ')).toMatch(/reduced-motion/)
+  })
+
+  it('drops to 0 only when motion is turned off outright', () => {
+    expect(resolveTier({ ...base, reducedMotion: true, motionOff: true }).tier).toBe(0)
   })
 
   it('drops to 0 when data is being rationed', () => {

@@ -21,7 +21,7 @@ import { checkWebGL, getThemeColors } from '../../lib/threeUtils.js'
 import { onPalette } from '../../lib/palette.js'
 import { onFrame, getTier } from '../../lib/raf.js'
 import { createAnchoredRenderer } from '../../lib/glStage.js'
-import { makeEnvironment } from '../../lib/filmGrade.js'
+import { makeEnvironment, srgb } from '../../lib/filmGrade.js'
 
 /**
  * A contact shadow, drawn rather than computed.
@@ -85,7 +85,7 @@ export default function ThreeDScene({ className = '' }) {
     // Anchored canvas — this scene sits over the About section's own
     // background, so the behind-content scissor stage cannot draw it.
     // Shadows stay dropped: the shadow map cost more than the desk gained.
-    const { renderer, dispose: disposeRenderer } = createAnchoredRenderer(container)
+    const { renderer, dispose: disposeRenderer, warmUp } = createAnchoredRenderer(container)
     // Same rule as the renderer factory: tier buys resolution, not existence.
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, tier >= 3 ? 1.75 : tier >= 2 ? 1.25 : 1))
 
@@ -120,14 +120,14 @@ export default function ThreeDScene({ className = '' }) {
       })
     }
 
-    const deskMat = makeMat(new Color('#3a2a1a'), new Color('#5a3a2a'), 0.05)
+    const deskMat = makeMat(srgb('#3a2a1a'), srgb('#5a3a2a'), 0.05)
     const desk = new Mesh(new BoxGeometry(3.2, 0.15, 1.6), deskMat)
     desk.position.y = -0.6
     desk.receiveShadow = true
     desk.castShadow = true
     scene.add(desk)
 
-    const legMat = makeMat(new Color('#2a1a0a'), new Color('#3a2a1a'), 0.05)
+    const legMat = makeMat(srgb('#2a1a0a'), srgb('#3a2a1a'), 0.05)
     for (const [xz, zz] of [[-1.4, -0.6], [1.4, -0.6], [-1.4, 0.6], [1.4, 0.6]]) {
       const leg = new Mesh(new BoxGeometry(0.08, 0.55, 0.08), legMat)
       leg.position.set(xz, -0.87, zz)
@@ -135,38 +135,38 @@ export default function ThreeDScene({ className = '' }) {
       scene.add(leg)
     }
 
-    const laptopBaseMat = makeMat(new Color('#2a2a2a'), new Color('#4a4a4a'), 0.1)
+    const laptopBaseMat = makeMat(srgb('#2a2a2a'), srgb('#4a4a4a'), 0.1)
     const laptopBase = new Mesh(new BoxGeometry(0.8, 0.04, 0.55), laptopBaseMat)
     laptopBase.position.set(-0.3, -0.4, 0.2)
     laptopBase.castShadow = true
     scene.add(laptopBase)
 
-    const screenMat = makeMat(new Color('#1a1a2e'), accent, 0.3)
+    const screenMat = makeMat(srgb('#1a1a2e'), accent, 0.3)
     const screen = new Mesh(new BoxGeometry(0.75, 0.45, 0.03), screenMat)
     screen.position.set(-0.3, 0.04, 0.2)
     screen.castShadow = true
     scene.add(screen)
 
-    const bookMat = makeMat(new Color('#8B4513'), warm, 0.1)
+    const bookMat = makeMat(srgb('#8B4513'), warm, 0.1)
     const book = new Mesh(new BoxGeometry(0.4, 0.12, 0.3), bookMat)
     book.position.set(0.6, -0.44, 0.1)
     book.castShadow = true
     scene.add(book)
 
-    const bookMat2 = makeMat(new Color('#2E8B57'), violet, 0.1)
+    const bookMat2 = makeMat(srgb('#2E8B57'), violet, 0.1)
     const book2 = new Mesh(new BoxGeometry(0.35, 0.1, 0.25), bookMat2)
     book2.position.set(0.55, -0.38, -0.2)
     book2.rotation.z = 0.08
     book2.castShadow = true
     scene.add(book2)
 
-    const plantPotMat = makeMat(new Color('#8B4513'), new Color('#6B3410'), 0.05)
+    const plantPotMat = makeMat(srgb('#8B4513'), srgb('#6B3410'), 0.05)
     const plantPot = new Mesh(new CylinderGeometry(0.2, 0.15, 0.25, 12), plantPotMat)
     plantPot.position.set(1.0, -0.48, -0.4)
     plantPot.castShadow = true
     scene.add(plantPot)
 
-    const plantMat = makeMat(new Color('#2d8a4e'), new Color('#4ade80'), 0.2)
+    const plantMat = makeMat(srgb('#2d8a4e'), srgb('#4ade80'), 0.2)
     const plantGroup = new Group()
     plantGroup.position.set(1.0, -0.25, -0.4)
     for (let i = 0; i < 5; i++) {
@@ -193,7 +193,7 @@ export default function ThreeDScene({ className = '' }) {
     contactShadow.position.y = -1.14
     scene.add(contactShadow)
 
-    const mugMat = makeMat(new Color('#e0e0e0'), new Color('#ffffff'), 0.1)
+    const mugMat = makeMat(srgb('#e0e0e0'), srgb('#ffffff'), 0.1)
     const mug = new Mesh(new CylinderGeometry(0.12, 0.1, 0.18, 12), mugMat)
     mug.position.set(-0.9, -0.42, -0.5)
     mug.castShadow = true
@@ -242,7 +242,22 @@ export default function ThreeDScene({ className = '' }) {
     scene.add(deskGroup)
 
     let time = 0
+    /*
+     * Link the shaders before the first frame, not during it.
+     *
+     * A `render()` on a scene whose programs are not yet linked compiles them
+     * synchronously on the main thread, right then — a stall the visitor feels
+     * as the page locking up the moment this scene first appears. It is one of
+     * the few WebGL costs that is expensive on real GPUs too, because the
+     * stall is in the driver's shader compiler rather than in rasterisation.
+     * `compileAsync` uses KHR_parallel_shader_compile where it exists and
+     * falls back to the sync path where it does not, so it is never worse.
+     */
+    let shadersReady = false
+    warmUp(scene, camera).then(() => { shadersReady = true })
+
     const stop = onFrame((_, dt) => {
+      if (!shadersReady) return
       if (!inView) return
       if (!reduced) {
         // Seconds, not frames. `dt / 16.7` made the orbit rate depend on the

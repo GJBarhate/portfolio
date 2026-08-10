@@ -1,36 +1,34 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { onFrame } from '../lib/raf.js'
 import { getStore, setStore } from '../lib/store.js'
+import {
+  THEMES,
+  LEGACY_THEME_MAP,
+  DEFAULT_THEME,
+  systemTheme,
+} from '../lib/appearance.js'
 
-// bg / accent / glow are used by the Theme Atelier swatches and the
-// <meta name="theme-color"> sync — keep them in step with index.css.
-// Three themes, not five. Eclipse is the flagship the site is designed around;
-// the other two are a delightful extra, not equal first-class designs. Each
-// passes the same APCA thresholds independently.
-const THEMES = [
-  { id: 'eclipse', label: 'Eclipse', meaning: 'Blue-black & electric teal — the default', bg: '#0e1114', accent: '#3ac6c9', glow: '#7fe3e5' },
-  { id: 'ember', label: 'Ember', meaning: 'Warm charcoal & champagne gold — midnight luxury', bg: '#0f0e0c', accent: '#d4b876', glow: '#f0e0b8' },
-  // §2.1 — `glow` mirrors the --accent-glow token, which in `paper` has to be
-  // the dark teal: a near-white glow on a cream swatch is invisible.
-  { id: 'paper', label: 'Paper', meaning: 'Pale sunrise paper — the light theme', bg: '#f8f4ec', accent: '#1f7d86', glow: '#1f7d86' },
-]
+/*
+ * The theme LIST, the legacy remap and the default now live in
+ * `lib/appearance.js`, which is the one place the three appearance settings
+ * are described. They used to be declared here, in `bgScene.js` and in
+ * `motion.js` respectively — three vocabularies for one idea — and the drawer
+ * had a fourth hardcoded copy of the theme ids (D-10g), so adding a theme
+ * meant editing four files and forgetting one.
+ *
+ * This context keeps what is genuinely its own: the React state, the view
+ * transition, the canvas broadcast and the time-of-day suggestion.
+ */
+export { LEGACY_THEME_MAP }
 
-// Old theme ids map onto the survivors so a returning visitor's saved
-// preference still resolves. index.html applies the same mapping before first
-// paint; this is the runtime half.
-export const LEGACY_THEME_MAP = {
-  forest: 'eclipse',
-  ocean: 'eclipse',
-  golden: 'ember',
-  obsidian: 'ember',
-  dawn: 'paper',
-}
-
-// Time-aware suggestions
+// Time-aware suggestions.
+// D.3.5 — no emoji outside the arcade. These are the site speaking in its own
+// voice to someone who has already shown they care which theme they are in;
+// a leading emoji makes that read as a consumer app's push notification.
 const TIME_HINTS = {
-  paper:   { from: 5,  to: 9,  suggestion: 'paper',   toast: '☀️ Good morning — Paper suits the early light.' },
-  ember:   { from: 16, to: 19, suggestion: 'ember',   toast: '🌅 Golden hour — Ember matches the sunset.' },
-  eclipse: { from: 20, to: 4,  suggestion: 'eclipse', toast: '🌙 Late night — Eclipse is easier on the eyes.' },
+  paper:   { from: 5,  to: 9,  suggestion: 'paper',   toast: 'Good morning — Paper suits the early light.' },
+  ember:   { from: 16, to: 19, suggestion: 'ember',   toast: 'Golden hour — Ember matches the sunset.' },
+  eclipse: { from: 20, to: 4,  suggestion: 'eclipse', toast: 'Late night — Eclipse is easier on the eyes.' },
 }
 
 function getTimeSuggestion() {
@@ -44,24 +42,27 @@ function getTimeSuggestion() {
 
 const ThemeContext = createContext(null)
 
-/** The OS answer, for `system` and for a first visit with nothing stored. */
-const systemTheme = () =>
-  window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'paper' : 'eclipse'
-
 export function ThemeProvider({ children }) {
   /*
-   * T-034 / D-27 — three states, not two.
+   * T-034 / D-33 — three states, not two.
    *
    *   an explicit choice  → that theme, always, and it is remembered
    *   `system`            → follows prefers-color-scheme, live
-   *   nothing stored yet  → follows prefers-color-scheme (this is the fix:
-   *                         everyone used to get `eclipse` regardless of
-   *                         their OS setting, so a visitor whose system is in
-   *                         light mode was handed a dark site with no
-   *                         explanation and no obvious way back)
+   *   nothing stored yet  → Eclipse
+   *
+   * The default moved from `system` to `eclipse`. Following the OS sounds
+   * like the respectful default and is the wrong one *here*: this is a single
+   * designed page, not an app shell, and Eclipse is the palette every other
+   * decision was made against — the hero grade, the background motifs, the
+   * accent-on-surface contrast ratios. A visitor on a light-mode laptop was
+   * landing on Paper, which is the alternate, and judging the site by it.
+   *
+   * `system` is not lost: it is one row in the theme toggle and one entry in
+   * the command palette, and choosing it is remembered and followed live.
    *
    * The value lives in the unified store (T-030); `index.html` reads the same
-   * key before first paint so there is no flash of the wrong palette.
+   * key before first paint so there is no flash of the wrong palette. The two
+   * must agree — change them together.
    */
   const [preference, setPreference] = useState(() => {
     const stored = getStore().theme
@@ -69,7 +70,7 @@ export function ThemeProvider({ children }) {
     if (THEMES.some((t) => t.id === stored)) return stored
     const migrated = LEGACY_THEME_MAP[stored]
     if (migrated) return migrated
-    return 'system'
+    return DEFAULT_THEME
   })
 
   const [theme, setResolved] = useState(() =>
@@ -144,17 +145,34 @@ export function ThemeProvider({ children }) {
     }
   }, [theme])
 
+  /*
+   * The one door in. `system` is accepted here now, and it was not before:
+   * the guard was `THEMES.some(t => t.id === next)`, which is false for
+   * `system`, so every caller that went through this event — the palette, the
+   * CLI, and now the Appearance Console — could set three of the four theme
+   * choices and silently drop the fourth. `setTheme` itself has always handled
+   * it; only the doorway was too narrow.
+   */
   useEffect(() => {
     const handler = (e) => {
-      const next = LEGACY_THEME_MAP[e.detail] || e.detail
-      if (THEMES.some((t) => t.id === next)) setTheme(next)
+      const next = e.detail === 'system' ? 'system' : (LEGACY_THEME_MAP[e.detail] || e.detail)
+      if (next === 'system' || THEMES.some((t) => t.id === next)) setTheme(next)
     }
     window.addEventListener('forge:set-theme', handler)
     return () => window.removeEventListener('forge:set-theme', handler)
   }, [])
 
-  // Time-aware suggestion (polite toast, never automatic)
+  /*
+   * Time-aware suggestion (polite toast, never automatic).
+   *
+   * D-33 — it no longer fires on a first visit. Landing someone on Eclipse and
+   * then, three seconds later, offering to switch them to Paper is the site
+   * arguing with its own default in front of the visitor. The nudge is worth
+   * making to someone who has already shown they care which theme they are in;
+   * it is noise to someone who has been here for three seconds.
+   */
   useEffect(() => {
+    if (!getStore().theme) return
     const hint = getTimeSuggestion()
     if (hint && hint.suggestion !== theme && !suggestedRef.current) {
       suggestedRef.current = hint.id

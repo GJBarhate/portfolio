@@ -9,6 +9,7 @@ import { PROJECTS } from '../../lib/content.js'
 import { useSpotlight } from '../../hooks/useSpotlight.js'
 import { useReducedMotion } from '../../lib/useReducedMotion.js'
 import { getTier, onFrame } from '../../lib/raf.js'
+import { scrollTo } from '../../lib/scroller.js'
 import { onTilt } from '../../lib/tilt.js'
 
 // `import.meta.glob` matches the pattern against real filenames, so an inline
@@ -457,17 +458,33 @@ export default function Projects() {
   const sectionRef = useRef(null)
   const [distortionAllowed, setDistortionAllowed] = useState(false)
 
+  /*
+   * D-32 — GRID/CINEMA.
+   *
+   * This used to start the view transition from *inside* a `setViewMode`
+   * updater. An updater runs during render and must be pure: React is free to
+   * call it twice (it does, in StrictMode) and to discard the result, so a
+   * `document.startViewTransition` + `flushSync` living in there fired twice,
+   * warned, and could snapshot the DOM before the state it was meant to
+   * animate had been applied. The toggle worked or did not depending on
+   * render timing, which is the worst kind of "sometimes".
+   *
+   * The transition is a side effect of a click, so it belongs in the handler,
+   * reading the current mode from a ref rather than from a stale closure.
+   */
+  const viewModeRef = useRef(viewMode)
+  viewModeRef.current = viewMode
+
   const switchView = useCallback((mode) => {
-    setViewMode((current) => {
-      if (current === mode) return current
-      if (!reducedMotion && typeof document.startViewTransition === 'function') {
-        // flushSync is required: startViewTransition snapshots the DOM when
-        // the callback returns, so the update must be synchronous.
-        document.startViewTransition(() => flushSync(() => setViewMode(mode)))
-        return current
-      }
-      return mode
-    })
+    if (viewModeRef.current === mode) return
+    if (!reducedMotion && typeof document.startViewTransition === 'function') {
+      // flushSync is required here and legal here: startViewTransition
+      // snapshots the DOM when the callback returns, so the update must have
+      // been committed by then.
+      document.startViewTransition(() => flushSync(() => setViewMode(mode)))
+      return
+    }
+    setViewMode(mode)
   }, [reducedMotion])
 
   // Viewport-entry speculative warming (Research #17): the shader chunk is
@@ -497,8 +514,27 @@ export default function Projects() {
     return () => window.removeEventListener('keydown', onKey)
   }, [viewMode, openProject, switchView])
 
+  /*
+   * D-31 — the five index chips did nothing in the default view.
+   *
+   * `project-${id}` is written by `DeckCard`, which only renders in CINEMA
+   * mode. GRID is the default, so on a first visit every chip resolved to
+   * `null` and the click was silently swallowed — five buttons that looked
+   * live and were not. Both layouts now carry the id (the grid card already
+   * had a matching `viewTransitionName`, so this is the id that was missing
+   * rather than a new concept), and the chip highlights the card it lands on
+   * so the jump is legible when the target is already on screen.
+   */
   const goTo = (id) => {
-    document.getElementById(`project-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    const el = document.getElementById(`project-${id}`)
+    if (!el) return
+    scrollTo(el, { offset: -24 })
+    el.classList.remove('is-chip-target')
+    // Reading offsetWidth restarts the highlight animation when the same chip
+    // is pressed twice; without it the second press is invisible.
+    void el.offsetWidth
+    el.classList.add('is-chip-target')
+    setTimeout(() => el.classList.remove('is-chip-target'), 1400)
   }
 
   const liveCount = useMemo(() => PROJECTS.filter((p) => p.live).length, [])
@@ -513,7 +549,9 @@ export default function Projects() {
       aria-labelledby="projects-heading"
       ref={sectionRef}
       data-view-mode={viewMode}
-      className="projects-section relative section-rhythm container-px mesh-gradient-b overflow-x-clip"
+      data-field="4"
+      data-loop
+      className="projects-section relative section-rhythm container-px overflow-x-clip"
     >
       <span className="ghost-numeral" aria-hidden="true">04</span>
       {/* One composited layer, tinted by whichever card is hovered (§3.6). */}
@@ -582,7 +620,7 @@ export default function Projects() {
 
         {/* View mode */}
         {viewMode === 'deck' ? (
-          <HorizontalScroll>
+          <HorizontalScroll onExit={() => switchView('grid')} exitLabel="EXIT CINEMA">
             {PROJECTS.map((p, i) => (
               <div key={p.id} className="deck-slot flex-shrink-0 px-3 h-full">
                 <DeckCard
@@ -623,6 +661,7 @@ function GridCard({ project, index, onOpen }) {
   return (
     <article
       className="grid-card group"
+      id={`project-${project.id}`}
       style={{ '--card-accent': project.accent, viewTransitionName: `project-${project.id}` }}
       onMouseEnter={(e) => {
         e.currentTarget.closest('.projects-section')?.style.setProperty('--wash-accent', project.accent)

@@ -37,7 +37,7 @@ function estimateOvershoot(count) {
  * JS on the scroll path, and — crucially — no second scroll system fighting
  * Lenis on the same axis (Research #20/#21).
  */
-export default function HorizontalScroll({ children, className = '' }) {
+export default function HorizontalScroll({ children, className = '', onExit, exitLabel = 'Exit' }) {
   const [pinned, setPinned] = useState(() =>
     typeof window !== 'undefined' && window.matchMedia('(hover: hover) and (pointer: fine)').matches
   )
@@ -50,8 +50,32 @@ export default function HorizontalScroll({ children, className = '' }) {
   }, [])
 
   return pinned
-    ? <PinnedDeck className={className}>{children}</PinnedDeck>
+    ? <PinnedDeck className={className} onExit={onExit} exitLabel={exitLabel}>{children}</PinnedDeck>
     : <SnapDeck className={className}>{children}</SnapDeck>
+}
+
+/**
+ * D-41 — the way out of a pinned deck.
+ *
+ * While the deck is pinned the page appears to stop scrolling: the wrapper is
+ * `overshoot + 100vh` tall and the panel is stuck to the top of it, so the
+ * wheel moves cards sideways instead of moving the page. That is the effect
+ * working as designed, and from the visitor's side it is indistinguishable
+ * from being stuck — the control that got them in has already scrolled out of
+ * view above them, and the only documented way back was an Escape key nothing
+ * had told them about.
+ *
+ * So the exit rides along inside the sticky panel, where it is on screen for
+ * exactly as long as the visitor is inside the thing it exits.
+ */
+function DeckExit({ onExit, exitLabel }) {
+  if (!onExit) return null
+  return (
+    <button type="button" className="deck-exit font-mono" onClick={onExit}>
+      <span aria-hidden="true">✕</span> {exitLabel}
+      <kbd className="deck-exit__kbd" aria-hidden="true">ESC</kbd>
+    </button>
+  )
 }
 
 function EdgeFades() {
@@ -71,7 +95,7 @@ function EdgeFades() {
   )
 }
 
-function PinnedDeck({ children, className }) {
+function PinnedDeck({ children, className, onExit, exitLabel }) {
   const childCount = Children.count(children)
   const containerRef = useRef(null)
   const trackRef = useRef(null)
@@ -147,6 +171,7 @@ function PinnedDeck({ children, className }) {
       <div className="sticky top-0 left-0 w-full h-screen overflow-hidden flex items-center justify-center">
         <div className="relative w-full flex items-center" style={{ height: `${PANEL_VH}vh` }}>
           <EdgeFades />
+          <DeckExit onExit={onExit} exitLabel={exitLabel} />
 
           {/* No snap-* classes: the track is moved by transform, not scrolled,
               so scroll snapping had nothing to act on. */}

@@ -7,6 +7,7 @@ import SnakeLaddersCV from './SnakeLaddersCV.jsx'
 import LudoRecruiter from './LudoRecruiter.jsx'
 import SnakeClassic from './SnakeClassic.jsx'
 import { useGame } from '../../contexts/GameContext.jsx'
+import { lockScroll } from '../../lib/scrollLock.js'
 import { getStore } from '../../lib/store.js'
 
 // T-030 — the five arcade high scores were five loose localStorage keys with
@@ -52,6 +53,30 @@ export default function ArcadeHub({ open, onClose, initialGame = null }) {
     return () => window.removeEventListener('keydown', handler)
   }, [open, activeGame, onClose])
 
+  /*
+   * D-40 — the cabinet is a modal and never behaved like one.
+   *
+   * With no scroll lock, a swipe meant for Snake scrolled the page behind the
+   * overlay, and a wheel over the cabinet scrolled the document rather than
+   * the game list. With nothing `inert`, Tab walked straight out of the
+   * arcade into the page underneath it and there was no visible focus to come
+   * back to — which is the "I opened it and could not get out" report, from a
+   * keyboard.
+   */
+  useEffect(() => {
+    if (!open) return
+    const main = document.getElementById('main')
+    const header = document.querySelector('.site-header')
+    if (main) main.inert = true
+    if (header) header.inert = true
+    const unlock = lockScroll()
+    return () => {
+      if (main) main.inert = false
+      if (header) header.inert = false
+      unlock()
+    }
+  }, [open])
+
   if (!open) return null
 
   return (
@@ -71,6 +96,9 @@ export default function ArcadeHub({ open, onClose, initialGame = null }) {
         transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
         className="arcade-cabinet rounded-3xl p-6 md:p-8 w-full max-w-2xl scanline"
         data-theme="ember"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Arcade"
       >
         <AnimatePresence mode="wait">
           {!activeGame ? (

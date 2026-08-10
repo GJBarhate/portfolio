@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Picture from './Picture.jsx'
+import { lockScroll } from '../../lib/scrollLock.js'
 
 /**
  * Case-study lightbox (W3).
@@ -45,11 +46,14 @@ export default function ProjectLightbox({ project, resolveImage, onClose }) {
     }
 
     document.addEventListener('keydown', onKey, true)
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    // D-40 — the shared, ref-counted lock. The `document.body.style.overflow`
+    // this replaces locked nothing: body overflow only propagates to the
+    // viewport while the root's overflow is `visible`, and this site's root
+    // has never been. The page scrolled behind an open case study.
+    const unlock = lockScroll()
     return () => {
       document.removeEventListener('keydown', onKey, true)
-      document.body.style.overflow = prevOverflow
+      unlock()
       returnFocusRef.current?.focus?.()
     }
   }, [onClose, next, prev])

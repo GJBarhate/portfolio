@@ -30,6 +30,7 @@ import {
   EquirectangularReflectionMapping,
   LinearFilter,
   RGBAFormat,
+  SRGBColorSpace,
   UnsignedByteType,
 } from 'three'
 
@@ -58,7 +59,48 @@ export function applyFilmGrade(renderer) {
   if (!renderer) return renderer
   renderer.toneMapping = AgXToneMapping
   renderer.toneMappingExposure = FILM_EXPOSURE
+  /*
+   * P4A.2 — say it out loud.
+   *
+   * `grep -r outputColorSpace src/` returned zero hits before this line. The
+   * renderer was relying on the three.js default for the setting that decides
+   * whether every colour on the site is right — and three.js has changed that
+   * default between versions (r152 flipped the whole colour management model).
+   * A dependency bump silently regrading the entire site is not a
+   * hypothetical; it is the most likely way this work gets undone.
+   *
+   * `SRGBColorSpace` is what a canvas element displays. Stating it means the
+   * pipeline is: linear working space → AgX → sRGB out, all three declared.
+   */
+  renderer.outputColorSpace = SRGBColorSpace
   return renderer
+}
+
+/**
+ * P4A.3 — an sRGB hex literal, converted into the linear working space.
+ *
+ * `grep -r convertSRGBToLinear src/` also returned zero. Every `new Color('#…')`
+ * on this site was being handed to a shader as if the hex digits were linear
+ * light, which they are not — they are display-encoded, roughly a 2.2 power
+ * curve away from it.
+ *
+ * The consequence is specific and it is a large part of what "cartoon" means.
+ * In linear space, mixing two colours is averaging light; in sRGB space it is
+ * averaging *encoded* numbers, which pulls every midtone toward grey. A green
+ * lit by a warm key becomes muddy olive instead of yellow-green; two blended
+ * layers lose their chroma exactly where the eye is most sensitive to it. No
+ * amount of picking better hex values fixes it, because the arithmetic is
+ * happening in the wrong space.
+ *
+ * Every colour literal in the 3-D layer now goes through here. It is the
+ * cheapest change in Phase 4 — zero runtime cost, one conversion at construction
+ * — and roughly half the perceived realism gain.
+ *
+ * @param {string|number} hex an sRGB literal, e.g. '#ffe3b4'
+ * @returns {Color} the same colour, in linear-sRGB
+ */
+export function srgb(hex) {
+  return new Color(hex).convertSRGBToLinear()
 }
 
 /**

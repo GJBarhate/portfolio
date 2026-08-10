@@ -4,11 +4,20 @@ import { useGame } from '../../contexts/GameContext.jsx'
 import { getStore, setStore, markSeen } from '../../lib/store.js'
 import { useSparks } from './SparkHunt.jsx'
 import { useReducedMotion } from '../../lib/useReducedMotion.js'
+import { claimOverlay } from '../../lib/overlayBus.js'
 
 // T-030 — `scores.run` in the unified store, not a private key.
 
-/** How long the toast holds before it retires itself. Mirrored by --hold. */
-const HOLD_MS = 14000
+/**
+ * How long the toast holds before it retires itself. Mirrored by --hold.
+ *
+ * D-37 — 14 s was a third of a minute of a card sitting over the footer with
+ * a countdown rail running. It is a summary of a visit that has just ended,
+ * not something to be read twice; 7 s is long enough to take in four figures,
+ * and hovering still holds it open indefinitely (see `held`) for anyone who
+ * wants longer.
+ */
+const HOLD_MS = 7000
 
 function formatTime(ms) {
   const s = Math.floor(ms / 1000)
@@ -41,10 +50,14 @@ export default function RunComplete() {
    * must see the current value without being torn down and rebuilt.
    */
   const spent = useRef(false)
+  /* D-47 — the overlay slot, released whichever way the card leaves. */
+  const releaseRef = useRef(null)
 
   const dismiss = useCallback(() => {
     spent.current = true
     markSeen('run-complete')
+    releaseRef.current?.()
+    releaseRef.current = null
     setShow(false)
   }, [])
 
@@ -60,6 +73,13 @@ export default function RunComplete() {
     // One showing per visit, decided here rather than by the observer, so
     // every path that can open the card goes through the same latch.
     spent.current = true
+
+    /*
+     * D-47 — this outranks the coach chip, so the claim displaces it rather
+     * than being refused. Measured at 390x844: both were on screen at once on
+     * a first visit, the chip over the hero and this card over that.
+     */
+    releaseRef.current = claimOverlay('run-complete')
 
     setStats({
       time: formatTime(elapsed),

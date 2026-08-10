@@ -5,6 +5,8 @@
  * or the visitor has asked for reduced motion, so callers never have to
  * branch themselves.
  */
+import { scrollTo } from './scroller.js'
+
 function reduced() {
   return typeof window !== 'undefined' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -37,12 +39,17 @@ export function withViewTransition(apply, { mode, origin } = {}) {
   })
 }
 
-/** Smoothly navigate to a section, cross-fading rather than jumping. */
+/**
+ * Smoothly navigate to a section.
+ *
+ * A scroll is not a DOM mutation, so a view transition would capture two
+ * identical frames. Smooth scrolling is the right primitive here; the
+ * cross-fade mode exists for palette actions that also change the DOM.
+ *
+ * D-30 — this used to call `scrollIntoView({ block: 'start' })` directly,
+ * which lands the section's top edge at the viewport's top edge, i.e. behind
+ * the fixed header. It now goes through the site's one header-aware scroller.
+ */
 export function navigateToSection(id) {
-  const el = document.getElementById(id)
-  if (!el) return
-  // A scroll is not a DOM mutation, so a view transition would capture two
-  // identical frames. Smooth scrolling is the right primitive here; the
-  // cross-fade mode exists for palette actions that also change the DOM.
-  el.scrollIntoView({ behavior: reduced() ? 'auto' : 'smooth', block: 'start' })
+  scrollTo(id)
 }

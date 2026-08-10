@@ -215,7 +215,7 @@ export default function Contact() {
   const sending = status === 'sending' || status === 'validating'
 
   return (
-    <section id="contact" aria-labelledby="contact-heading" className="relative section-rhythm container-px mesh-gradient-b overflow-hidden">
+    <section id="contact" aria-labelledby="contact-heading" data-field="7" data-loop className="relative section-rhythm container-px overflow-hidden">
       <span className="ghost-numeral" aria-hidden="true">07</span>
       {/* Spark moved to footer wordmark */}
 

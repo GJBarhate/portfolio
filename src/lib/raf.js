@@ -110,6 +110,56 @@ export function getTier() {
   return tier
 }
 
+/**
+ * P0.8 — what the loop is actually doing right now.
+ *
+ * Everything here is already tracked for the governor's own decisions; none of
+ * it was readable from outside, so "is the ambient band being starved?" and
+ * "how many subscribers are throttled?" were questions that could only be
+ * answered by adding a console.log and rebuilding. The `?perf=1` HUD reads
+ * this; nothing else does, and it allocates one object per call rather than
+ * per frame.
+ */
+export function frameStats() {
+  return {
+    tier,
+    tierFloor,
+    // The governor's smoothed frame time, which is the number it acts on —
+    // not an instantaneous fps, which is too noisy to read off a HUD.
+    avgFrameMs: Math.round(avgDt * 10) / 10,
+    fps: Math.round(1000 / Math.max(avgDt, 1)),
+    bands: {
+      input: subs.input.size,
+      layout: subs.layout.size,
+      ambient: subs.ambient.size,
+      critical: critical.size,
+    },
+    ambientSkips,
+    paused,
+    motion: motionMode(),
+  }
+}
+
+/**
+ * Per-callback cost records, keyed by the callback itself. Declared here
+ * rather than beside `runBand` so it precedes `throttledCount()`, which reads
+ * it — execution order and reading order match.
+ */
+const cost = new WeakMap()
+
+/**
+ * The per-callback divisors, for the HUD's "who is being throttled" row.
+ * `cost` is a WeakMap keyed by function, so the callbacks have to be walked to
+ * read it — which is fine once a second and would not be fine per frame.
+ */
+export function throttledCount() {
+  let n = 0
+  for (const band of [subs.input, subs.layout, subs.ambient]) {
+    for (const fn of band) if ((cost.get(fn)?.divisor ?? 1) > 1) n += 1
+  }
+  return n
+}
+
 export function onTierChange(fn) {
   tierSubs.add(fn)
   return () => tierSubs.delete(fn)
@@ -125,6 +175,44 @@ export function setTier(next, { lock = false } = {}) {
 }
 
 /**
+ * The EFFECTIVE reduced-motion answer — D-45.
+ *
+ * The OS media query is the default and it is not the last word. The site
+ * offers Motion: full / reduced / off / system, `motion.js` publishes the
+ * choice as `<html data-motion>`, and `motion.css` has always honoured it —
+ * but the graphics ladder went on consulting the raw media query. So a
+ * visitor whose OS says "reduce" (which on Windows is just the "show
+ * animations" switch, frequently off by default on laptops) and who then
+ * explicitly chose Motion: full got the CSS animations back and no WebGL at
+ * all: tier 1, no background field, no hero fluid, no 3-D scenes. The control
+ * appeared not to work, and the only way to actually turn the site on was to
+ * pin the tier by hand from the terminal.
+ *
+ * Reading the override first means the OS is still respected by default and
+ * an explicit, informed choice wins — which is what offering the control
+ * meant in the first place. `data-motion` is set by index.html before first
+ * paint, so this is correct on the very first call.
+ *
+ * Deliberately reads the DOM rather than importing `motion.js`: this module is
+ * the bottom of the dependency graph and must stay free of the store.
+ */
+export function motionMode() {
+  if (typeof window === 'undefined') return 'full'
+  const override = document.documentElement.dataset.motion
+  if (override === 'full' || override === 'reduced' || override === 'off') return override
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'reduced' : 'full'
+}
+
+export function prefersReducedMotion() {
+  return motionMode() !== 'full'
+}
+
+/** Only an explicit `Motion: off` means "render nothing". */
+export function motionIsOff() {
+  return motionMode() === 'off'
+}
+
+/**
  * Establish the starting tier from device capability, before any frame has
  * been measured. Cheap heuristics only — the governor corrects from there.
  */
@@ -133,12 +221,54 @@ export function initTier() {
   const cores = navigator.hardwareConcurrency || 4
   const mem = navigator.deviceMemory || 4
   const saveData = navigator.connection?.saveData === true
-  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  const mode = motionMode()
   const small = !window.matchMedia('(min-width: 768px)').matches
 
   let start = 3
-  if (cores <= 4 || mem <= 4 || small) start = 2
-  if (cores <= 2 || mem <= 2 || saveData || reduced) start = 1
+  /*
+   * D-45 — `cores <= 4 || mem <= 4` was too eager on its own.
+   *
+   * `navigator.deviceMemory` is quantised and capped: Chrome reports the
+   * largest of 0.25/0.5/1/2/4/8 that does not exceed the real figure, so a
+   * machine with 6 GB reports 4 and lands in the same bucket as a Chromebook.
+   * Either signal alone is weak; both together is a real statement about the
+   * machine. A 4-core desktop with 8 GB now starts at 3 and is demoted by the
+   * frame governor if — and only if — it actually cannot keep up, which is
+   * the measurement the proxies were standing in for.
+   */
+  if (small || (cores <= 4 && mem <= 4)) start = 2
+  /*
+   * D-46 — reduced motion caps the tier, it does not switch WebGL off.
+   *
+   * `reduced` used to land here alongside `saveData` and force tier 1, which
+   * means no background engine at all: one flat gradient behind every section
+   * instead of eleven motifs. On Windows `prefers-reduced-motion: reduce` is
+   * just the "Show animations" switch, frequently off on laptops and not
+   * something its owner associates with graphics. `BackgroundEngine` freezes
+   * the shader clock instead, so the motifs are all present and none of them
+   * move. See resolveTier() for the same decision on the probe's side.
+   */
+  if (mode === 'reduced') start = Math.min(start, 2)
+  /*
+   * P5.14 — `off` caps the tier at 2; it no longer forces tier 1.
+   *
+   * Tier 1 on this site means "no WebGL at all" (effects/registry.js budgets
+   * it at 0 ms GPU), so `mode === 'off'` here was deleting the background
+   * field, the hero gem and the desk scene outright. That is why the console
+   * had to label the mode carefully: it said "Off" while removing CONTENT,
+   * when what the visitor asked for was no MOVEMENT.
+   *
+   * Under P5's rule — degrade by resolution, never by deletion — `off` now
+   * means FREEZE. `BackgroundEngine` already stops its shader clock for
+   * `reduced` (see below); extending that to `off` gives a still, complete
+   * page instead of an empty one, which is what "Minimal" promises.
+   *
+   * The genuinely weak-machine signals (2 cores, 2 GB, Save-Data) still force
+   * tier 1, because those are statements about the hardware rather than about
+   * the visitor's preference.
+   */
+  if (mode === 'off') start = Math.min(start, 2)
+  if (cores <= 2 || mem <= 2 || saveData) start = 1
 
   // applyTier is a no-op when the value has not changed, so the attribute
   // would never be written on a machine that starts at the default tier 3 —
@@ -187,12 +317,27 @@ function loop(t) {
 
     // Ignore the first ~2 s: startup is the least representative moment there
     // is, and it is exactly when a first-visit page is doing the most work.
-    if (frameSamples > 120) {
+    /*
+     * 600 frames of warm-up, not 120.
+     *
+     * MEASURED: the tier oscillated 3 -> 2 -> 3 -> 2 -> 3 -> 1 across a single
+     * 42-second session, and every element gated on tier appeared and
+     * disappeared with it. 120 frames is ~2 seconds, which on this page is
+     * still inside the lazy-chunk wave, the shader compiles and the first
+     * scroll — i.e. the governor was judging the machine on the least
+     * representative work it will ever do, and then acting on that judgement
+     * for the rest of the session.
+     *
+     * The demotion threshold also moves from 180 to 420 slow frames (~7 s of
+     * sustained slowness, not 3), because a demotion is visible and a
+     * promotion is not: getting it wrong in the "demote" direction costs the
+     * visitor something they can see.
+     */
+    if (frameSamples > 600) {
       if (avgDt > 24) {
         slowFrames++
         fastFrames = 0
-        // ~3 seconds of sustained slowness before giving anything up.
-        if (slowFrames >= 180) { applyTier(tier - 1); slowFrames = 0; avgDt = 16.7 }
+        if (slowFrames >= 420) { applyTier(tier - 1); slowFrames = 0; avgDt = 16.7 }
       } else if (avgDt < 15) {
         fastFrames++
         slowFrames = 0
@@ -253,7 +398,6 @@ function loop(t) {
  * correct SPEED, just less smoothly — which is the whole point of demanding
  * dt-correctness from subscribers in the first place.
  */
-const cost = new WeakMap()
 const OVER_BUDGET_MS = 8
 const STRIKES = 90
 /** 1-in-4 frames ≈ 15 fps at 60 Hz: slow, still unmistakably moving. */

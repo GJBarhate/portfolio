@@ -326,11 +326,27 @@ export default function ForgeRunner() {
           </div>
         )}
       </div>
+      {/*
+        D-39 — real buttons, not only a swipe.
+
+        A swipe is not recognised until the finger lifts, so in a game whose
+        obstacles arrive every few hundred milliseconds the input lands after
+        the moment it was aimed at. The swipe handler above is kept as an
+        accelerator; this is the control. `onPointerDown` rather than
+        `onClick`, because the difference between the two is a whole frame of
+        reaction time.
+      */}
+      <div className="runner-pad" role="group" aria-label="Runner controls">
+        <button type="button" className="snake-pad__btn" onPointerDown={() => applyAction('left')} aria-label="Move left" disabled={!playing || gameOver}>◀</button>
+        <button type="button" className="snake-pad__btn" onPointerDown={() => applyAction('jump')} aria-label="Jump" disabled={!playing || gameOver}>▲</button>
+        <button type="button" className="snake-pad__btn" onPointerDown={() => applyAction('slide')} aria-label="Slide" disabled={!playing || gameOver}>▼</button>
+        <button type="button" className="snake-pad__btn" onPointerDown={() => applyAction('right')} aria-label="Move right" disabled={!playing || gameOver}>▶</button>
+      </div>
       <div className="flex flex-wrap justify-center gap-3 font-mono text-[12px] tracking-wider text-[var(--ink-low)]">
         <span className="hidden sm:inline">← → LANE</span>
         <span className="hidden sm:inline">↑ / SPACE JUMP</span>
         <span className="hidden sm:inline">↓ SLIDE</span>
-        <span className="sm:hidden">SWIPE ← → LANE · ↑ JUMP · ↓ SLIDE</span>
+        <span className="sm:hidden">TAP THE PAD OR SWIPE</span>
       </div>
     </div>
   )

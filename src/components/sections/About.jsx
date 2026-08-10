@@ -85,7 +85,7 @@ export default function About() {
   }, [])
 
   return (
-    <section id="about" aria-labelledby="about-heading" className="relative section-rhythm container-px mesh-gradient-a overflow-hidden melt-enter">
+    <section id="about" aria-labelledby="about-heading" data-field="1" data-loop className="relative section-rhythm container-px overflow-hidden melt-enter">
       <span className="ghost-numeral" aria-hidden="true">01</span>
 
       {/* Side-by-side only from 1024px. Between 768–1024 the avatar column plus

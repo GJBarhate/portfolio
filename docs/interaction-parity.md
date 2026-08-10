@@ -19,12 +19,15 @@ of the gate by accident.
 | Surface | Pointer | Touch | Keyboard |
 |---|---|---|---|
 | Nav link | Underline wipe (`MorphLink`), hover chime | Tap navigates; active section is marked with `aria-current` | Tab focuses, Enter navigates, visible focus ring |
-| ARCADE button | Opens the five-game panel on hover | Tap opens the hub directly — the panel is gated behind `(hover: hover)` because a tap that opens a menu *and* activates the button behind it is a trap | Focus opens the panel via `:focus-within`; each row is a `<button role="menuitem">` |
-| Arcade game row | Highlight on hover | n/a (panel not shown) | Focus highlight, Enter launches that specific game |
-| Search / commands | Magnifier + ⌘K hint chip | Magnifier, always visible in the header, plus the first row of the drawer | ⌘K / Ctrl+K from anywhere; the button announces its shortcut with `aria-keyshortcuts` |
+| ARCADE button | Opens the hub | Opens the hub | Enter opens the hub — **D-10h**: this used to open a five-game panel on hover only. A touch-capable laptop reports `hover: none`, so the panel was never rendered there and a keyboard user could reach ARCADE and none of the games. Games are chosen inside the hub now, which is one list instead of two |
+| Search / commands | Magnifier + `/` hint chip | Magnifier, always visible in the header, plus the first row of the drawer | `/` (or Ctrl/⌘+/) from anywhere; the button announces its shortcut with `aria-keyshortcuts` |
 | Burger | Colour change | 44px target, opens the drawer sheet | Enter opens; focus is trapped in the dialog; Escape closes and returns focus to the burger |
 | Drawer sheet | n/a (hidden at `lg`+) | Drag down to dismiss (120px or 0.5px/ms), backdrop tap, Escape | Full focus trap via native `<dialog>`; Tab cycles inside |
-| Theme toggle | Knob slide + glow | Same, at 44px; below 22rem it moves into the drawer | Enter opens the atelier; arrow keys move between themes |
+| Appearance | Swatch of the live theme; the word appears at `100rem`+ | Same, 44px, at every width | `Shift+A` from anywhere, or Enter on the button. Inside: three `radiogroup`s — arrows move within a group and select as they move, Tab moves between groups, Escape closes and restores focus to the trigger |
+| ~~Theme toggle~~ | — | — | Replaced. A 92×32 knob with three unlabelled positions, opening a popover called "Theme Atelier" |
+| ~~Backdrop toggle~~ | — | — | Replaced. A segmented control that was `display: none` below **1,792 CSS px** — invisible on every laptop and every phone, which is the whole of D-3 |
+| Recruiter chip | Colour + dot | 44px target; the word is dropped between `64rem` and `100rem` where the header is tight | Ctrl/⌘+Shift+R, or a drawer row. Also reachable from a URL: `?recruiter=1`, or any `ref`/`utm_source` that names a hiring funnel (D-10j) |
+| Spark counter | `0/5`, quiet until the first find | Same | Not interactive; `sr-only` text carries the count, since a bare fraction read aloud means nothing |
 | Progress ring | Spring-damped fill | Same (it is not input-driven) | n/a — decorative, `aria-hidden` |
 
 ## Content

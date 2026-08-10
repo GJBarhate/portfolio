@@ -4,7 +4,7 @@
 
 | Defect | Status | Evidence |
 |---|---|---|
-| **D-01** The command palette can never be opened on a touch device | closed | One canonical channel, `forge:open-palette`. Three doors dispatch it: a header button visible at every width, the first row of the drawer, and ⌘K. `tests/palette.spec.js` asserts all three, and asserts touch operability with no keyboard. |
+| **D-01** The command palette can never be opened on a touch device | closed | One canonical channel, `forge:open-palette`. Three doors dispatch it: a header button visible at every width, the first row of the drawer, and `/`. `tests/palette.spec.js` asserts all three, and asserts touch operability with no keyboard. |
 | **D-02** `window.forge` is console-only | closed | `src/lib/forgeCli.js` is one registry with two front-ends: the console shim (unchanged for the visitor) and the palette's `>` terminal mode. `tests/cli.spec.js` runs every command from the palette on a 390px touch viewport. `App.jsx` is 60+ lines shorter. |
 | **D-03** The ARCADE dropdown has never rendered | closed | `group` added; also opens on `:focus-within`; `pointer-events` enabled only while open; five `<button role="menuitem">` rows each launching their own game; the whole panel gated behind `(hover: hover) and (pointer: fine)`. `tests/nav.spec.js -g "arcade dropdown"`. |
 | **D-04** Source files are encoding-corrupted | closed | 5 BOMs stripped, 21 mojibake sequences repaired. `scripts/check-encoding.mjs` runs in `prebuild` and fails on either. `.editorconfig` and `.gitattributes` stop it recurring. |

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { onFrame, getTier, onTierChange } from '../../lib/raf.js'
+import { onFrame, getTier, onTierChange, prefersReducedMotion } from '../../lib/raf.js'
 import { guardContext, markGlUnavailable } from '../../lib/glResilience.js'
 import { onPalette } from '../../lib/palette.js'
+import { bgSceneId } from '../../lib/bgScene.js'
 import { createBackgroundEngine, hexToVec3 } from '../../lib/bgEngine.js'
 
 // The order the shader blends between (§14.1 uSection).
@@ -73,7 +74,20 @@ export default function BackgroundEngine() {
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-    if (gaveUp || getTier() < 2) return
+    /*
+     * `getTier() < 2` used to be part of this condition, and it was the LAST
+     * of the four ways this component could refuse to exist.
+     *
+     * The other three are documented at the tier-ladder handler below. This
+     * one is the worst of them, because it fires at MOUNT: a machine that
+     * merely started at tier 1 — a phone, a laptop with `saveData`, anything
+     * with <= 2 cores — never ran this effect at all, so the background was
+     * not "degraded", it was absent for the whole session with no path back.
+     *
+     * `gaveUp` stays. That is set only after two real WebGL context losses,
+     * which is a genuine "this cannot work here", not a performance opinion.
+     */
+    if (gaveUp) return
 
     const detachGuard = guardContext(canvas, {
       label: 'background-field',
@@ -183,9 +197,31 @@ export default function BackgroundEngine() {
     mo.observe(document.body, { childList: true, subtree: true })
 
     // ── tier ladder ──────────────────────────────────────────────────────
+    /*
+     * MEASURED FIX — two bugs, and together they are the whole of
+     * "the background moves, sometimes I see it, sometimes I don't".
+     *
+     * 1. `if (t < 2) { teardown(); return }` — the engine DESTROYED ITS OWN
+     *    CONTEXT when the frame governor demoted to tier 1. Gating the mount
+     *    on tier in App was only half the problem; even mounted, the component
+     *    deleted itself. Measured: the background vanished at 42.5 s into a
+     *    session and never came back.
+     *
+     * 2. `scale = scaleForTier(t); resize()` on every change reallocated the
+     *    drawing buffer whenever the tier flapped. Measured across one session
+     *    the canvas flipped 1440 -> 720 -> 1440 -> 720, which is a visible
+     *    resolution pop — the background appearing to fade in and out.
+     *
+     * The rule now: the engine NEVER tears down, and its resolution only ever
+     * goes DOWN, once, as a rescue under sustained load. Raising resolution
+     * mid-session is a visible change with no benefit to anyone; lowering it
+     * is a legitimate response to a machine that is struggling. Not existing
+     * is never the answer — `glStage.js` has said so all along.
+     */
     const offTier = onTierChange((t) => {
-      if (t < 2) { teardown(); return }
-      scale = scaleForTier(t)
+      const next = scaleForTier(t)
+      if (next >= scale) return
+      scale = next
       resize()
     })
 
@@ -202,6 +238,26 @@ export default function BackgroundEngine() {
     const AMBIENT_FRAME_MS = 1000 / 30
     let sinceDraw = 0
 
+    // Re-read per frame rather than captured once: the visitor can change the
+    // motion mode from the palette at any moment, and the field must settle
+    // or resume without a remount.
+    let reduced = prefersReducedMotion()
+    const onMotionChange = () => { reduced = prefersReducedMotion() }
+    document.documentElement.addEventListener('forge:motion-changed', onMotionChange)
+
+    /*
+     * §14.5 — the scene, re-read on change rather than captured at mount.
+     *
+     * Switching between calm / motifs / forest is a uniform write, so it takes
+     * effect on the next frame with no recompile, no new context and no
+     * remount. That is the whole reason all three live in one program: a
+     * visitor flipping through them from the palette should see the page
+     * change, not see it reload.
+     */
+    let scene = bgSceneId()
+    const onSceneChange = () => { scene = bgSceneId() }
+    document.documentElement.addEventListener('forge:bg-scene-changed', onSceneChange)
+
     let stopFrame = onFrame((_t, dt) => {
       if (disposed) return
       const tier = getTier()
@@ -211,9 +267,18 @@ export default function BackgroundEngine() {
       // Carry the remainder rather than resetting to zero, or the effective
       // rate drifts to half of what was asked for on a 60 Hz display.
       sinceDraw %= AMBIENT_FRAME_MS
-      // Tier 3 runs at full speed; tier 2's field moves more slowly, which
-      // costs nothing and reads as "calm" rather than "dropped frames".
-      time += (dt / 1000) * (tier >= 3 ? 1.0 : 0.6)
+      /*
+       * Tier 3 runs at full speed; tier 2's field moves more slowly, which
+       * costs nothing and reads as "calm" rather than "dropped frames".
+       *
+       * D-46 — and reduced motion holds the clock completely still. This is
+       * where that preference is now honoured: the motif for each section is
+       * still drawn, still its own, still in the theme's palette — it simply
+       * does not move. The alternative, which is what this replaced, was to
+       * refuse to mount the layer at all, and that does not reduce motion, it
+       * deletes the design.
+       */
+      time += (dt / 1000) * (reduced ? 0 : tier >= 3 ? 1.0 : 0.6)
 
       const y = window.scrollY
       scrollVel = (y - lastScrollY) / Math.max(dt, 1)
@@ -247,8 +312,13 @@ export default function BackgroundEngine() {
       gl.uniform1f(uniforms.uMotifA, SECTION_MOTIF[lo])
       gl.uniform1f(uniforms.uMotifB, SECTION_MOTIF[hi])
       gl.uniform1f(uniforms.uBlend, Math.max(0, Math.min(1, smoothSection - lo)))
-      gl.uniform1f(uniforms.uIntensity, tier >= 3 ? 1.0 : 0.75)
+      // D-38 — 0.9 at tier 2, not 0.75. The tier already buys its saving from
+      // the resolution ladder (0.4-0.5x) and the 30 fps cap, both of which are
+      // invisible; dimming the field on top of those is a third saving taken
+      // from the only one of the three that the visitor can see.
+      gl.uniform1f(uniforms.uIntensity, tier >= 3 ? 1.0 : 0.9)
       gl.uniform3f(uniforms.uRipple, ripple.x, ripple.y, ripple.life)
+      gl.uniform1f(uniforms.uScene, scene)
       gl.drawArrays(gl.TRIANGLES, 0, 3)
 
       if (probe && query) {
@@ -282,6 +352,8 @@ export default function BackgroundEngine() {
       ro.disconnect()
       window.removeEventListener('pointermove', onPointer)
       window.removeEventListener('pointerdown', onPointerDown)
+      document.documentElement.removeEventListener('forge:motion-changed', onMotionChange)
+      document.documentElement.removeEventListener('forge:bg-scene-changed', onSceneChange)
       engine.dispose()
     }
 
@@ -289,10 +361,19 @@ export default function BackgroundEngine() {
   }, [generation, gaveUp])
 
   return (
-    <canvas
-      ref={canvasRef}
-      className="bg-engine"
-      aria-hidden="true"
-    />
+    <>
+      <canvas
+        ref={canvasRef}
+        className="bg-engine"
+        aria-hidden="true"
+      />
+      {/*
+        §14.6 — painted after the canvas and before <main>, which is the whole
+        trick: both are z-index 0, so DOM order alone puts the scrim between
+        the scene and the content without either needing a stacking context.
+        Its density is tuned per scene and per theme in index.css.
+      */}
+      <div className="bg-scrim" aria-hidden="true" />
+    </>
   )
 }

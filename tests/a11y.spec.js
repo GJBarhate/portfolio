@@ -144,3 +144,86 @@ test.describe('accessibility', () => {
     await expect(page.locator('.nav-search')).toBeVisible()
   })
 })
+
+/**
+ * P6.6 / P7.2 — the two gaps the phase closes, asserted.
+ *
+ * These are separated from the block above because they are about the NEW
+ * surfaces (the Appearance Console) and about a rule that had never been
+ * checked anywhere (the 44px minimum), rather than about the focus ring.
+ */
+test.describe('targets and dialogs', () => {
+  test('every touch target clears 44x44', async ({ page }, testInfo) => {
+    /*
+     * §6.6, and the scope is deliberate on two axes.
+     *
+     * TOUCH ONLY. 44×44 is WCAG 2.5.5, which is AAA and is written for
+     * fingers; the AA rule (2.5.8) is 24×24. Asserting 44 on a mouse-driven
+     * desktop flagged 39 elements — every nav link, every card link, the
+     * wordmark — none of which is a defect, because a 21px-tall text link is
+     * a perfectly good mouse target and making it 44 would wreck the layout.
+     * `playwright.config.js` already models this: everything at or below
+     * 844px is configured `hasTouch`, and that is exactly the population the
+     * rule applies to.
+     *
+     * CONTROLS, NOT TEXT. Inline links inside prose are flow content and are
+     * explicitly exempt from 2.5.8; the rule is about things you press.
+     *
+     * The two known failures this was written for were the spark collectible
+     * (18×18 — a quarter of the minimum, on a control deliberately tucked into
+     * decorative corners) and the nav search button (32×32 from a Tailwind
+     * `w-8 h-8` in the markup).
+     */
+    test.skip(!testInfo.project.use.hasTouch, 'the 44px rule is for fingers')
+    await open(page)
+    const small = await page.evaluate(() => {
+      const out = []
+      // The controls the header and the HUD are made of — the ones a thumb
+      // actually goes for, and the ones this phase changed.
+      const selectors = [
+        '.nav-search', '.appearance-btn', '.recruiter-chip', '.spark-counter',
+        '.spark-collectible', '.nav-burger', '.nav-sound', '.arcade-fab',
+        '.appearance__option', '.appearance__close', '.spark-toast__close',
+        '.nav-drawer__tool', '.nav-drawer__link',
+      ].join(', ')
+      for (const el of document.querySelectorAll(selectors)) {
+        const r = el.getBoundingClientRect()
+        if (r.width < 1 || r.height < 1) continue
+        const style = getComputedStyle(el)
+        if (style.visibility === 'hidden' || style.display === 'none') continue
+        if (r.width < 44 || r.height < 44) {
+          out.push(`${el.tagName.toLowerCase()}.${(el.className || '').toString().split(' ')[0]} ${Math.round(r.width)}x${Math.round(r.height)}`)
+        }
+      }
+      return out
+    })
+    expect(small, `targets below 44px: ${small.join(', ')}`).toEqual([])
+  })
+
+  test('the appearance console traps focus and restores it', async ({ page }) => {
+    await open(page)
+    const trigger = page.locator('.appearance-btn')
+    await trigger.click()
+
+    const panel = page.locator('.appearance')
+    await expect(panel).toBeVisible()
+    await expect(panel).toHaveAttribute('aria-modal', 'true')
+    await expect(panel).toHaveAttribute('role', 'dialog')
+
+    // Each group is a real radiogroup with exactly one checked radio, which is
+    // what makes arrow-key navigation mean anything.
+    const groups = page.locator('.appearance [role="radiogroup"]')
+    await expect(groups).toHaveCount(3)
+    for (let i = 0; i < 3; i += 1) {
+      await expect(groups.nth(i).locator('[role="radio"][aria-checked="true"]')).toHaveCount(1)
+    }
+
+    // Escape closes, and focus goes back to what opened it rather than to
+    // <body> — which would strand a keyboard user at the top of the document.
+    await page.keyboard.press('Escape')
+    await expect(panel).toHaveCount(0)
+    await expect
+      .poll(() => page.evaluate(() => document.activeElement?.className || ''))
+      .toContain('appearance-btn')
+  })
+})

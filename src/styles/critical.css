@@ -184,10 +184,17 @@ html[data-theme='paper'] { color-scheme: light; }
 *, *::before, *::after { box-sizing: border-box; }
 html {
   -webkit-text-size-adjust: 100%;
-  /* T-027 — `clip`, not `hidden`: `overflow: hidden` turns the element into a
-     scroll container and silently breaks `position: sticky` in descendants,
-     which is what the project deck is built on. */
-  overflow-x: clip;
+  /* D-30.1 — `hidden`, NOT `clip`, and specifically because this is the root.
+     T-027 chose `clip` here to avoid making the element a scroll container and
+     breaking `position: sticky` in the project deck. That reasoning is right
+     for any other element and wrong for this one: overflow propagates from
+     <html> to the viewport, and a viewport whose overflow is `clip` does not
+     scroll — a wheel and a trackpad do nothing, while the scrollbar and
+     `window.scrollTo` still work, which is what made it look like a scroll
+     library bug rather than a stylesheet one. `hidden` propagates as a real
+     scrollport instead. Sticky is unaffected because the propagation leaves
+     <html> itself computing as `visible`. Keep this in step with index.css. */
+  overflow-x: hidden;
   /* T-033.4 — stops the iOS rubber-band from revealing the page background
      behind the fixed header at the top of the document. */
   overscroll-behavior-y: none;
@@ -379,8 +386,7 @@ h1, h2, h3 { margin: 0; font-family: 'Clash Display', 'Clash Fallback', 'Space G
 
    Anything rendered outside `<main>` therefore has to have its positioning in
    the critical sheet, not the deferred one. */
-.grade-wash,
-.film-grain {
+.grade-wash {
   position: fixed;
   inset: 0;
   pointer-events: none;

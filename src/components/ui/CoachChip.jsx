@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { markSeen } from '../../lib/store.js'
+import { claimOverlay } from '../../lib/overlayBus.js'
 
 /**
  * CoachChip — T-003.4.
  *
  * The terminal is the feature this site is proudest of and the one nobody
- * finds, because "press ⌘K, then >" is not guessable and a phone has no ⌘K to
+ * finds, because "press /, then >" is not guessable and a phone has no keyboard to
  * press. One dismissible chip, once per visitor, eight seconds in — long
  * enough that it is not competing with the hero, short enough that it is
  * still the same visit.
@@ -15,16 +16,38 @@ import { markSeen } from '../../lib/store.js'
  */
 export default function CoachChip() {
   const [coach, setCoach] = useState(null)
+  const releaseRef = useRef(null)
 
+  /*
+   * D-47 — the chip is the lowest-priority overlay on the page, so it asks
+   * before appearing and simply gives up if something else is already there.
+   * A hint that has to queue behind a card the visitor is reading is no longer
+   * about what the visitor is doing.
+   */
   useEffect(() => {
-    const onCoach = (e) => setCoach(e.detail)
+    const onCoach = (e) => {
+      const release = claimOverlay('coach')
+      if (!release) return
+      releaseRef.current = release
+      setCoach(e.detail)
+    }
     window.addEventListener('forge:coach', onCoach)
-    return () => window.removeEventListener('forge:coach', onCoach)
+    return () => {
+      window.removeEventListener('forge:coach', onCoach)
+      releaseRef.current?.()
+      releaseRef.current = null
+    }
   }, [])
 
   useEffect(() => {
     if (!coach) return
-    const id = setTimeout(() => setCoach(null), 12000)
+    // D-37 — 12 s was long past the point where a hint has either landed or
+    // been ignored.
+    const id = setTimeout(() => {
+      releaseRef.current?.()
+      releaseRef.current = null
+      setCoach(null)
+    }, 7000)
     return () => clearTimeout(id)
   }, [coach])
 
@@ -32,6 +55,8 @@ export default function CoachChip() {
 
   const dismiss = () => {
     markSeen(coach.id)
+    releaseRef.current?.()
+    releaseRef.current = null
     setCoach(null)
   }
 

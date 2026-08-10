@@ -72,6 +72,13 @@ export default function WebGLDistortion({ picture, src, alt = '', className = ''
         if (disposed) return
         imageAspect = (img.naturalWidth || 16) / (img.naturalHeight || 10)
         texture = createTexture(img)
+        /* `start` is declared below, and this callback only runs on the
+           image's `load` event — by which time it is assigned.
+           `no-use-before-define` is enabled for the shape that actually
+           crashed twice in this repo (an effect body reading a later `const`
+           on mount); this is the deferred-callback shape, and hoisting `start`
+           to here would move it into the wrong closure. */
+        // eslint-disable-next-line no-use-before-define
         start()
       }
       if (img.complete && img.naturalWidth) upload()

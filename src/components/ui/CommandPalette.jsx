@@ -1,10 +1,22 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTheme } from '../../contexts/ThemeContext.jsx'
 import { useSound } from '../../contexts/SoundContext.jsx'
 import { SOCIALS } from '../../lib/content.js'
 import { navigateToSection, withViewTransition } from '../../lib/viewTransition.js'
 import { COMMANDS, completions, runLine } from '../../lib/forgeCli.js'
-import { getStore, setStore } from '../../lib/store.js'
+import { scrollToTop } from '../../lib/scroller.js'
+import { PALETTE_HINT, isPaletteShortcut } from '../../lib/platform.js'
+import {
+  THEMES,
+  SYSTEM_THEME,
+  BACKDROPS,
+  MOTIONS,
+  getAppearance,
+  setTheme as setAppearanceTheme,
+  setBackdrop,
+  setMotion,
+  openAppearanceConsole,
+} from '../../lib/appearance.js'
 import { RESUME_PATH } from '../../lib/siteConfig.js'
 
 /**
@@ -27,41 +39,113 @@ import { RESUME_PATH } from '../../lib/siteConfig.js'
  * rather than from three hooks that each have an edge case.
  */
 
+/*
+ * D-35 — everything the site can do, visible without being asked.
+ *
+ * The previous list was one flat run of 24 rows in no order, and the features
+ * a visitor would most want — launching a specific game, the other social
+ * profiles, recruiter mode, the dither overlay, "email me" — existed only
+ * behind the `>` terminal, which is itself only discoverable from a coach
+ * mark that shows once. "It's in the CLI" is not a feature being available; it
+ * is a feature being hidden behind a second feature.
+ *
+ * So the palette is now the site's index: grouped, labelled, and complete. The
+ * terminal is still there, and it is now one row inside ADVANCED rather than
+ * the only way to reach half of this.
+ *
+ * `keywords` exist so the fuzzy match works on intent as well as on wording —
+ * "dark" finds Eclipse, "cv" finds the résumé, "quiet" finds the sound toggle.
+ */
+const GROUPS = ['Navigate', 'Play', 'Appearance', 'Links', 'Advanced']
+
 const ACTIONS = [
-  { id: 'about', label: 'Go to About', icon: '01', section: 'about' },
-  { id: 'stats', label: 'Go to Player Stats', icon: '02', section: 'stats' },
-  { id: 'skills', label: 'Go to Skills', icon: '03', section: 'skills' },
-  { id: 'projects', label: 'Go to Projects', icon: '04', section: 'projects' },
-  { id: 'timeline', label: 'Go to Journey', icon: '05', section: 'timeline' },
-  { id: 'contact', label: 'Go to Contact', icon: '06', section: 'contact' },
-  { id: 'terminal', label: 'Open terminal (type >)', icon: '>_', terminal: true },
-  { id: 'arcade', label: 'Open Arcade', icon: 'AC', openArcade: true },
-  { id: 'resume', label: 'Download Resume', icon: 'DL', href: RESUME_PATH },
-  { id: 'github', label: 'Open GitHub', icon: 'GH', href: SOCIALS.github },
-  { id: 'leetcode', label: 'Open LeetCode', icon: 'LC', href: SOCIALS.leetcode },
-  { id: 'linkedin', label: 'Open LinkedIn', icon: 'LI', href: SOCIALS.linkedin },
-  { id: 'theme-eclipse', label: 'Theme: Eclipse', icon: 'TH', theme: 'eclipse' },
-  { id: 'theme-ember', label: 'Theme: Ember', icon: 'TH', theme: 'ember' },
-  { id: 'theme-paper', label: 'Theme: Paper', icon: 'TH', theme: 'paper' },
-  { id: 'theme-system', label: 'Theme: Follow system', icon: 'TH', theme: 'system' },
+  // ── Navigate ───────────────────────────────────────────────────────────
+  { id: 'top', group: 'Navigate', label: 'Back to top', icon: '↑', keywords: 'hero home start', scrollTop: true },
+  { id: 'about', group: 'Navigate', label: 'About', icon: '01', keywords: 'bio who story', section: 'about' },
+  { id: 'stats', group: 'Navigate', label: 'Player stats', icon: '02', keywords: 'leetcode rating numbers', section: 'stats' },
+  { id: 'skills', group: 'Navigate', label: 'Skills', icon: '03', keywords: 'stack tech tools', section: 'skills' },
+  { id: 'projects', group: 'Navigate', label: 'Projects', icon: '04', keywords: 'work portfolio case study', section: 'projects' },
+  { id: 'timeline', group: 'Navigate', label: 'Journey', icon: '05', keywords: 'timeline history experience', section: 'timeline' },
+  { id: 'how-i-build', group: 'Navigate', label: 'Process', icon: '06', keywords: 'how i build method', section: 'how-i-build' },
+  { id: 'contact', group: 'Navigate', label: 'Contact', icon: '07', keywords: 'hire email reach message', section: 'contact' },
+
+  // ── Play ───────────────────────────────────────────────────────────────
+  { id: 'arcade', group: 'Play', label: 'Open the arcade', icon: '🎮', keywords: 'games play cabinet', openArcade: true },
+  { id: 'game-runner', group: 'Play', label: 'Forge Runner', icon: '🏃', keywords: 'endless runner lanes', game: 'runner' },
+  { id: 'game-ludo', group: 'Play', label: 'Ludo: Recruiter', icon: '🎲', keywords: 'dice board race', game: 'ludo' },
+  { id: 'game-snakes', group: 'Play', label: 'Snakes & CV', icon: '🪜', keywords: 'ladders board career', game: 'snakes' },
+  { id: 'game-memory', group: 'Play', label: 'Memory Match', icon: '🧠', keywords: 'pairs flip cards', game: 'memory' },
+  { id: 'game-snake', group: 'Play', label: 'Snake (classic)', icon: '🐍', keywords: 'konami classic', game: 'snake' },
+
+  // ── Appearance ─────────────────────────────────────────────────────────
+  //
+  // GENERATED from `lib/appearance.js`, not typed out here.
+  //
+  // These fourteen rows used to be fourteen literals, with their own labels,
+  // their own ordering and their own idea of what the modes were called — a
+  // fourth vocabulary for three settings. Adding a theme meant remembering
+  // this file. Now the palette renders whatever the facade declares, in the
+  // facade's order, with the facade's human labels, so it cannot fall behind.
+  { id: 'appearance', group: 'Appearance', label: 'Appearance… (theme, backdrop, motion)', icon: '◐', keywords: 'settings customise look colour scheme panel shift a', openAppearance: true },
+  ...[...THEMES, SYSTEM_THEME].map((t) => ({
+    id: `theme-${t.id}`,
+    group: 'Appearance',
+    label: `Theme: ${t.label}`,
+    icon: '◐',
+    keywords: `${t.id} ${t.meaning.toLowerCase()}`,
+    theme: t.id,
+  })),
   // T-025 — respecting the OS motion preference is the floor; letting the
-  // visitor override it here, on the spot, is the part they can see.
-  { id: 'motion-full', label: 'Motion: Full', icon: 'MO', motion: 'full' },
-  { id: 'motion-reduced', label: 'Motion: Reduced', icon: 'MO', motion: 'reduced' },
-  { id: 'motion-off', label: 'Motion: Off', icon: 'MO', motion: 'off' },
-  { id: 'motion-system', label: 'Motion: Follow system', icon: 'MO', motion: 'system' },
-  { id: 'sound', label: 'Toggle Sound', icon: 'SN', toggleSound: true },
-  { id: 'game', label: 'Play Hidden Protocol', icon: 'GM', playGame: true },
-  { id: 'reset', label: 'Reset progress and preferences', icon: 'RS', command: 'reset' },
-  { id: 'top', label: 'Back to Top', icon: '^^', scrollTop: true },
+  // visitor override it here, on the spot, is the part they can see. It is no
+  // longer the ONLY place they can: motion has a real control now.
+  ...MOTIONS.map((m) => ({
+    id: `motion-${m.id}`,
+    group: 'Appearance',
+    label: `Motion: ${m.label}`,
+    icon: '≈',
+    keywords: `${m.id} ${m.meaning.toLowerCase()} animation`,
+    motion: m.id,
+  })),
+  ...BACKDROPS.map((b) => ({
+    id: `scene-${b.id}`,
+    group: 'Appearance',
+    label: `Backdrop: ${b.label}`,
+    icon: b.glyph,
+    keywords: `${b.id} background ${b.meaning.toLowerCase()}`,
+    scene: b.id,
+  })),
+  { id: 'sound', group: 'Appearance', label: 'Sound on / off', icon: '♪', keywords: 'audio mute quiet volume', toggleSound: true },
+  { id: 'recruiter', group: 'Appearance', label: 'Recruiter mode', icon: '◉', keywords: 'hiring concise fast skim', recruiter: true },
+
+  // ── Links ──────────────────────────────────────────────────────────────
+  { id: 'resume', group: 'Links', label: 'Résumé (PDF)', icon: '↗', keywords: 'cv download pdf', href: RESUME_PATH },
+  { id: 'email', group: 'Links', label: `Email — ${SOCIALS.email}`, icon: '✉', keywords: 'hire contact mail write', href: `mailto:${SOCIALS.email}` },
+  { id: 'github', group: 'Links', label: 'GitHub', icon: '↗', keywords: 'code source repos', href: SOCIALS.github },
+  { id: 'leetcode', group: 'Links', label: 'LeetCode', icon: '↗', keywords: 'dsa problems rating knight', href: SOCIALS.leetcode },
+  { id: 'codechef', group: 'Links', label: 'CodeChef', icon: '↗', keywords: 'contest competitive rating', href: SOCIALS.codechef },
+  { id: 'linkedin', group: 'Links', label: 'LinkedIn', icon: '↗', keywords: 'profile network professional', href: SOCIALS.linkedin },
+
+  // ── Advanced ───────────────────────────────────────────────────────────
+  { id: 'terminal', group: 'Advanced', label: 'Terminal — run commands', icon: '>_', keywords: 'cli console shell forge', terminal: true },
+  { id: 'status', group: 'Advanced', label: 'Show status (achievements, tier)', icon: 'i', keywords: 'debug info progress sparks', command: 'status' },
+  { id: 'matrix', group: 'Advanced', label: 'Matrix overlay on / off', icon: '⣿', keywords: 'ascii dither easter egg', command: 'matrix' },
+  { id: 'game-secret', group: 'Advanced', label: 'Hidden protocol', icon: '⌘', keywords: 'konami secret egg', playGame: true },
+  { id: 'reset', group: 'Advanced', label: 'Reset progress and preferences', icon: '⟲', keywords: 'clear wipe start over', command: 'reset' },
 ]
 
-/** Subsequence match, so "gtp" finds "Go to Projects" the way a fuzzy finder does. */
-function matches(label, query) {
-  const l = label.toLowerCase()
+/**
+ * Subsequence match, so "gtp" finds "Go to Projects" the way a fuzzy finder
+ * does. Keywords are searched alongside the label but never displayed, which
+ * is what lets "dark" find a row called "Theme: Eclipse".
+ */
+function matches(action, query) {
   const q = query.toLowerCase().trim()
   if (!q) return true
-  if (l.includes(q)) return true
+  const haystack = `${action.label} ${action.group} ${action.keywords || ''}`.toLowerCase()
+  if (haystack.includes(q)) return true
+  // Subsequence over the label only — running it over the keywords too makes
+  // almost everything match almost everything.
+  const l = action.label.toLowerCase()
   let i = 0
   for (const ch of q) {
     i = l.indexOf(ch, i)
@@ -89,7 +173,30 @@ export default function CommandPalette({ onPlayGame, onOpenArcade, defaultOpen =
   const sound = useSound()
 
   const isTerminal = query.startsWith('>')
-  const filtered = isTerminal ? [] : ACTIONS.filter((a) => matches(a.label, query))
+
+  /**
+   * The grouped view is what the eye reads; the flat list is what the keyboard
+   * walks. The flat list is *derived from* the grouped one rather than
+   * computed alongside it, so the two can never disagree about which row index
+   * 7 is — which is how a palette ends up highlighting one row and running
+   * another.
+   */
+  const grouped = useMemo(() => {
+    if (isTerminal) return []
+    const out = []
+    let cursor = 0
+    for (const group of GROUPS) {
+      const items = ACTIONS.filter((a) => a.group === group && matches(a, query))
+      if (!items.length) continue
+      out.push({ group, items: items.map((action) => ({ action, index: cursor++ })) })
+    }
+    return out
+  }, [isTerminal, query])
+
+  const filtered = useMemo(
+    () => grouped.flatMap((g) => g.items.map((i) => i.action)),
+    [grouped]
+  )
 
   const log = useCallback((text, kind = 'out') => {
     if (kind === 'clear') { setTranscript([]); return }
@@ -98,23 +205,41 @@ export default function CommandPalette({ onPlayGame, onOpenArcade, defaultOpen =
 
   const close = useCallback(() => setOpen(false), [])
 
+  /**
+   * Opening always opens the SEARCH — D-43.
+   *
+   * `query` survived a close, so a visitor who had used the terminal once got
+   * the terminal every time afterwards: Escape, then the shortcut again, and
+   * they were back at a `> ` prompt with no list, no groups and no obvious way
+   * back to the thing they had actually opened. The mode is a thing you enter
+   * deliberately by typing `>`; it is not a preference, and it should not
+   * outlive the dialog that hosted it.
+   *
+   * The transcript is deliberately NOT cleared — a returning visitor's command
+   * history is worth keeping. Only the mode resets.
+   */
+  const openPalette = useCallback(() => {
+    setQuery('')
+    setSelected(0)
+    setOpen(true)
+  }, [])
+
   // ── the one opening channel (T-002) ──────────────────────────────────────
   useEffect(() => {
-    const onOpen = () => setOpen(true)
-    window.addEventListener('forge:open-palette', onOpen)
-    return () => window.removeEventListener('forge:open-palette', onOpen)
-  }, [])
+    window.addEventListener('forge:open-palette', openPalette)
+    return () => window.removeEventListener('forge:open-palette', openPalette)
+  }, [openPalette])
 
   useEffect(() => {
     const handler = (e) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault()
-        setOpen((v) => !v)
-      }
+      if (!isPaletteShortcut(e)) return
+      e.preventDefault()
+      if (dialogRef.current?.open) setOpen(false)
+      else openPalette()
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [])
+  }, [openPalette])
 
   // `showModal()` is what makes this a real dialog: the focus trap, the
   // inertness of everything behind it and the Escape handler are the
@@ -142,6 +267,34 @@ export default function CommandPalette({ onPlayGame, onOpenArcade, defaultOpen =
     }
   }, [transcript])
 
+  /*
+   * D-35 — the list is now long enough to scroll, so two things that did not
+   * matter at 24 always-visible rows now do:
+   *
+   *  · the highlight has to stay on screen while the arrows walk past the
+   *    fold, or the visitor is driving something they cannot see;
+   *  · the index has to stay in range when a keystroke shrinks the list,
+   *    otherwise Enter runs nothing (or, worse, the row that has since moved
+   *    into that slot).
+   */
+  useEffect(() => {
+    if (selected > filtered.length - 1) setSelected(Math.max(0, filtered.length - 1))
+  }, [filtered.length, selected])
+
+  useEffect(() => {
+    if (isTerminal) return
+    const row = dialogRef.current?.querySelector('.cmdpal__item.is-selected')
+    row?.scrollIntoView({ block: 'nearest' })
+  }, [selected, isTerminal])
+
+  const cliContext = () => ({
+    log,
+    setTheme: (id) => withViewTransition(() => setTheme(id), { mode: 'nav' }),
+    openArcade: () => onOpenArcade?.(),
+    scrollTo: (id) => navigateToSection(id),
+    close,
+  })
+
   const execute = (action) => {
     sound?.play('click')
     if (action.terminal) {
@@ -156,19 +309,36 @@ export default function CommandPalette({ onPlayGame, onOpenArcade, defaultOpen =
     } else if (action.href) {
       setOpen(false)
       window.open(action.href, '_blank', 'noopener,noreferrer')
+    } else if (action.openAppearance) {
+      setOpen(false)
+      openAppearanceConsole({ source: 'palette' })
     } else if (action.theme) {
       setOpen(false)
-      withViewTransition(() => setTheme(action.theme), { mode: 'nav' })
+      // Through the facade. This used to call `setTheme` from the context
+      // directly while the motion row wrote the store AND dispatched an event,
+      // and the backdrop row dispatched a different event — three settings,
+      // three mechanisms, in one switch statement.
+      withViewTransition(() => setAppearanceTheme(action.theme), { mode: 'nav' })
     } else if (action.motion) {
-      setStore({ motion: action.motion })
-      window.dispatchEvent(new CustomEvent('forge:set-motion', { detail: action.motion }))
+      setMotion(action.motion)
+      setOpen(false)
+    } else if (action.scene) {
+      setBackdrop(action.scene)
       setOpen(false)
     } else if (action.toggleSound) {
-      sound?.setMuted((v) => !v)
+      sound?.setMuted((muted) => !muted)
       setOpen(false)
+    } else if (action.recruiter) {
+      setOpen(false)
+      window.dispatchEvent(new CustomEvent('forge:toggle-recruiter'))
     } else if (action.scrollTop) {
       setOpen(false)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
+      scrollToTop()
+    } else if (action.game) {
+      // D-35 — the five games are launchable by name from here, which is what
+      // the nav dropdown offers a mouse and nothing offered a keyboard.
+      setOpen(false)
+      window.dispatchEvent(new CustomEvent('forge:open-arcade', { detail: action.game }))
     } else if (action.playGame) {
       setOpen(false)
       onPlayGame?.()
@@ -183,13 +353,6 @@ export default function CommandPalette({ onPlayGame, onOpenArcade, defaultOpen =
     }
   }
 
-  const cliContext = () => ({
-    log,
-    setTheme: (id) => withViewTransition(() => setTheme(id), { mode: 'nav' }),
-    openArcade: () => onOpenArcade?.(),
-    scrollTo: (id) => navigateToSection(id),
-    close,
-  })
 
   const submitLine = (line) => {
     log(`> ${line.replace(/^>\s*/, '')}`, 'cmd')
@@ -254,22 +417,46 @@ export default function CommandPalette({ onPlayGame, onOpenArcade, defaultOpen =
     }
   }
 
-  const motionMode = getStore().motion
+  // One read for all three current values, so the check marks beside the rows
+  // cannot disagree with each other or with the console.
+  const appearance = getAppearance()
+  const motionMode = appearance.motion
+  const sceneMode = appearance.backdrop
 
   return (
     <dialog
       ref={dialogRef}
       className="cmdpal"
+      data-mode={isTerminal ? 'terminal' : 'search'}
       aria-label="Command palette"
       onClose={() => setOpen(false)}
-      onCancel={() => setOpen(false)}
+      /*
+       * D-43 — Escape backs out one level before it closes.
+       *
+       * In terminal mode the first Escape returns to the search list, which is
+       * the thing a visitor who typed `>` by accident, or who is done running
+       * commands, actually wants; a second Escape closes the dialog. Without
+       * this the only way back to the command list was to delete the `>` by
+       * hand, which nothing tells you.
+       */
+      onCancel={(e) => {
+        if (isTerminal) {
+          e.preventDefault()
+          setQuery('')
+          setSelected(0)
+          inputRef.current?.focus()
+          return
+        }
+        setOpen(false)
+      }}
       onPointerDown={onDialogPointerDown}
       /*
        * The key handler lives on the dialog, not on the input. `showModal()`
        * moves focus asynchronously, so a keystroke arriving in the same tick
-       * as the open — which is exactly what happens when a visitor presses
-       * ⌘K and immediately starts arrowing — would otherwise be delivered to
-       * the dialog and dropped. Events bubble, so the input is still covered.
+       * as the open — which is exactly what happens when a visitor opens the
+       * palette and immediately starts arrowing — would otherwise be delivered
+       * to the dialog and dropped. Events bubble, so the input is still
+       * covered.
        */
       onKeyDown={onKeyDown}
     >
@@ -306,22 +493,42 @@ export default function CommandPalette({ onPlayGame, onOpenArcade, defaultOpen =
             {filtered.length === 0 && (
               <li className="cmdpal__empty">No results. Type <code>&gt;</code> for the terminal.</li>
             )}
-            {filtered.map((action, i) => (
-              <li key={action.id} role="presentation">
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={i === selected}
-                  onClick={() => execute(action)}
-                  onPointerEnter={() => setSelected(i)}
-                  className={`cmdpal__item${i === selected ? ' is-selected' : ''}`}
-                >
-                  <span className="cmdpal__icon" aria-hidden="true">{action.icon}</span>
-                  <span className="cmdpal__label">{action.label}</span>
-                  {action.motion && action.motion === motionMode && (
-                    <span className="cmdpal__badge" aria-label="current">●</span>
-                  )}
-                </button>
+            {grouped.map(({ group, items }) => (
+              <li key={group} role="presentation">
+                {/* The heading is `aria-hidden` and the rows stay direct
+                    `role="option"` descendants of the listbox, so grouping is
+                    a visual affordance rather than a new tree for a screen
+                    reader to get lost in. */}
+                <p className="cmdpal__group" aria-hidden="true">{group}</p>
+                <ul className="cmdpal__grouplist" role="presentation">
+                  {items.map(({ action, index }) => (
+                    <li key={action.id} role="presentation">
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={index === selected}
+                        onClick={() => execute(action)}
+                        onPointerEnter={() => setSelected(index)}
+                        className={`cmdpal__item${index === selected ? ' is-selected' : ''}`}
+                      >
+                        <span className="cmdpal__icon" aria-hidden="true">{action.icon}</span>
+                        <span className="cmdpal__label">{action.label}</span>
+                        {action.motion && action.motion === motionMode && (
+                          <span className="cmdpal__badge" aria-label="current">●</span>
+                        )}
+                        {action.theme && action.theme === appearance.themePreference && (
+                          <span className="cmdpal__badge" aria-label="current">●</span>
+                        )}
+                        {action.scene && action.scene === sceneMode && (
+                          <span className="cmdpal__badge" aria-label="current">●</span>
+                        )}
+                        {action.toggleSound && (
+                          <span className="cmdpal__state" aria-hidden="true">{sound?.muted ? 'OFF' : 'ON'}</span>
+                        )}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
               </li>
             ))}
           </ul>
@@ -330,7 +537,7 @@ export default function CommandPalette({ onPlayGame, onOpenArcade, defaultOpen =
         <p className="cmdpal__hint">
           {isTerminal
             ? `${COMMANDS.length} commands · Tab completes · ↑↓ history`
-            : '↑↓ to move · Enter to run · > for the terminal'}
+            : `↑↓ to move · Enter to run · ${PALETTE_HINT} or / to reopen · > for the terminal`}
         </p>
       </div>
     </dialog>

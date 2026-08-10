@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react'
+import { lockScroll } from '../../lib/scrollLock.js'
 
 /**
  * Drawer — T-026. The mobile navigation, as a real dialog.
@@ -54,68 +55,22 @@ export default function Drawer({ open, onClose, labelledBy, children, id = 'nav-
     if (!open) return
     const main = document.getElementById('main')
     const header = document.querySelector('.site-header')
-    const root = document.documentElement
-    const scrollY = window.scrollY
 
     if (main) main.inert = true
     if (header) header.inert = true
 
-    /*
-     * Two locks, and the cheap one is the default.
-     *
-     * `position: fixed` on <body> is the only technique iOS Safari honours —
-     * and it is also the one that collapses the document to viewport height,
-     * so the browser clamps the scroll position to zero and it has to be
-     * saved and restored by hand. That restore is fragile: it depends on
-     * layout having been recomputed by the time it runs, and it was measured
-     * drifting by up to 134px.
-     *
-     * Every other browser respects `overflow: hidden` on the root, which does
-     * not touch the document height, does not clamp anything, and therefore
-     * needs no restore at all. So iOS gets the technique it requires and
-     * nobody else pays for it.
-     */
-    const needsBodyLock = /iP(ad|hone|od)/.test(navigator.platform) ||
-      (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform))
-
-    const prev = {
-      overflow: root.style.overflow,
-      overscroll: root.style.overscrollBehavior,
-      bodyPosition: document.body.style.position,
-      bodyTop: document.body.style.top,
-      bodyWidth: document.body.style.width,
-    }
-    root.style.overflow = 'hidden'
-    root.style.overscrollBehavior = 'contain'
-    if (needsBodyLock) {
-      document.body.style.position = 'fixed'
-      document.body.style.top = `-${scrollY}px`
-      document.body.style.width = '100%'
-    }
+    // D-40 — the lock, its iOS body-fixed fallback and the scroll restore all
+    // moved into `lib/scrollLock.js`, unchanged in behaviour. They live there
+    // because two other overlays needed the same thing and wrote their own
+    // versions, one of which locked nothing and one of which locked nothing
+    // because it did not try. The shared one is ref-counted, so a case study
+    // opened over this drawer cannot unlock the page when it closes.
+    const unlock = lockScroll()
 
     return () => {
       if (main) main.inert = false
       if (header) header.inert = false
-      root.style.overflow = prev.overflow
-      root.style.overscrollBehavior = prev.overscroll
-      if (needsBodyLock) {
-        document.body.style.position = prev.bodyPosition
-        document.body.style.top = prev.bodyTop
-        document.body.style.width = prev.bodyWidth
-      }
-
-      // Restore unconditionally, and twice.
-      //
-      // The body-fixed lock is not the only thing that moves the scroll
-      // position: `overflow: hidden` on the root also stops it being a
-      // scrollport, and a browser is free to clamp the offset while that is
-      // true. Measured on an 844x390 landscape viewport, where closing the
-      // drawer left the page 197px above where it was opened — with no
-      // body-fixed lock in play at all. The first call lands correctly only
-      // if layout has already been recomputed; the second costs a macrotask
-      // and makes it exact.
-      window.scrollTo({ top: scrollY, behavior: 'instant' })
-      setTimeout(() => window.scrollTo({ top: scrollY, behavior: 'instant' }), 0)
+      unlock()
     }
   }, [open])
 

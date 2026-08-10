@@ -41,7 +41,6 @@ const LEGACY_SELECTOR = [
   '.idle-bot__body',
   '.insert-coin',
   '.level-badge',
-  '.mesh-animated',
   '.spark-glow',
   '.spark-mini',
   '.text-gradient',

@@ -8,7 +8,7 @@ import { onFrame } from '../../lib/raf.js'
 
 export default function Skills() {
   return (
-    <section id="skills" aria-labelledby="skills-heading" className="relative section-rhythm container-px mesh-gradient-a overflow-hidden melt-enter">
+    <section id="skills" aria-labelledby="skills-heading" data-field="3" data-loop className="relative section-rhythm container-px overflow-hidden melt-enter">
       <span className="ghost-numeral" aria-hidden="true">03</span>
       <div className="absolute bottom-[15%] left-[5%]"><Spark id="spark-skills" /></div>
 

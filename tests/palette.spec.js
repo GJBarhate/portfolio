@@ -37,10 +37,34 @@ test.describe('command palette', () => {
     await expect(page.locator('.cmdpal')).toBeVisible({ timeout: 25_000 })
   })
 
-  test('opens from the keyboard shortcut', async ({ page }) => {
+  /*
+   * D-34.2 — the binding is `/`, not Ctrl/Meta+K.
+   *
+   * Win+K is an OS shortcut (Cast) the page never receives, and Ctrl+K is
+   * claimed by the browser (omnibox search in Chrome, the search bar in
+   * Firefox). Both tests below exist so that re-adding a modifier binding that
+   * competes with the user agent is a deliberate act rather than a habit.
+   */
+  test('opens from a bare slash', async ({ page }) => {
     await open(page)
-    await page.keyboard.press('Control+k')
+    await page.keyboard.press('/')
     await expect(page.locator('.cmdpal')).toBeVisible({ timeout: 25_000 })
+  })
+
+  test('opens from the modifier form', async ({ page }) => {
+    await open(page)
+    await page.keyboard.press('Control+/')
+    await expect(page.locator('.cmdpal')).toBeVisible({ timeout: 25_000 })
+  })
+
+  test('a bare slash typed into a field is a slash, not a shortcut', async ({ page }) => {
+    await open(page)
+    const field = page.locator('#from_name')
+    await field.scrollIntoViewIfNeeded()
+    await field.fill('')
+    await field.press('/')
+    await expect(page.locator('.cmdpal')).toBeHidden()
+    await expect(field).toHaveValue('/')
   })
 
   test('closes on Escape and on a backdrop tap', async ({ page }) => {
@@ -88,11 +112,11 @@ test.describe('command palette', () => {
 
   test('keyboard traversal moves the selection and Enter runs it', async ({ page }) => {
     await open(page)
-    await page.keyboard.press('Control+k')
+    await page.keyboard.press('/')
     // The palette is a lazy chunk: the keystroke that summons it arrives
     // before the component exists, so the arrow key has to wait for the list
     // to be on screen. A visitor experiences the same thing once, for one
-    // frame, on their first ⌘K of the session.
+    // frame, on their first `/` of the session.
     await expect(page.locator('.cmdpal__item').first()).toBeVisible()
     await page.keyboard.press('ArrowDown')
     await expect(page.locator('.cmdpal__item').nth(1)).toHaveAttribute('aria-selected', 'true')

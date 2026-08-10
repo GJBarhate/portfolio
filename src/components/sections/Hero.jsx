@@ -4,6 +4,7 @@ import MagneticTilt from '../ui/MagneticTilt.jsx'
 import { Spark } from '../ui/SparkHunt.jsx'
 import HeroAurora from '../ui/HeroAurora.jsx'
 import WordRotator from '../ui/WordRotator.jsx'
+import { RESUME_PATH } from '../../lib/siteConfig.js'
 import { SOCIALS } from '../../lib/content.js'
 import { useScrollVelocity } from '../../lib/useScrollVelocity.js'
 import { useReducedMotion } from '../../lib/useReducedMotion.js'
@@ -13,6 +14,25 @@ import { bindTilt, needsTiltPermission, requestTiltPermission, onGyroState } fro
 import { useSound } from '../../contexts/SoundContext.jsx'
 
 const HeroForgeObject = lazy(() => import('../ui/HeroForgeObject.jsx'))
+/*
+ * The corner watch that used to hang here is gone, and it is worth recording
+ * why rather than letting it look like a taste change.
+ *
+ * It re-drew a 1024x1024 canvas landscape every 90 ms and re-uploaded it as a
+ * `CanvasTexture` — ~4 MB per upload at ~11 Hz. A CDP profile of the idle hero
+ * put `texSubImage2D` at 11.7 % of ALL samples, and the page was spending
+ * 2,206 ms of every 3 s in long tasks; with the three canvases removed that
+ * figure was 0. A main thread that busy does not answer a trackpad flick,
+ * which is what "two-finger scroll does nothing, I have to drag the scrollbar"
+ * actually was — the Lenis hijack removed in D-30 was only half of it.
+ *
+ * It also subscribed with `critical: true`, which exempted the single most
+ * expensive callback on the page from all three of raf.js's protections.
+ *
+ * `MoonForestClock` (mounted from App, not from a section, so it is genuinely
+ * scroll-persistent) replaces it, on a 512 texture redrawn only when the
+ * time-of-day bucket changes, in the ordinary ambient band.
+ */
 const NAME_CHARS = [...'Gaurav Barhate'].map(c => c === ' ' ? '\u00A0' : c)
 
 const INTRO_MS = 200 + NAME_CHARS.length * 40 + 620
@@ -175,19 +195,19 @@ export default function Hero({ introDone = true }) {
     }
   }, [reducedMotion])
 
-  // Both elements were re-queried on every scroll tick; they are resolved once
-  // and cached instead.
-  const grainRef = useRef(null)
+  // Resolved once and cached rather than re-queried on every scroll tick.
+  //
+  // P5.5 — the velocity-linked grain opacity write is gone with the grain
+  // layer itself. It was a per-scroll-frame inline style write on a
+  // full-viewport composited element, which is the most expensive shape a
+  // scroll effect can have, for a texture that peaked at 8 % opacity.
   const heroNameElRef = useRef(null)
   useEffect(() => {
-    grainRef.current = document.querySelector('.film-grain')
     heroNameElRef.current = nameRef.current
   }, [])
 
   useScrollVelocity((vel) => {
     const absVel = Math.min(1, Math.abs(vel * 30))
-    const grain = grainRef.current
-    if (grain) grain.style.opacity = String(0.02 + absVel * 0.06)
     const heroName = heroNameElRef.current
     if (heroName) heroName.style.transform = `skewX(${Math.min(1, absVel * 2) * 0.2}deg)`
     // --grade-hue is written by SmoothScrollContext alone. This used to write
@@ -219,7 +239,21 @@ export default function Hero({ introDone = true }) {
    */
   const [forgeAllowed, setForgeAllowed] = useState(false)
   useEffect(() => {
-    if (reducedMotion) return
+    /*
+     * `if (reducedMotion) return` used to be here, and it meant the hero gem —
+     * the first 3-D object on the site — did not exist AT ALL in Minimal
+     * motion. Measured across the full matrix: `heroGem MISSING` in 9 of the
+     * 36 states, every one of them a `motion: off` cell.
+     *
+     * That is the same category error as deleting the background and the
+     * clock. Minimal motion is a request for STILLNESS, not for less content,
+     * and the console labels it "Nothing moves. Everything is still there."
+     * A visitor who chose it was getting a hole where the object should be and
+     * no way to know the site had one.
+     *
+     * The gem now mounts in every motion mode and holds still in this one —
+     * see the `frozen` branch in HeroForgeObject's frame loop.
+     */
     if (forgeAllowed) return
 
     /*
@@ -243,7 +277,7 @@ export default function Hero({ introDone = true }) {
     }
     if (evaluate()) return
     return onTierChange(evaluate)
-  }, [reducedMotion, forgeAllowed])
+  }, [forgeAllowed])
 
   /*
    * Cinematic exit — the hero recedes into depth as the visitor scrolls: copy
@@ -291,12 +325,21 @@ export default function Hero({ introDone = true }) {
 
   const backRef = useRef(null)
   const forgeSlotRef = useRef(null)
+  /*
+   * `reducedMotion` belongs in the dependency list, and its absence was a
+   * real bug rather than a lint technicality: the effect READS it to decide
+   * whether to bind pointer-tilt handlers, but only re-ran when `forgeAllowed`
+   * changed. A visitor who switched to Minimal motion from the Appearance
+   * Console therefore kept the tilt bound — the hero went on leaning with the
+   * pointer in the one mode that promises nothing moves — until something
+   * unrelated happened to remount it.
+   */
   useEffect(() => {
     if (reducedMotion) return
     const unbindBack = bindTilt(backRef.current, 1)
     const unbindForge = forgeSlotRef.current ? bindTilt(forgeSlotRef.current, 1) : null
     return () => { unbindBack(); unbindForge?.() }
-  }, [reducedMotion, forgeAllowed])
+  }, [forgeAllowed, reducedMotion])
 
   useEffect(() => {
     const el = sectionRef.current
@@ -454,7 +497,7 @@ export default function Hero({ introDone = true }) {
               className="hero-cta hero-cta--arcade px-5 md:px-7 py-3.5 rounded-full text-sm font-mono tracking-wider flex items-center gap-2 transition-all duration-fast"
             >
               <span className="text-[15px] md:text-[17px]">🎮</span>
-              <span>Play 5 Games</span>
+              <span>Play something</span>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgb(52,211,153)] animate-pulse" />
             </MagneticButton>
           </MagneticTilt>
@@ -470,6 +513,29 @@ export default function Hero({ introDone = true }) {
               GitHub ↗
             </MagneticButton>
           </MagneticTilt>
+
+          {/*
+            The résumé, in the first viewport, on phones.
+
+            MEASURED BUG: the header's RESUME button is `hidden sm:inline-flex`,
+            so below 640px the single most important artefact on the site was
+            reachable only by opening the drawer. `tests/recruiter-path.spec.js`
+            failed on `modern-phone` for exactly this — "the résumé is one click
+            from the first viewport" was false on the device most recruiters
+            actually use.
+
+            `sm:hidden` because above that width the header button is visible
+            and two résumé links in one screen is noise.
+          */}
+          <a
+            href={RESUME_PATH}
+            target="_blank"
+            rel="noopener noreferrer"
+            data-cursor="view"
+            className="hero-cta hero-cta--ghost sm:hidden px-5 py-3.5 rounded-full text-sm font-mono text-[var(--ink-mid)]"
+          >
+            Résumé ↗
+          </a>
         </div>
       </div>
 
@@ -484,7 +550,7 @@ export default function Hero({ introDone = true }) {
         <button
           type="button"
           className="arcade-hero-hint group"
-          aria-label="Open the arcade — five games"
+          aria-label="Open the arcade and pick a game to play"
           onClick={() => window.dispatchEvent(new CustomEvent('forge:open-arcade'))}
         >
           <div className="flex flex-col items-center gap-1.5 px-3 py-2 rounded-xl border border-[var(--accent-dim)]/20 hover:border-[var(--accent-dim)]/60 transition-all duration-fast"
@@ -497,7 +563,7 @@ export default function Hero({ introDone = true }) {
               <span className="text-[12px]">🧠</span>
               <span className="text-[12px]">🐍</span>
             </div>
-            <span className="font-mono text-[12px] tracking-[0.2em] text-[var(--ink-low)]" aria-hidden="true">ARCADE · 5 GAMES</span>
+            <span className="font-mono text-[12px] tracking-[0.2em] text-[var(--ink-low)]" aria-hidden="true">Play something</span>
           </div>
         </button>
       </div>

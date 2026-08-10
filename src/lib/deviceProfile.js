@@ -30,7 +30,7 @@
  * benchmark that delays the paint it is trying to protect is a bug, not a
  * safeguard.
  */
-import { setTier } from './raf.js'
+import { setTier, prefersReducedMotion, motionIsOff } from './raf.js'
 import { safeSession } from './store.js'
 
 /** @typedef {{ tier: 0|1|2|3, reasons: string[], measuredMs: number|null }} Profile */
@@ -111,20 +111,41 @@ export async function benchmarkShader({ frames = 15, scale = 0.125 } = {}) {
     gl.uniform2f(gl.getUniformLocation(program, 'uRes'), canvas.width, canvas.height)
     const uTime = gl.getUniformLocation(program, 'uTime')
 
-    const samples = []
-    for (let i = 0; i < frames; i++) {
+    /*
+     * TWO pipeline stalls, not fifteen.
+     *
+     * `readPixels` is a synchronous GPU->CPU readback: it blocks the calling
+     * thread until every queued draw has actually finished. Timing each frame
+     * individually therefore cost one full stall PER FRAME — fifteen of them,
+     * four seconds into the page, which is exactly when a visitor starts
+     * scrolling. The probe measuring the machine was itself one of the more
+     * expensive things the machine was asked to do.
+     *
+     * Batching gives the same answer for a fraction of the cost: submit N
+     * draws, stall once, divide. The first batch is discarded because a cold
+     * pipeline measures shader upload and first-use allocation rather than
+     * steady-state fill rate — which is the number that actually predicts
+     * whether this device can carry a fullscreen shader.
+     *
+     * The result is a MEAN over the batch rather than a median over frames.
+     * That loses outlier rejection, and the warm-up batch is what buys it
+     * back: the outlier this was protecting against was almost always the
+     * first frame.
+     */
+    const readback = new Uint8Array(4)
+    const runBatch = (offset) => {
       const t0 = performance.now()
-      gl.uniform1f(uTime, i * 0.1)
-      gl.drawArrays(gl.TRIANGLES, 0, 3)
-      // A single pixel read forces the pipeline to actually finish, which is
-      // the only way to time GPU work from JS without a timer query.
-      gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4))
-      samples.push(performance.now() - t0)
-      // Yield so the probe cannot itself become a long task.
-      if (i % 5 === 4) await new Promise((r) => setTimeout(r, 0))
+      for (let i = 0; i < frames; i++) {
+        gl.uniform1f(uTime, (offset + i) * 0.1)
+        gl.drawArrays(gl.TRIANGLES, 0, 3)
+      }
+      gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, readback)
+      return (performance.now() - t0) / frames
     }
-    samples.sort((a, b) => a - b)
-    return samples[Math.floor(samples.length / 2)]
+
+    runBatch(0)                                   // warm-up, discarded
+    await new Promise((r) => setTimeout(r, 0))    // yield between the two
+    return runBatch(frames)
   } catch {
     return null
   } finally {
@@ -173,7 +194,28 @@ export function resolveTier(signals) {
     reasons.push(why)
   }
 
-  if (signals.reducedMotion) demote(0, 'prefers-reduced-motion: reduce')
+  /*
+   * D-46 — reduced motion means LESS MOTION, not NO GRAPHICS.
+   *
+   * This used to `demote(0)`, which switches off WebGL entirely. The result
+   * was the reported bug, and it is worth stating exactly: on Windows the
+   * "Show animations" toggle sets `prefers-reduced-motion: reduce`, it is off
+   * by default on a lot of laptops, and its owners have no idea they are in a
+   * reduced-motion state. Those visitors got tier 0 — so the background
+   * engine never mounted, every section shared one flat gradient, and the
+   * globe, the net, the contour lines, the waves and the rings were all
+   * compiled into the bundle and shown to nobody. Typing `tier 3` into the
+   * terminal revealed the entire design in one keystroke, which is how the
+   * bug was found.
+   *
+   * The preference is about MOVEMENT. It is honoured where the movement is:
+   * `BackgroundEngine` freezes the shader clock, so each section still wears
+   * its own motif and none of them animate. That is a truer reading of the
+   * preference than deleting the page's visual identity — and `Motion: off`,
+   * which IS a request for nothing, still drops to 0 below.
+   */
+  if (signals.motionOff) demote(0, 'motion turned off')
+  else if (signals.reducedMotion) demote(2, 'prefers-reduced-motion: reduce — motifs held still')
   if (signals.saveData) demote(0, 'Save-Data requested')
   if (signals.effectiveType && /^(slow-)?2g$/.test(signals.effectiveType)) {
     demote(1, `effectiveType ${signals.effectiveType}`)
@@ -250,6 +292,21 @@ function publish(profile) {
   return profile
 }
 
+/**
+ * Throw away the resolved profile and its session cache — D-45.
+ *
+ * "Resolve once per session" holds while the *inputs* hold, and one of them
+ * is the visitor's motion preference, which they can change at any moment
+ * from the palette. A cached `tier: 1` verdict reached while the OS said
+ * "reduce" would otherwise be republished the instant the next probe ran and
+ * quietly undo an explicit Motion: full.
+ */
+export function invalidateProfile() {
+  resolved = null
+  inflight = null
+  try { safeSession.remove(CACHE_KEY) } catch { /* private mode */ }
+}
+
 /** Resolve once per session; the answer cannot change without a reload. */
 export function probeDevice() {
   if (resolved) return Promise.resolve(resolved)
@@ -270,7 +327,12 @@ export function probeDevice() {
       memory: navigator.deviceMemory || 4,
       effectiveType: navigator.connection?.effectiveType || '',
       saveData: navigator.connection?.saveData === true,
-      reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
+      // D-45 — the EFFECTIVE preference: an explicit Motion: full from the
+      // visitor outranks the OS query, exactly as it does in motion.css.
+      // D-46 — and the two are distinct: "reduced" caps the tier, only "off"
+      // switches the graphics off.
+      reducedMotion: prefersReducedMotion(),
+      motionOff: motionIsOff(),
       renderer: rendererString(),
       measuredMs,
     })

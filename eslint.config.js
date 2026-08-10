@@ -10,7 +10,12 @@ export default [
   {
     files: ['**/*.{js,jsx}'],
     languageOptions: {
-      ecmaVersion: 2022,
+      // 'latest', not 2022: `src/lib/content.js` uses an import attribute
+      // (`with { type: 'json' }`), which is ES2025 and which the loader in
+      // `scripts/gen-structured-data.mjs` requires in order to import that
+      // module at build time. Pinning to 2022 made ESLint fail to PARSE the
+      // file, which reads like a syntax error in the source and is not.
+      ecmaVersion: 'latest',
       sourceType: 'module',
       // __BUILD_DATE__ is a Vite `define` — a real global at build time.
       globals: { ...globals.browser, ...globals.es2021, __BUILD_DATE__: 'readonly' },
@@ -44,7 +49,7 @@ export default [
             {
               name: 'three',
               message:
-                'three may only be imported from lib/glStage.js, lib/threeUtils.js and the tier-gated islands (HeroForgeObject, ThreeDScene, FluidCanvas). See plan §8.2.',
+                'three may only be imported from lib/glStage.js, lib/threeUtils.js and the tier-gated islands (HeroForgeObject, MoonForestClock, ThreeDScene, FluidCanvas). See plan §8.2.',
             },
             {
               name: 'framer-motion',
@@ -55,6 +60,25 @@ export default [
         },
       ],
 
+      /*
+       * Two temporal-dead-zone crashes shipped during this pass and neither
+       * lint nor the type-free build said a word:
+       *
+       *   App.jsx            an effect read `recruiter` above its useState
+       *   AppearanceConsole  an effect read `close` above its useCallback
+       *
+       * Both threw "Cannot access 'X' before initialization" on EVERY page
+       * load in the production bundle — a white screen — and both were found
+       * by an e2e gate rather than by anything that could have stopped them
+       * being written. In a component body, hooks run top-to-bottom on the
+       * first render, so an effect that closes over a later `const` is not a
+       * hoisting subtlety, it is a crash.
+       *
+       * `variables: true` is the part that matters here; functions stay
+       * exempt because a hoisted function declaration used earlier in a file
+       * is a normal and readable pattern.
+       */
+      'no-use-before-define': ['error', { functions: false, classes: true, variables: true, allowNamedExports: true }],
       'no-restricted-syntax': [
         'error',
         {
@@ -98,6 +122,7 @@ export default [
       // and one more file inside that graph's boundary does not widen it.
       'src/lib/filmGrade.js',
       'src/components/ui/HeroForgeObject.jsx',
+      'src/components/ui/MoonForestClock.jsx',
       'src/components/ui/ThreeDScene.jsx',
       'src/components/ui/FluidCanvas.jsx',
     ],

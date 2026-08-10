@@ -157,7 +157,7 @@
    unreadable rectangles; controls get a real border so their boundaries
    survive the loss of the background colours that used to define them. */
 @media (forced-colors: active) {
-  :where(canvas, .film-grain, .grade-wash, .hero-mesh, [aria-hidden='true'][class*='glow']) {
+  :where(canvas, .grade-wash, .hero-mesh, [aria-hidden='true'][class*='glow']) {
     display: none;
   }
 

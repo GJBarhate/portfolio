@@ -89,3 +89,64 @@
   flex-direction: column;
   align-items: center;
 }
+
+/* === D-39 — the direction pad ===
+   A three-column grid so the arrows sit where a thumb expects them. 48px
+   targets, which is the size a control that decides whether you crash needs
+   to be; `touch-action: manipulation` kills the 300 ms tap delay and the
+   double-tap zoom that otherwise fires when you press up twice quickly. */
+.snake-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 48px);
+  grid-template-rows: repeat(3, 44px);
+  gap: 6px;
+  justify-content: center;
+}
+.snake-pad__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--ink-mid);
+  background: linear-gradient(145deg, var(--surface-1), var(--surface-2));
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.07);
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: transform var(--dur-fast) var(--ease-forge),
+              color var(--dur-fast) var(--ease-forge),
+              box-shadow var(--dur-fast) var(--ease-forge);
+}
+.snake-pad__btn:active {
+  transform: translateY(1px);
+  color: var(--accent-bright);
+  box-shadow: inset 0 3px 8px rgba(0,0,0,0.5);
+}
+/* A true cross over three rows. The first version squeezed it into two and
+   put DOWN at top-right to make room for pause in the middle, which reads as
+   "up, down" on one row and "left, play, right" on the next — a layout you
+   have to decode rather than recognise. Directions are where a thumb already
+   expects them; pause keeps the centre. */
+.snake-pad__btn--up    { grid-column: 2; grid-row: 1; }
+.snake-pad__btn--left  { grid-column: 1; grid-row: 2; }
+.snake-pad__btn--mid   { grid-column: 2; grid-row: 2; color: var(--accent-bright); }
+.snake-pad__btn--right { grid-column: 3; grid-row: 2; }
+.snake-pad__btn--down  { grid-column: 2; grid-row: 3; }
+
+/* The runner needs four controls in a row rather than a cross. */
+.runner-pad {
+  display: grid;
+  grid-template-columns: repeat(4, 52px);
+  grid-auto-rows: 48px;
+  gap: 6px;
+  justify-content: center;
+}
+.snake-pad__btn:disabled { opacity: 0.35; }
+
+@media (prefers-reduced-motion: reduce) {
+  .snake-pad__btn { transition: none; }
+  .snake-pad__btn:active { transform: none; }
+}

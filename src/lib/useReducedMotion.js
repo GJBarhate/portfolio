@@ -2,6 +2,8 @@ import { useSyncExternalStore } from 'react'
 import { subscribe } from './store.js'
 import { resolveMotionMode } from './motion.js'
 
+const snapshot = () => resolveMotionMode() === 'off'
+
 /**
  * True when motion should not run.
  *
@@ -31,7 +33,6 @@ function subscribeMotion(onChange) {
   }
 }
 
-const snapshot = () => resolveMotionMode() === 'off'
 
 /** The graded answer, for effects that can run at half strength rather than off. */
 export function useMotionMode() {

@@ -102,21 +102,70 @@ export function SoundProvider({ children }) {
   const [enabled, setEnabled] = useState(() => getStore().prefs.sound === true)
   const { theme } = useTheme()
   const duckedUntil = useRef(0)
+  // The updater below must stay pure, so the current value is also held where
+  // an event handler can read it synchronously.
+  const enabledRef = useRef(enabled)
+  enabledRef.current = enabled
+  // Same reason: `setMuted` is a stable callback, so it cannot close over the
+  // theme without being recreated on every theme change.
+  const themeRef = useRef(theme)
+  themeRef.current = theme
 
+  /**
+   * Turn sound on or off.
+   *
+   * D-36 — this used to do all of its work *inside* the `setEnabled` updater:
+   * write to the store, construct the `AudioContext`, resume it. An updater
+   * runs during render, must be pure, and React deliberately calls it twice in
+   * development to catch exactly this. The visible consequences were a
+   * double-write per click and — the reported one — an `AudioContext` built
+   * during a render rather than inside the user gesture, which is the one
+   * moment browsers actually permit audio to start. A first click would flip
+   * the label to ON and produce silence until something else happened to
+   * resume the context.
+   *
+   * Now the next value is computed first, the side effects run in the handler
+   * (i.e. still inside the click), and the updater does nothing but return.
+   *
+   * @param {boolean | ((muted: boolean) => boolean)} next the desired MUTED
+   *   state, or a function receiving the current muted state
+   */
   const setMuted = useCallback((next) => {
-    setEnabled((current) => {
-      const muted = typeof next === 'function' ? next(!current) : next
-      const on = !muted
-      setStore({ prefs: { sound: on } })
-      // Rule 2: the context is created here — inside the click handler that
-      // enabled sound — because that gesture is also what browsers require
-      // before audio may play at all.
-      if (on) {
-        const ctx = getContext()
-        if (ctx?.state === 'suspended') ctx.resume().catch(() => {})
+    const currentlyMuted = !enabledRef.current
+    const muted = typeof next === 'function' ? !!next(currentlyMuted) : !!next
+    const on = !muted
+    if (on === enabledRef.current) return
+
+    enabledRef.current = on
+    setEnabled(on)
+    setStore({ prefs: { sound: on } })
+
+    if (on) {
+      // Rule 2: the context is created here — synchronously inside the click
+      // handler that enabled sound — because that gesture is also what
+      // browsers require before audio may play at all.
+      const ctx = getContext()
+      if (ctx?.state === 'suspended') ctx.resume().catch(() => {})
+      // Turning sound ON is the one moment a confirmation chime is wanted:
+      // it answers "did that work?" with the thing being switched on. Turning
+      // it OFF plays nothing, which is the same answer stated correctly.
+      if (ctx) {
+        try {
+          voice(ctx, {
+            freq: ROOT * INTERVAL.fifth,
+            duration: 0.12,
+            type: (THEME_VOICE[themeRef.current] || THEME_VOICE.eclipse).type,
+            volume: 0.03,
+            glideTo: ROOT * INTERVAL.octave,
+          })
+        } catch { /* audio is never worth an exception */ }
       }
-      return on
-    })
+    } else if (audioCtx) {
+      // Off means off: suspending stops the hardware clock and clears the
+      // browser's "this tab is playing audio" indicator, which a muted flag
+      // checked at call time does not.
+      audioCtx.suspend().catch(() => {})
+    }
   }, [])
 
   // A hidden tab must not make noise, and a suspended context costs nothing.

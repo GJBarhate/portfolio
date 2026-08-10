@@ -33,9 +33,13 @@
         1. Read the unified store (`forge:v1`, src/lib/store.js), falling back
            to the pre-v1 `forge-theme` key with its retired-id remap so a
            returning visitor keeps the look they chose.
-        2. With no explicit choice — and only then — follow the OS via
-           `prefers-color-scheme` (T-034). Defaulting everyone to a dark theme
-           regardless of their system setting was D-27.
+        2. With no explicit choice — and only then — fall back to Eclipse
+           (D-33). Eclipse is the palette the whole site is designed and
+           graded around: the hero, the background motifs and the accent
+           system are tuned to it, and a first-time visitor on a light-mode
+           machine was being shown Paper, the alternate. `system` remains a
+           first-class *explicit* choice in the theme toggle and the palette
+           for anyone who wants their OS setting followed live.
         3. Publish polarity (`color-scheme`), the motion override (T-025) and
            the recruiter flag, all of which are read by CSS in the very first
            cascade rather than a frame later.
@@ -60,9 +64,44 @@
           }
         } catch (e) { /* private mode, or a corrupt payload — defaults apply */ }
 
-        if (!theme || theme === 'system' || !THEME_BG[theme]) {
+        /*
+          D-10j — the URL door into Recruiter Mode.
+
+          The only ways in were a header chip, a keyboard shortcut and a drawer
+          event, all of which require the visitor to already be here and to
+          already want it. The one traffic source that should land in the short
+          version directly is a job board or a LinkedIn click — and that traffic
+          arrives carrying `ref` or `utm_source`.
+
+          Resolved HERE rather than in React, and that is the whole point: React
+          decides after hydration, so the full experience would paint for a frame
+          and then fold away, which is precisely the flash this script exists to
+          prevent. Kept deliberately in step with RECRUITER_REFERRERS in
+          src/lib/recruiter.js.
+        */
+        try {
+          var params = new URLSearchParams(location.search);
+          var explicit = params.get('recruiter');
+          if (explicit === '1' || explicit === 'true') recruiter = true;
+          else if (explicit === '0' || explicit === 'false') recruiter = false;
+          else {
+            var src = (params.get('ref') || params.get('utm_source') || '').toLowerCase();
+            var HIRING = ['linkedin','lnkd','indeed','naukri','glassdoor','wellfound','angellist','hired','monster','shine','internshala','cutshort','instahyre','hirist','jobs','recruiter','hiring','resume','cv'];
+            if (src) {
+              for (var i = 0; i < HIRING.length; i++) {
+                if (src.indexOf(HIRING[i]) !== -1) { recruiter = true; break; }
+              }
+            }
+          }
+        } catch (e) { /* no URLSearchParams, or an opaque origin */ }
+
+        // An explicit `system` still follows the OS. Anything else — no stored
+        // value at all, or a retired id — resolves to Eclipse.
+        if (theme === 'system') {
           theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches)
             ? 'paper' : 'eclipse';
+        } else if (!theme || !THEME_BG[theme]) {
+          theme = 'eclipse';
         }
 
         root.dataset.theme = theme;
@@ -85,6 +124,7 @@
     <link rel="preload" as="font" type="font/woff2" href="/fonts/jetbrains-mono-400.woff2" crossorigin />
 
     <!-- JSON-LD structured data -->
+    <!-- GENERATED:PERSON — from src/lib/siteConfig.js. Run scripts/gen-structured-data.mjs -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -93,8 +133,19 @@
       "url": "%SITE_URL%",
       "email": "gauravjbarhate554@gmail.com",
       "jobTitle": "Full Stack Developer & Competitive Programmer",
-      "alumniOf": { "@type": "CollegeOrUniversity", "name": "IIIT Vadodara" },
-      "knowsAbout": ["React", "Node.js", "WebRTC", "CRDT", "Socket.IO", "Competitive Programming", "AI Systems"],
+      "alumniOf": {
+        "@type": "CollegeOrUniversity",
+        "name": "IIIT Vadodara"
+      },
+      "knowsAbout": [
+        "React",
+        "Node.js",
+        "WebRTC",
+        "CRDT",
+        "Socket.IO",
+        "Competitive Programming",
+        "AI Systems"
+      ],
       "sameAs": [
         "https://github.com/GJBarhate",
         "https://leetcode.com/u/chgyCygKwQ/",
@@ -103,17 +154,17 @@
       ]
     }
     </script>
+    <!-- /GENERATED:PERSON -->
 
     <!-- §10 — an ItemList of SoftwareApplication entries, so the five live
          apps can surface as rich results in their own right rather than only
          as a line inside the Person entity. -->
+    <!-- GENERATED:ITEMLIST — from src/lib/content.js. Run scripts/gen-structured-data.mjs -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "ItemList",
-      "name": "Projects by Gaurav Barhate",
-      "itemListOrder": "https://schema.org/ItemListOrderAscending",
-      "numberOfItems": 5,
+      "name": "Selected work",
       "itemListElement": [
         {
           "@type": "ListItem",
@@ -122,11 +173,19 @@
             "@type": "SoftwareApplication",
             "name": "PeerCode",
             "url": "https://peercode-iota.vercel.app/",
-            "applicationCategory": "DeveloperApplication",
-            "operatingSystem": "Web",
-            "description": "Real-time coding interview platform with WebRTC video, a Yjs CRDT-synced editor, Judge0 execution and Gemini-driven AI mock interviews.",
-            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-            "author": { "@type": "Person", "name": "Gaurav Barhate" }
+            "applicationCategory": "WebApplication",
+            "operatingSystem": "Any",
+            "description": "Real-time coding interview platform",
+            "author": {
+              "@type": "Person",
+              "name": "Gaurav Barhate",
+              "url": "https://gauravportfolio-beryl.vercel.app"
+            },
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            }
           }
         },
         {
@@ -136,11 +195,19 @@
             "@type": "SoftwareApplication",
             "name": "FlowShield",
             "url": "https://flowshield-delta.vercel.app/login",
-            "applicationCategory": "DeveloperApplication",
-            "operatingSystem": "Web",
-            "description": "Webhook monitoring and reliability tool with per-project API keys, automatic delivery retries and a real-time debugging console.",
-            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-            "author": { "@type": "Person", "name": "Gaurav Barhate" }
+            "applicationCategory": "WebApplication",
+            "operatingSystem": "Any",
+            "description": "Webhook monitoring and reliability tool",
+            "author": {
+              "@type": "Person",
+              "name": "Gaurav Barhate",
+              "url": "https://gauravportfolio-beryl.vercel.app"
+            },
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            }
           }
         },
         {
@@ -150,11 +217,19 @@
             "@type": "SoftwareApplication",
             "name": "VoiceAns",
             "url": "https://voice-ans-frontend.vercel.app/",
-            "applicationCategory": "EducationalApplication",
-            "operatingSystem": "Web",
-            "description": "AI voice interview coach: in-browser speech transcription answered by Google Gemini as structured, interview-ready feedback.",
-            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-            "author": { "@type": "Person", "name": "Gaurav Barhate" }
+            "applicationCategory": "WebApplication",
+            "operatingSystem": "Any",
+            "description": "AI voice interview coach",
+            "author": {
+              "@type": "Person",
+              "name": "Gaurav Barhate",
+              "url": "https://gauravportfolio-beryl.vercel.app"
+            },
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            }
           }
         },
         {
@@ -164,11 +239,19 @@
             "@type": "SoftwareApplication",
             "name": "OneCart",
             "url": "https://ai-powered-ecommerce-platform-frontendone.onrender.com/",
-            "applicationCategory": "BusinessApplication",
-            "operatingSystem": "Web",
-            "description": "Full-stack e-commerce platform with search, cart, checkout, order tracking, an admin panel and an integrated AI shopping assistant.",
-            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-            "author": { "@type": "Person", "name": "Gaurav Barhate" }
+            "applicationCategory": "WebApplication",
+            "operatingSystem": "Any",
+            "description": "AI-powered e-commerce platform",
+            "author": {
+              "@type": "Person",
+              "name": "Gaurav Barhate",
+              "url": "https://gauravportfolio-beryl.vercel.app"
+            },
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            }
           }
         },
         {
@@ -178,16 +261,25 @@
             "@type": "SoftwareApplication",
             "name": "Virtual Courses",
             "url": "https://learning-management-system-frontend-tx7b.onrender.com/signup",
-            "applicationCategory": "EducationalApplication",
-            "operatingSystem": "Web",
-            "description": "Learning management system with separate student and educator roles, Google OAuth sign-in, AI course search and structured lectures.",
-            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-            "author": { "@type": "Person", "name": "Gaurav Barhate" }
+            "applicationCategory": "WebApplication",
+            "operatingSystem": "Any",
+            "description": "Learning management system",
+            "author": {
+              "@type": "Person",
+              "name": "Gaurav Barhate",
+              "url": "https://gauravportfolio-beryl.vercel.app"
+            },
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            }
           }
         }
       ]
     }
     </script>
+    <!-- /GENERATED:ITEMLIST -->
   </head>
   <body>
     <a href="#main" class="skip-link">Skip to content</a>
@@ -212,33 +304,32 @@
           that matters.
         </p>
         <h2>Selected work</h2>
+<!-- GENERATED:NOSCRIPT-PROJECTS — from src/lib/content.js. Run scripts/gen-structured-data.mjs -->
         <ul class="noscript-list">
           <li>
             <a href="https://peercode-iota.vercel.app/">PeerCode</a> —
-            real-time coding-interview platform: WebRTC video, a Yjs CRDT-synced Monaco editor,
-            Judge0 execution and Gemini-driven mock interviews.
+            Two people run a full mock interview — synced editor, live video and AI feedback — without leaving the tab.
           </li>
           <li>
             <a href="https://flowshield-delta.vercel.app/login">FlowShield</a> —
-            webhook monitoring with per-project API keys, automatic delivery retries and a
-            real-time debugging console.
+            Failed webhook deliveries retry automatically and surface in a live console before they reach production.
           </li>
           <li>
             <a href="https://voice-ans-frontend.vercel.app/">VoiceAns</a> —
-            AI voice interview coach: in-browser speech transcription answered by Gemini as
-            structured feedback.
+            Turns a spoken answer into scored, written feedback in one pass, so practice does not need a second person.
           </li>
           <li>
             <a href="https://ai-powered-ecommerce-platform-frontendone.onrender.com/">OneCart</a> —
-            full-stack e-commerce: search, cart, checkout, order tracking, admin panel and an AI
-            shopping assistant.
+            Search, cart and checkout run end to end on live payments, not a demo stub.
           </li>
           <li>
             <a href="https://learning-management-system-frontend-tx7b.onrender.com/signup">Virtual Courses</a> —
-            learning management system with student and educator roles, Google OAuth and AI course search.
+            Instructors publish a course and enrol paying students without touching the database.
           </li>
         </ul>
+    <!-- /GENERATED:NOSCRIPT-PROJECTS -->
         <h2>Contact</h2>
+<!-- GENERATED:NOSCRIPT-CONTACT — from src/lib/content.js. Run scripts/gen-structured-data.mjs -->
         <ul class="noscript-list">
           <li><a href="mailto:gauravjbarhate554@gmail.com">gauravjbarhate554@gmail.com</a></li>
           <li><a href="/Gaurav_Resume.pdf">Download résumé (PDF)</a></li>
@@ -246,6 +337,7 @@
           <li><a href="https://www.linkedin.com/in/gaurav-barhate-056175271/">LinkedIn</a></li>
           <li><a href="https://leetcode.com/u/chgyCygKwQ/">LeetCode</a></li>
         </ul>
+    <!-- /GENERATED:NOSCRIPT-CONTACT -->
       </div>
     </noscript>
 

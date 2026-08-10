@@ -80,7 +80,7 @@ because nothing heavy may be *measured* on the critical path either.
 - Three theme palettes (Eclipse, Ember, Paper), following the OS on a first
   visit, swapped through a circular View-Transition sweep
 - **A command palette that opens on any device** — header button, drawer row,
-  or ⌘K — with a `>` terminal mode running the same command registry the
+  or `/` — with a `>` terminal mode running the same command registry the
   console easter egg uses
 - **Recruiter mode** (navbar chip or ⌘⇧R) — folds away the arcade chrome and
   every looping animation, leaving outcomes, screenshots and the résumé
@@ -125,7 +125,34 @@ canonical-origin check and the CSP hash check.
 | `npm run check:effects` | summed effect cost per tier; regenerates `docs/effects.md` |
 | `npm run check:csp` | inline-script hashes in `vercel.json` still match the build |
 | `npm run check:live` | ping every deployed project, rewrite `liveStatus.json` |
+| `npm run check:layout` | every control stays inside the viewport, 16 widths |
+| `npm run check:attrs` | every `data-*` CSS selector asks for a value something writes |
+| `npm run check:dupes` | no selector silently overwrites another's declarations |
+| `npm run check:parity` | `index.html`'s pre-paint script ↔ `lib/appearance.js` |
+| `npm run check:colorspace` | sRGB literals routed through `srgb()`; every renderer graded |
+| `npm run check:structured` | JSON-LD and `<noscript>` still match `lib/content.js` |
 | `npm run check:all` | everything above, in order |
+
+Five of those are new, and each was written because a defect had already
+shipped past everything else:
+
+- **`check:attrs`** — `[data-recruiter='true']` had never matched anything,
+  because the attribute is written as an empty string. Valid CSS, valid JS,
+  green build, dead rule.
+- **`check:dupes`** — nine selectors in `index.css` were silently overwriting
+  each other, including `:focus-visible` (two different ring colours) and a
+  fully duplicated `@keyframes`.
+- **`check:parity`** — the theme list exists twice by necessity, since the
+  pre-paint script runs before any module loads. Duplication that cannot be
+  removed has to be enforced.
+- **`check:colorspace`** — every colour in the 3-D layer was being handed to
+  the renderer as if display-encoded hex were linear light.
+- **`check:structured`** — the five projects existed in three places and the
+  contact email in five.
+
+Append `?perf=1` to any URL for a live HUD: fps, frame time, graphics tier,
+per-band rAF subscriber counts, throttled-callback count, live WebGL context
+count, the current overlay holder, and the corner clock's own p95 frame cost.
 
 ## Performance budgets
 
