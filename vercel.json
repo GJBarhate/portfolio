@@ -73,7 +73,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'sha256-fRxezvHUczRlXcBK0Im/wG2/so7zIhaITt/+NscaRZg=' 'sha256-p5PnWJvMOnsZyLjxblLBMDwBfOASHA7CQcLYb5mwepY=' 'unsafe-hashes'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://api.emailjs.com; media-src 'self'; worker-src 'self'; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
+          "value": "default-src 'self'; script-src 'self' 'sha256-3OM6/xXxOCm6vacRnEMuUG0vAKQftyBlBAiKlW7tBE8=' 'sha256-p5PnWJvMOnsZyLjxblLBMDwBfOASHA7CQcLYb5mwepY=' 'unsafe-hashes'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://api.emailjs.com; media-src 'self'; worker-src 'self'; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests"
         }
       ]
     }
