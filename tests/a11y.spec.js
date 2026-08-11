@@ -211,10 +211,11 @@ test.describe('targets and dialogs', () => {
     await expect(panel).toHaveAttribute('role', 'dialog')
 
     // Each group is a real radiogroup with exactly one checked radio, which is
-    // what makes arrow-key navigation mean anything.
+    // what makes arrow-key navigation mean anything. Four groups: Theme,
+    // Backdrop, Motion, and Notices (the Do Not Disturb control — P2.5).
     const groups = page.locator('.appearance [role="radiogroup"]')
-    await expect(groups).toHaveCount(3)
-    for (let i = 0; i < 3; i += 1) {
+    await expect(groups).toHaveCount(4)
+    for (let i = 0; i < 4; i += 1) {
       await expect(groups.nth(i).locator('[role="radio"][aria-checked="true"]')).toHaveCount(1)
     }
 

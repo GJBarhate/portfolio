@@ -143,12 +143,26 @@ export default function ArcadeHub({ open, onClose, initialGame = null }) {
                   >
                     <span className="text-xl flex-shrink-0">{g.icon}</span>
                     <div className="flex-1 min-w-0">
-                      <p className="font-mono text-[12px] tracking-[0.15em]" style={{ color: g.color }}>{g.label}</p>
+                      <p className="font-mono text-[12px] tracking-[0.15em] flex items-center gap-2" style={{ color: g.color }}>
+                        {g.label}
+                        {g.scored && !best[g.id] && (
+                          <span className="font-mono text-[10px] tracking-[0.15em] px-1.5 py-0.5 rounded-full text-[var(--warm)] border border-[var(--warm-dim)]">NEW</span>
+                        )}
+                      </p>
                       <p className="text-[12px] text-[var(--ink-low)] mt-0.5 truncate">{g.desc}</p>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0">
                       {best[g.id] && (
-                        <span className="font-mono text-[12px] text-[var(--accent-bright)]">BEST: {best[g.id]}</span>
+                        /* Ludo's "best" is a project name, not a score — the
+                           large-numeral treatment only fits an actual number. */
+                        /^\d+$/.test(best[g.id]) ? (
+                          <div className="text-right leading-tight">
+                            <p className="font-display text-lg text-[var(--accent-bright)]">{best[g.id]}</p>
+                            <p className="font-mono text-[9px] tracking-[0.2em] text-[var(--ink-low)]">BEST</p>
+                          </div>
+                        ) : (
+                          <span className="font-mono text-[12px] text-[var(--accent-bright)] max-w-[6rem] truncate">{best[g.id]}</span>
+                        )
                       )}
                       <motion.span className="font-mono text-[12px] text-[var(--ink-low)] group-hover:text-[var(--ink)] transition-colors" whileHover={{ x: 3 }}>
                         PLAY &rarr;

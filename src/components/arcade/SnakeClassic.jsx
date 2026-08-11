@@ -123,6 +123,8 @@ export default function SnakeClassic() {
       queue: [],
       food: randomFood(snake),
       score: 0,
+      /** 0..1, set on eat, decays over the next few ticks — the food's pop. */
+      foodPop: 0,
     }
     setScore(0)
     setGameOver(false)
@@ -260,17 +262,22 @@ export default function SnakeClassic() {
       for (let y = 0; y <= ROWS; y++) { ctx.moveTo(0, y * cell); ctx.lineTo(canvasW, y * cell) }
       ctx.stroke()
 
+      const pop = 1 + (s.foodPop || 0) * 0.5
       ctx.fillStyle = palette.food
       ctx.shadowColor = palette.food
-      ctx.shadowBlur = 10
+      ctx.shadowBlur = 10 + (s.foodPop || 0) * 10
       ctx.beginPath()
-      ctx.arc(s.food.x * cell + cell / 2, s.food.y * cell + cell / 2, cell / 2 - 1.5, 0, Math.PI * 2)
+      ctx.arc(s.food.x * cell + cell / 2, s.food.y * cell + cell / 2, (cell / 2 - 1.5) * pop, 0, Math.PI * 2)
       ctx.fill()
       ctx.shadowBlur = 0
 
-      for (let i = s.snake.length - 1; i >= 0; i--) {
+      // Trail fade: the head is fully opaque, the tail fades toward the
+      // background, so motion reads as a streak rather than a fixed ladder.
+      const n = s.snake.length
+      for (let i = n - 1; i >= 0; i--) {
         const seg = s.snake[i]
         const head = i === 0
+        ctx.globalAlpha = head ? 1 : Math.max(0.45, 1 - (i / n) * 0.55)
         ctx.fillStyle = head ? palette.head : (i % 2 ? palette.dim : palette.body)
         ctx.shadowColor = head ? palette.head : 'transparent'
         ctx.shadowBlur = head ? 8 : 0
@@ -278,6 +285,7 @@ export default function SnakeClassic() {
         ctx.roundRect(seg.x * cell + 1, seg.y * cell + 1, cell - 2, cell - 2, head ? cell / 3 : 2)
         ctx.fill()
       }
+      ctx.globalAlpha = 1
       ctx.shadowBlur = 0
     }
 
@@ -305,12 +313,16 @@ export default function SnakeClassic() {
         s.score++
         setScore(s.score)
         s.food = randomFood(s.snake)
+        s.foodPop = 1
       } else {
         s.snake.pop()
+        s.foodPop = Math.max(0, (s.foodPop || 0) - 0.34)
       }
 
       draw()
-      timer = setTimeout(tick, speedFor(s.score))
+      // Hitstop: a consequential tick (eating) holds one beat longer, which
+      // is what makes the growth register instead of blurring past.
+      timer = setTimeout(tick, speedFor(s.score) + (growing ? 60 : 0))
     }
 
     draw()

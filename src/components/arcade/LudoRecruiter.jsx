@@ -32,7 +32,10 @@ export default function LudoRecruiter() {
   const [rolling, setRolling] = useState(false)
   const [won, setWon] = useState(null)
   const [log, setLog] = useState([])
+  /** {idx, kind: 'hop' | 'win'} — a one-shot glow on the track that just moved. */
+  const [popRow, setPopRow] = useState(null)
   const rollTimer = useRef(null)
+  const popTimer = useRef(null)
   const sound = useSound()
 
   const roll = useCallback(() => {
@@ -48,29 +51,37 @@ export default function LudoRecruiter() {
       let next = positions[idx] + r.val
       const reachedEnd = next >= TOKENS[idx].pathLen
 
+      setPopRow({ idx, kind: reachedEnd ? 'win' : 'hop' })
+      popTimer.current = setTimeout(() => setPopRow(null), reachedEnd ? 650 : 300)
+
       if (reachedEnd) {
         setPositions((p) => { const n = [...p]; n[idx] = TOKENS[idx].pathLen; return n })
         setWon(idx)
         setLog((l) => [`🏆 ${TOKENS[idx].label} reached home! Case study unlocked.`, ...l].slice(0, 10))
         window.dispatchEvent(new CustomEvent('forge:unlock', { detail: 'high-scorer' }))
         setStore({ scores: { ludo: TOKENS[idx].label } })
+        setRolling(false)
       } else {
         setPositions((p) => { const n = [...p]; n[idx] = next; return n })
         setLog((l) => [`${TOKENS[idx].label} → ${next} (rolled ${r.val})`, ...l].slice(0, 10))
         setActiveToken((a) => (a + 1) % TOKENS.length)
+        // A short hold on the roll button so the hop registers as an event
+        // rather than blurring into the next one.
+        setTimeout(() => setRolling(false), 90)
       }
-      setRolling(false)
     }, 500)
   }, [activeToken, positions, rolling, won, sound])
 
   const reset = () => {
     if (rollTimer.current) clearTimeout(rollTimer.current)
+    if (popTimer.current) clearTimeout(popTimer.current)
     setPositions(TOKENS.map(() => 0))
     setDice(null)
     setRolling(false)
     setWon(null)
     setActiveToken(0)
     setLog([])
+    setPopRow(null)
   }
 
   const _maxPos = Math.max(...TOKENS.map((t) => t.pathLen))
@@ -91,7 +102,13 @@ export default function LudoRecruiter() {
             <span className="w-16 font-mono text-[12px] tracking-wider flex-shrink-0 truncate" style={{ color: token.color }}>
               {token.label}
             </span>
-            <div className="flex-1 h-5 rounded-full overflow-hidden" style={{ background: 'var(--surface-3)' }}>
+            <div
+              className={
+                'flex-1 h-5 rounded-full overflow-hidden'
+                + (popRow?.idx === i ? (popRow.kind === 'win' ? ' token-row-win' : ' token-row-hop') : '')
+              }
+              style={{ background: 'var(--surface-3)' }}
+            >
               <motion.div
                 className="h-full rounded-full"
                 style={{ background: token.color, boxShadow: `0 0 8px ${token.color}` }}

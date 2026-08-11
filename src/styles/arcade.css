@@ -64,6 +64,46 @@
   animation: insertCoin 1.6s ease-in-out infinite;
 }
 
+/* === Memory Match — juice: shake on mismatch, pop on match === */
+@keyframes cardShake {
+  0%, 100% { transform: translateX(0) rotateY(180deg); }
+  20% { transform: translateX(-6px) rotateY(180deg); }
+  40% { transform: translateX(6px) rotateY(180deg); }
+  60% { transform: translateX(-4px) rotateY(180deg); }
+  80% { transform: translateX(4px) rotateY(180deg); }
+}
+.card-shake {
+  animation: cardShake calc(320ms * var(--motion-scale, 1)) ease;
+}
+@keyframes cardMatchPop {
+  0% { transform: scale(1) rotateY(180deg); }
+  40% { transform: scale(1.18) rotateY(180deg); }
+  100% { transform: scale(1) rotateY(180deg); }
+}
+.card-match-pop {
+  animation: cardMatchPop calc(380ms * var(--motion-scale, 1)) ease;
+}
+
+/* === Ludo Recruiter — juice: a beat on every hop, a bigger one on home ===
+   box-shadow only (never transform) — the track's fill bar is a framer-motion
+   spring already animating its own transform/width, and a second animation
+   fighting it for the same property is how you get visible tearing. */
+@keyframes trackHopGlow {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  40% { box-shadow: 0 0 14px 2px color-mix(in oklch, var(--accent) 55%, transparent); }
+}
+.token-row-hop {
+  animation: trackHopGlow calc(300ms * var(--motion-scale, 1)) ease;
+}
+@keyframes trackWinGlow {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  30% { box-shadow: 0 0 24px 4px color-mix(in oklch, var(--warm) 70%, transparent); }
+  60% { box-shadow: 0 0 10px 2px color-mix(in oklch, var(--warm) 40%, transparent); }
+}
+.token-row-win {
+  animation: trackWinGlow calc(650ms * var(--motion-scale, 1)) ease;
+}
+
 /* === Arcade cabinet === */
 .arcade-cabinet {
   background: linear-gradient(180deg, var(--surface-1) 0%, var(--surface-0) 100%);

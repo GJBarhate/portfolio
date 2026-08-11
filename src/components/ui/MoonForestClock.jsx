@@ -48,22 +48,23 @@
  *   z -2.4  clock-face disc (dusk gradient sky, from the sky texture)
  *   z -2.0  far ridge, elephant, birds            ┐ the diorama group, which
  *   z -1.4  the floating island and its underside │ is the only thing that
- *   z -1.0  pines, deer, water                    ┘ takes the hover tilt
+ *   z -1.0  pines, deer, water                    ┘ carries the fixed lean
  *   z  0.4  ticks + numerals (STATIC — see below)
  *   z  0.5  hour / minute / second hands
  *
  * The dial group is a sibling of the diorama group and never receives the
- * tilt, because the brief is explicit that the numerals stay upright and
- * readable while only the hands move. Tilting the scene under a fixed dial is
- * also what sells the depth.
+ * lean, because the brief is explicit that the numerals stay upright and
+ * readable while only the hands move. A tilted scene under a fixed dial is
+ * also what sells the depth — see P3.1 below for why that lean is now a
+ * mount-time constant rather than something the pointer ever moved.
  */
 import { useEffect, useRef } from 'react'
 import {
+  AdditiveBlending,
   AmbientLight,
   BufferAttribute,
   BufferGeometry,
   CanvasTexture,
-  Color,
   DirectionalLight,
   Group,
   Mesh,
@@ -328,10 +329,29 @@ function bucketFor(hours) {
  * rim and the hands something to sit against at every hour.
  */
 const SKY = {
-  dawn:  { top: '#141a3c', mid: '#463a68', low: '#a86a84', horizon: '#f0a878', ink: '#1d1628' },
-  day:   { top: '#12385e', mid: '#2f6a91', low: '#6ba8bf', horizon: '#e8cf9a', ink: '#152430' },
-  dusk:  { top: '#121435', mid: '#3f2850', low: '#964d55', horizon: '#f0a05a', ink: '#161120' },
-  night: { top: '#050916', mid: '#0c162f', low: '#152444', horizon: '#33496b', ink: '#080d18' },
+  dawn:  { top: '#141a3c', mid: '#463a68', low: '#a86a84', horizon: '#f0a878' },
+  day:   { top: '#12385e', mid: '#2f6a91', low: '#6ba8bf', horizon: '#e8cf9a' },
+  dusk:  { top: '#121435', mid: '#3f2850', low: '#964d55', horizon: '#f0a05a' },
+  night: { top: '#050916', mid: '#0c162f', low: '#152444', horizon: '#33496b' },
+}
+
+/*
+ * P3.2(a) — a real palette, not two inks.
+ *
+ * `inkFor()` fed the SAME colour to the far ridge and the island, which is
+ * why the whole landmass read as one flat silhouette. Each layer gets its
+ * own hue here, still keyed on the bucket: `far` is the mountain (was
+ * `SKY.ink`), `ridge` tints the hazy far pine line, `island` is the
+ * floating island (was also `SKY.ink`), `grass` tints the near pine line,
+ * `water` recolours the sea, and `rim` drives both the shoreline and the
+ * new backlight in 3.2(g). Zero per-frame cost: same materials, different
+ * `.color` values, applied once at mount and again on every bucket change.
+ */
+const SCENE = {
+  dawn:  { far: '#4a3f63', ridge: '#3a3252', island: '#2b2440', grass: '#3d4a35', water: '#4a5f7a', rim: '#ffb894' },
+  day:   { far: '#4a6b82', ridge: '#35566b', island: '#264150', grass: '#3f5c38', water: '#3d6f8a', rim: '#ffe0a8' },
+  dusk:  { far: '#3d2f4a', ridge: '#2d2238', island: '#1f1828', grass: '#2a3026', water: '#3a3d5c', rim: '#ff9d5c' },
+  night: { far: '#1a2438', ridge: '#131b2b', island: '#0d131f', grass: '#121a16', water: '#16233d', rim: '#7fa8d8' },
 }
 
 /** Sun/moon position on its arc, and how far through the daylight it is. */
@@ -793,9 +813,9 @@ export default function MoonForestClock() {
      * projection a radius of 1 is a radius of 1 at every depth, so the shapes
      * are authored in dial units and simply line up.
      *
-     * Parallax survives the change, which is the part worth checking: tilting
+     * Parallax survives the change, which is the part worth checking: leaning
      * the diorama group still slides each layer sideways by z*sin(theta), so
-     * the near pines and the far ridge still separate under the hover tilt —
+     * the near pines and the far ridge still separate under the fixed lean —
      * the depth cue comes from the rotation, not from the projection.
      */
     const camera = new OrthographicCamera(-1.06, 1.06, 1.06, -1.06, 0.1, 100)
@@ -834,6 +854,19 @@ export default function MoonForestClock() {
     let bucket = bucketFor(new Date().getHours())
     sky.draw(bucket)
 
+    /*
+     * P3.2(g) — one rim light, from behind-left, tinted to the bucket.
+     *
+     * `key` above is a front light; this is its opposite, catching the
+     * animals' backs and the pines' edges from behind the diorama. One more
+     * light, no shadow map, no second render target — just a second
+     * DirectionalLight, whose colour is updated alongside every other
+     * bucket-keyed material below.
+     */
+    const rim = new DirectionalLight(srgb(SCENE[bucket].rim), 0.6)
+    rim.position.set(-1.5, 1, -4)
+    scene.add(rim)
+
     const disposables = []
     const track = (x) => { disposables.push(x); return x }
 
@@ -854,6 +887,12 @@ export default function MoonForestClock() {
     // ── Layer 0 — the crescent, outside the dial, and its backlight ───────
     const moonGroup = new Group()
     moonGroup.position.z = -3
+    // P3.1 — the same fixed lean as the diorama, at 0.4x (matching the old
+    // hover tilt's own ratio between the two groups). `.rotation.z` is left
+    // alone: the slow crescent drift below is the only thing that still
+    // writes to it, every frame, on purpose.
+    moonGroup.rotation.x = 0.022
+    moonGroup.rotation.y = -0.017
     // Warm, and brighter than a silhouette: this is the light source the whole
     // composition is lit by, so it reads as backlight rather than as a shape.
     // 4B.2 — the crescent IS the key light of the composition, so it has to
@@ -896,23 +935,43 @@ export default function MoonForestClock() {
     faceDisc.position.z = -2.4
     world.add(faceDisc)
 
-    // ── The diorama — the only group that tilts ───────────────────────────
+    // ── The diorama — a fixed lean, not a tracked one ──────────────────────
     const diorama = new Group()
     world.add(diorama)
-
-    const inkFor = () => new Color(SKY[bucket].ink)
+    /*
+     * P3.1 — a CONSTANT lean, not a hover-tracked one.
+     *
+     * The old hover tilt was doing real work: rotating the diorama slid each
+     * layer sideways by z*sin(theta), which is what separated the near pines
+     * from the far ridge. Deleting the tracking entirely would have flattened
+     * the scene along with the pointer listener. Keeping the rotation as a
+     * fixed constant keeps every bit of that layer separation and costs
+     * nothing per frame — a constant needs no damper, no pointer listener and
+     * no per-frame write, and the dial never moves under the cursor again.
+     */
+    diorama.rotation.x = 0.056
+    diorama.rotation.y = -0.042
 
     // Far ridge
     // 4B.2 — `flatShading: true, roughness: 1` is a specific instruction to
     // look like folded paper. Smooth, and slightly less than fully rough, so
     // the ridge catches a sheen along its top edge like a real hillside.
-    const farMat = track(new MeshStandardMaterial({ color: inkFor(), flatShading: false, roughness: 0.88, metalness: 0 }))
+    const farMat = track(new MeshStandardMaterial({ color: srgb(SCENE[bucket].far), flatShading: false, roughness: 0.88, metalness: 0 }))
     farMat.color.lerp(srgb('#ffffff'), 0.22)
     // Kept low on purpose. At the first pass this peaked around +0.10 and the
     // resulting mountain filled the upper half of the dial, hid the sun's arc
     // and left the island looking like foreground clutter in front of it. A
     // backdrop that outranks the subject is not a backdrop.
-    const farProfile = (x) => -0.30 + 0.13 * Math.sin(x * 3.1 + 0.7) + 0.05 * Math.sin(x * 7.3)
+    //
+    // P3.2(e) — a third, higher-frequency term with an `abs()` gives the
+    // ridgeline teeth instead of a smooth wave. Its own peak (0.045) is small
+    // enough that the ceiling above still holds: -0.28+0.15+0.06+0.045 =
+    // -0.025, still comfortably below the dial's centreline.
+    const farProfile = (x) =>
+      -0.28
+      + 0.15 * Math.sin(x * 3.1 + 0.7)
+      + 0.06 * Math.sin(x * 7.3)
+      + 0.045 * Math.abs(Math.sin(x * 5.7 + 1.9))
     const farRidge = new Mesh(track(ridgeGeo(farProfile, -R, -R, R, 72)), farMat)
     farRidge.position.z = -2.0
     // The same rim, dimmer and further away — atmospheric perspective done
@@ -925,11 +984,23 @@ export default function MoonForestClock() {
       farRimMat
     )
     farRim.position.z = -1.99
-    diorama.add(farRidge, farRim)
+    /*
+     * P3.2(e) — a snow cap on the teeth. `snowBase` collapses onto
+     * `farProfile` itself below the threshold, which makes `ridgeGeo` skip
+     * that column entirely (its own `ta <= ba` guard) rather than needing a
+     * second clipping mechanism — the same trick the island's rim band uses
+     * to follow an irregular profile.
+     */
+    const snowMat = track(new MeshBasicMaterial({ color: srgb('#e8eef5'), transparent: true, opacity: 0.7 }))
+    const snowThreshold = -0.24
+    const snowBase = (x) => (farProfile(x) > snowThreshold ? farProfile(x) - 0.018 : farProfile(x))
+    const snowCap = new Mesh(track(ridgeGeo(farProfile, snowBase, -R, R, 72, R)), snowMat)
+    snowCap.position.z = -1.995
+    diorama.add(farRidge, farRim, snowCap)
 
     // The floating island: a ridge on top, tapering to a point underneath —
     // the "slice of land" the brief describes.
-    const islandMat = track(new MeshStandardMaterial({ color: inkFor(), flatShading: false, roughness: 0.85, metalness: 0 }))
+    const islandMat = track(new MeshStandardMaterial({ color: srgb(SCENE[bucket].island), flatShading: false, roughness: 0.85, metalness: 0 }))
     const islandTop = -0.30
     const islandProfile = (x) => islandTop + 0.055 * Math.sin(x * 5.2 + 1.4) + 0.03 * Math.sin(x * 11 + 0.2)
     const island = new Mesh(
@@ -973,7 +1044,7 @@ export default function MoonForestClock() {
      * reads as water, not the refraction.
      */
     const waterMat = track(new MeshPhysicalMaterial({
-      color: srgb('#2b5f74'),
+      color: srgb(SCENE[bucket].water),
       roughness: 0.06,
       metalness: 0,
       transparent: true,
@@ -982,12 +1053,45 @@ export default function MoonForestClock() {
     }))
     const water = new Mesh(track(ridgeGeo(() => -0.62, -R, -R, R, 48)), waterMat)
     water.position.z = -1.9
-    diorama.add(water)
+    /*
+     * P3.2(f) — a shoreline and a moon path.
+     *
+     * The shoreline is a thin bright band at the water's own top edge — real
+     * water always has a bright rim where it meets land. The moon path is the
+     * single most recognisable water cue there is: a vertical glow strip under
+     * the sun/moon, additively blended so it reads as light ON the water
+     * rather than as a second object floating in front of it.
+     */
+    const shoreMat = track(new MeshBasicMaterial({ color: srgb(SCENE[bucket].rim), transparent: true, opacity: 0.5 }))
+    const shoreline = new Mesh(track(ridgeGeo(() => -0.62, () => -0.626, -R, R, 48, R)), shoreMat)
+    shoreline.position.z = -1.898
+    const moonPathMat = track(new MeshBasicMaterial({
+      map: glowTex, transparent: true, opacity: 0.25, depthWrite: false, blending: AdditiveBlending,
+    }))
+    const moonPath = new Mesh(track(quadGeo(0.10, 0.30)), moonPathMat)
+    moonPath.position.set(0, -0.77, -1.897)
+    diorama.add(water, shoreline, moonPath)
 
     // Pines along the island, in two depths.
-    const pineMat = track(new MeshLambertMaterial({ color: srgb('#0c2318') }))
-    const pineFarMat = track(new MeshLambertMaterial({ color: srgb('#16344a'), transparent: true, opacity: 0.75 }))
+    // P3.2(b) — two greens on the near line, alternated by index, so the tree
+    // line is not one silhouette. `pineMat2` is `pineMat` lifted toward white
+    // rather than an unrelated colour, so both stay obviously the same species
+    // under every bucket.
+    const pineMat = track(new MeshLambertMaterial({ color: srgb(SCENE[bucket].grass) }))
+    const pineMat2 = track(new MeshLambertMaterial({ color: srgb(SCENE[bucket].grass) }))
+    pineMat2.color.lerp(srgb('#ffffff'), 0.14)
+    const pineFarMat = track(new MeshLambertMaterial({ color: srgb(SCENE[bucket].ridge), transparent: true, opacity: 0.75 }))
+    const trunkMat = track(new MeshLambertMaterial({ color: srgb('#3a2a1c') }))
     const pineGeos = []
+    /*
+     * P3.2(b) — trunks, gated to `getTier() >= 2`.
+     *
+     * A trunk below each pine grounds it — without one the triangle floats.
+     * It costs one extra mesh per pine (9 near + 7 far = 16 draw calls), which
+     * is the plan's own budget line for this item, so tier 1 keeps the plain
+     * 3-triangle pine rather than eating that cost on the machines least able
+     * to afford it.
+     */
     const addPine = (x, y, h, mat, z) => {
       for (let i = 0; i < 3; i++) {
         const w = h * 0.38 * (1 - i / 3.3)
@@ -998,11 +1102,21 @@ export default function MoonForestClock() {
         m.position.z = z
         diorama.add(m)
       }
+      if (getTier() >= 2) {
+        const trunkGeo = limbGeo(0.006, 0.008, h * 0.25)
+        pineGeos.push(trunkGeo)
+        const trunk = new Mesh(trunkGeo, trunkMat)
+        // A hair further back than the foliage, so the triangle's own base
+        // hides the seam rather than the trunk poking out in front of it.
+        trunk.position.set(x, y, z - 0.01)
+        diorama.add(trunk)
+      }
     }
     const prand = (s) => { const v = Math.sin(s * 12.9898) * 43758.5453; return v - Math.floor(v) }
     for (let i = 0; i < 9; i++) {
       const x = -0.52 + i * 0.13 + prand(i * 3.1) * 0.04
-      addPine(x, islandTop - 0.02, 0.075 + prand(i * 5.7) * 0.05, pineMat, -1.0)
+      const mat = prand(i * 6.6) > 0.5 ? pineMat : pineMat2
+      addPine(x, islandTop - 0.02, 0.075 + prand(i * 5.7) * 0.05, mat, -1.0)
     }
     for (let i = 0; i < 7; i++) {
       const x = -0.62 + i * 0.19 + prand(i * 9.3) * 0.05
@@ -1051,6 +1165,25 @@ const deerMat = track(new MeshLambertMaterial({ color: srgb('#6b4526') }))
     elephant.group.scale.setScalar(0.62)
     diorama.add(elephant.group)
 
+    /*
+     * P3.2(c) — ground contact shadows.
+     *
+     * The single highest realism-per-byte change in the file: a shadow is
+     * what tells the eye an object is ON a surface rather than floating IN
+     * FRONT of it. Both animals currently only ever move in `x` and bob in
+     * `y` about a fixed ground line, so each shadow only ever needs its own
+     * `x` written per frame — one flattened disc each, sharing one material.
+     */
+    const shadowMat = track(new MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.40, depthWrite: false }))
+    const deerShadow = new Mesh(track(discGeo(0.05, 12)), shadowMat)
+    deerShadow.scale.set(1, 0.22, 1)
+    deerShadow.position.set(0, islandTop + 0.05, deer.group.position.z + 0.001)
+    diorama.add(deerShadow)
+    const elephantShadow = new Mesh(track(discGeo(0.08, 12)), shadowMat)
+    elephantShadow.scale.set(1, 0.22, 1)
+    elephantShadow.position.set(0, -0.058, elephant.group.position.z + 0.001)
+    diorama.add(elephantShadow)
+
     // 4B.2 — Lambert, not Physical. Full PBR on a 12-pixel bird is wasted
     // silicon; what these need is for the key light to separate near from far,
     // and a diffuse term does exactly that for almost nothing.
@@ -1061,6 +1194,9 @@ const deerMat = track(new MeshLambertMaterial({ color: srgb('#6b4526') }))
       b.group.position.z = -1.95
       b.group.scale.setScalar(0.8 + (i % 2) * 0.25)
       diorama.add(b.group)
+      // P3.2(d) — the lane/speed/offset on the LEAD (i === 0) is what the
+      // whole flock's y and flap now derive from; followers keep their own
+      // `offset` only so their x-crossing still staggers, not their y.
       birds.push({ ...b, offset: i * 1.7, lane: 0.30 + i * 0.055, speed: 0.055 + i * 0.006 })
     }
 
@@ -1196,29 +1332,6 @@ const deerMat = track(new MeshLambertMaterial({ color: srgb('#6b4526') }))
     const onMotionChange = () => { reduced = prefersReducedMotion() }
     document.documentElement.addEventListener('forge:motion-changed', onMotionChange)
     secondHand.visible = !reduced
-
-    /*
-     * The hover tilt. Pointer events are re-enabled on the host alone (the
-     * fixed box is `pointer-events: none` in CSS, and the disc opts back in),
-     * so the widget can be leaned into without ever swallowing a click meant
-     * for the page underneath it.
-     */
-    let tiltX = 0
-    let tiltY = 0
-    let tiltXTarget = 0
-    let tiltYTarget = 0
-    const MAX_TILT = 0.087 // 5 degrees, as specified
-    const onMove = (e) => {
-      if (reduced) return
-      const r = host.getBoundingClientRect()
-      const nx = (e.clientX - r.left) / Math.max(1, r.width) - 0.5
-      const ny = (e.clientY - r.top) / Math.max(1, r.height) - 0.5
-      tiltYTarget = nx * MAX_TILT * 2
-      tiltXTarget = ny * MAX_TILT * 2
-    }
-    const onLeave = () => { tiltXTarget = 0; tiltYTarget = 0 }
-    host.addEventListener('pointermove', onMove, { passive: true })
-    host.addEventListener('pointerleave', onLeave, { passive: true })
 
     // ── Fit ───────────────────────────────────────────────────────────────
     const fit = () => {
@@ -1405,15 +1518,23 @@ const deerMat = track(new MeshLambertMaterial({ color: srgb('#6b4526') }))
         if (next !== bucket) {
           bucket = next
           sky.draw(bucket)
-          const ink = new Color(SKY[bucket].ink)
-          islandMat.color.copy(ink)
-          farMat.color.copy(ink).lerp(srgb('#ffffff'), 0.22)
+          const scene4 = SCENE[bucket]
+          islandMat.color.copy(srgb(scene4.island))
+          farMat.color.copy(srgb(scene4.far)).lerp(srgb('#ffffff'), 0.22)
+          // P3.2(a)/(b)/(f)/(g) — every other bucket-keyed layer, in one place.
+          pineMat.color.copy(srgb(scene4.grass))
+          pineMat2.color.copy(srgb(scene4.grass)).lerp(srgb('#ffffff'), 0.14)
+          pineFarMat.color.copy(srgb(scene4.ridge))
+          waterMat.color.copy(srgb(scene4.water))
+          shoreMat.color.copy(srgb(scene4.rim))
+          rim.color.copy(srgb(scene4.rim))
         }
         const arc = arcPosition(now.getHours() + now.getMinutes() / 60)
         sunBody.position.x = arc.x
         sunBody.position.y = arc.y
         sunGlow.position.x = arc.x
         sunGlow.position.y = arc.y
+        moonPath.position.x = arc.x
         bodyMat.color.set(arc.day ? '#fff3d4' : '#dfe8ff')
         glowMat.opacity = arc.day ? 0.6 : 0.34
       }
@@ -1424,31 +1545,41 @@ const deerMat = track(new MeshLambertMaterial({ color: srgb('#6b4526') }))
         deer.group.position.x = -0.60 + dp * 1.2
         deer.group.position.y = islandTop + 0.052 + deer.bob(t)
         deer.step(t)
+        // P3.2(c) — the shadow tracks the animal's x, never its bob: a
+        // contact shadow that bobbed with its owner would read as the
+        // ground moving, not the animal.
+        deerShadow.position.x = deer.group.position.x
 
         // Elephant: the other way, slower, and further back.
         const ep = ((t * 0.045) % 1)
         elephant.group.position.x = 0.66 - ep * 1.32
         elephant.group.position.y = -0.055 + elephant.bob(t)
         elephant.step(t)
+        elephantShadow.position.x = elephant.group.position.x
 
-        for (const b of birds) {
+        /*
+         * P3.2(d) — a flock, not four independent lanes.
+         *
+         * `birds[0]` is the lead: its own lane, speed and phase are the
+         * flock's. Every follower keeps its own `offset` for how it staggers
+         * across x (so four birds do not overlap into one blob), but its y
+         * and its wingbeat now come from the LEAD's curve — delayed by
+         * 0.02s per position back in the line, and by 0.35 rad per position
+         * on the flap — rather than from an independent sine of their own.
+         * That is what turns "four things crossing the dial together" into
+         * "one thing moving."
+         */
+        for (let i = 0; i < birds.length; i++) {
+          const b = birds[i]
           const bp = ((t * b.speed + b.offset * 0.14) % 1)
           b.group.position.x = -0.9 + bp * 1.8
-          b.group.position.y = b.lane + Math.sin(t * 1.1 + b.offset) * 0.045
-          b.flap(t, b.offset)
+          const lag = 0.02 * i
+          b.group.position.y = birds[0].lane + Math.sin((t - lag) * 1.1 + birds[0].offset) * 0.045
+          b.flap(t, birds[0].offset + 0.35 * i)
         }
 
         // The crescent's very slow drift — 0.02 rad/min, as specified.
         moonGroup.rotation.z += (0.02 / 60) * dt
-
-        // Tilt, exponentially damped so it glides rather than tracks.
-        const k = 1 - Math.exp(-dt * 6)
-        tiltX += (tiltXTarget - tiltX) * k
-        tiltY += (tiltYTarget - tiltY) * k
-        diorama.rotation.x = tiltX
-        diorama.rotation.y = tiltY
-        moonGroup.rotation.x = tiltX * 0.4
-        moonGroup.rotation.y = tiltY * 0.4
       }
 
       // No render call here. The hands subscriber runs every frame and draws
@@ -1463,8 +1594,6 @@ const deerMat = track(new MeshLambertMaterial({ color: srgb('#6b4526') }))
       ro.disconnect()
       stopPalette()
       document.documentElement.removeEventListener('forge:motion-changed', onMotionChange)
-      host.removeEventListener('pointermove', onMove)
-      host.removeEventListener('pointerleave', onLeave)
       for (const g of pineGeos) g.dispose()
       for (const d of disposables) d.dispose?.()
       sky.dispose()
@@ -1480,9 +1609,12 @@ const deerMat = track(new MeshLambertMaterial({ color: srgb('#6b4526') }))
       ref={hostRef}
       className="forge-clock"
       aria-hidden="true"
-      /* The box is pointer-events: none so it can never intercept a click for
-         the page; the disc itself opts back in for the hover tilt. */
-      style={{ pointerEvents: 'auto' }}
+      /*
+       * P3.1 — the clock never intercepts a pointer event, full stop.
+       * `pointer-events: none` comes from `.forge-clock` in index.css; there
+       * is no hover tilt left to opt back in for, so nothing here overrides
+       * it. A click aimed at the page behind the dial always reaches the page.
+       */
     />
   )
 }

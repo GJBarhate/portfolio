@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import { withViewTransition } from '../../lib/viewTransition.js'
 import { MOD_KEY, isApple } from '../../lib/platform.js'
 import { isRecruiter, onRecruiterChange, setRecruiter } from '../../lib/recruiter.js'
 import { AUTHOR, RESUME_PATH } from '../../lib/siteConfig.js'
+import { STATS } from '../../lib/content.js'
 import platformStats from '../../lib/platformStats.json'
 
 /**
@@ -93,25 +94,27 @@ export default function RecruiterMode() {
  * The four numbers a screener actually reads — and the reason they are not
  * typed out here any more.
  *
- * They were four string literals (`'1972'`, `'800+'`, `'5'`, `'2026'`)
- * duplicating `lib/platformStats.json`, which has a `check:live` gate and a
- * `scripts/fetch-stats.mjs` behind it. The hardcoded copies escaped both. Of
- * everything on this page these are the worst four values to let go stale: a
- * screener who checks the LeetCode profile and finds a different rating has
- * learned something about the candidate's attention to detail, and it is not
- * the thing the number was there to say.
- *
- * `solved` is rounded down to a "+" figure deliberately — an exact count is
- * stale the day after it is fetched, and "800+" stays true for months.
+ * The rating is the one figure `lib/platformStats.json` can answer honestly
+ * — it has a `check:live` gate and a `scripts/fetch-stats.mjs` behind it, so
+ * it never drifts from the real LeetCode profile. The problems-solved count
+ * used to be derived from that same file's `leetcode.solved` alone, rounded
+ * down to a "+" figure — which is accurate for LeetCode specifically, but
+ * read as a contradiction next to every other mention of this stat on the
+ * site, all of which report the cross-platform total (LeetCode + CodeChef +
+ * GFG) that lives in `STATS` (`lib/content.js`). Two different-but-true
+ * numbers under the same unqualified "PROBLEMS" label is worse than one
+ * number that is merely static: it looks like the site does not agree with
+ * itself. This reads the same `STATS` entry everything else on the page
+ * does, so there is exactly one number to keep current, not two.
  */
 function headlineStats() {
   const rating = platformStats.leetcode?.rating
-  const solved = platformStats.leetcode?.solved
-  const solvedFloor = Number.isFinite(solved) ? `${Math.floor(solved / 100) * 100}+` : null
+  const problems = STATS.find((s) => s.label === 'Problems Solved')
+  const problemsValue = problems ? `${problems.value}${problems.suffix}` : null
 
   return [
     rating ? [String(rating), 'LEETCODE PEAK'] : null,
-    solvedFloor ? [solvedFloor, 'PROBLEMS'] : null,
+    problemsValue ? [problemsValue, 'PROBLEMS'] : null,
     ['5', 'APPS LIVE'],
     ['2026', 'B.TECH CSE'],
   ].filter(Boolean)
@@ -126,12 +129,45 @@ function headlineStats() {
  */
 function RecruiterBar({ onExit }) {
   const stats = headlineStats()
-  const verified = platformStats.lastUpdated
-    ? new Date(platformStats.lastUpdated).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-    : null
+  const barRef = useRef(null)
+
+  /*
+   * Publish the real bar height as `--recruiter-bar-h`, the same pattern
+   * `Navbar.jsx` already uses for `--header-h`.
+   *
+   * `body`'s reserved space under the bar was a flat 84px guess. The bar's
+   * stats row and its actions row both wrap independently (`flex-wrap`) once
+   * four stats and three real touch-target-sized buttons no longer fit one
+   * line — which happens at ordinary laptop widths, not just narrow phones —
+   * so a static number is only ever right by accident. A ResizeObserver
+   * tracks whatever the bar's content actually needs, at any width, any
+   * font-loading state, any stat-label length.
+   */
+  useEffect(() => {
+    const bar = barRef.current
+    if (!bar) return
+    const publish = () => {
+      const h = bar.getBoundingClientRect().height
+      document.documentElement.style.setProperty('--recruiter-bar-h', `${Math.round(h)}px`)
+    }
+    publish()
+    const ro = new ResizeObserver(publish)
+    ro.observe(bar)
+    // Belt and suspenders: a viewport resize/orientation change is exactly
+    // the case this exists for, and it should never depend on a single
+    // observer implementation noticing the knock-on reflow.
+    window.addEventListener('resize', publish)
+    window.addEventListener('orientationchange', publish)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', publish)
+      window.removeEventListener('orientationchange', publish)
+      document.documentElement.style.removeProperty('--recruiter-bar-h')
+    }
+  }, [])
 
   return (
-    <div className="recruiter-bar" role="region" aria-label="Recruiter summary">
+    <div ref={barRef} className="recruiter-bar" role="region" aria-label="Recruiter summary">
       <div className="recruiter-bar__inner">
         <span className="recruiter-bar__badge font-mono">The short version</span>
 
@@ -170,12 +206,6 @@ function RecruiterBar({ onExit }) {
             Show everything
           </button>
         </div>
-
-        {/* 8.5 — a number with no date behind it is a claim; a number with a
-            date is evidence. A wrong number is worse than no number. */}
-        {verified && (
-          <p className="recruiter-bar__verified font-mono">Last verified {verified}</p>
-        )}
       </div>
     </div>
   )

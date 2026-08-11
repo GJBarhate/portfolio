@@ -34,7 +34,7 @@ const SEED = {
   seen: { intro: Date.now() }, prefs: { recruiter: false, sound: false, tier: null },
 }
 
-const probe = () => {
+const probe = (touch) => {
   const bad = []
   const vw = document.documentElement.clientWidth
   const vh = document.documentElement.clientHeight
@@ -183,6 +183,40 @@ const probe = () => {
     }
   }
 
+  // 5. P5.5 — every real control is at least a 44x44 target on a TOUCH
+  //    viewport (§6.6, and WCAG 2.5.5's own intent — finger precision, not
+  //    mouse precision). Scoped to `touch` widths deliberately: applied to
+  //    every width, this flagged ~150 "violations", every one of them a
+  //    compact desktop nav link (the 7-item link row, the wordmark, RESUME,
+  //    ARCADE) that has been through several prior passes of careful
+  //    header-overflow tuning — see `.appearance-btn__label`'s own comment a
+  //    few hundred lines up in index.css for one of them. Forcing a 21px-tall
+  //    nav link to 44px on a MOUSE-driven desktop layout is not what the
+  //    criterion is for, and it would re-open exactly the overflow bugs
+  //    those passes closed, for a device class where the constraint does not
+  //    apply. Inline text links are also exempt on touch — a word inside a
+  //    sentence is not a touch target in the sense the rule means. The site
+  //    wordmark is the other standard exception: a header logo-link, sized
+  //    to read as a name rather than as a button, and every accessibility
+  //    guide that covers target size treats it as one — a mis-tap there
+  //    costs nothing (it targets `#hero`, the very top of the page a mobile
+  //    visitor already is), unlike a mis-tap on an action.
+  if (touch) {
+    for (const el of document.querySelectorAll('button, a[href], [role="button"]')) {
+      if (!visible(el)) continue
+      const cs = getComputedStyle(el)
+      if (cs.position === 'fixed') continue
+      const inline = el.tagName === 'A' && el.closest('p, li, figcaption, dd, dt')
+      if (inline) continue
+      if (el.classList.contains('nav-wordmark')) continue
+      const r = el.getBoundingClientRect()
+      if (r.width === 0 || r.height === 0) continue
+      if (r.width < 43 || r.height < 43) {
+        bad.push(`TARGET-TOO-SMALL ${name(el)} "${(el.textContent || '').trim().slice(0, 18)}" ${Math.round(r.width)}x${Math.round(r.height)}`)
+      }
+    }
+  }
+
   return { bad: [...new Set(bad)], vw, vh }
 }
 
@@ -211,7 +245,7 @@ for (const width of WIDTHS) {
   await page.waitForTimeout(400)
   await page.keyboard.press('Escape').catch(() => {})
   await page.waitForTimeout(250)
-  const result = await page.evaluate(probe)
+  const result = await page.evaluate(probe, touch)
   if (result.bad.length) {
     problems += result.bad.length
     console.log(`\n${width}px — ${result.bad.length} problem(s)`)

@@ -581,6 +581,7 @@ export default function Projects() {
                   data-cursor="view"
                   aria-selected={viewMode === 'grid'}
                   data-active={viewMode === 'grid'}
+                  title="Grid layout — all projects at once"
                   className="view-toggle__btn"
                 >
                   GRID
@@ -591,6 +592,7 @@ export default function Projects() {
                   data-cursor="view"
                   aria-selected={viewMode === 'deck'}
                   data-active={viewMode === 'deck'}
+                  title="Cinema layout — one project at a time, full width"
                   className="view-toggle__btn"
                 >
                   CINEMA

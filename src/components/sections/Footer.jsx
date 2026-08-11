@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { Spark } from '../ui/SparkHunt.jsx'
-import { SOCIALS } from '../../lib/content.js'
 import { PALETTE_HINT } from '../../lib/platform.js'
 
 const NAME_LETTERS = [...'GAURAV BARHATE']
@@ -47,8 +46,16 @@ export default function Footer() {
 
   // The id is what the background engine observes to know it has reached the
   // end of the page and can switch to the rings motif.
+  //
+  // P3.4 — `z-[1]`, matching `<main>`'s own convention. Footer is a SIBLING
+  // of `<main>`, not a descendant, so it does not inherit `<main>`'s
+  // `z-index: 1` stacking context — without its own, `position: relative`
+  // alone leaves it at `z-index: auto`, which paints BEHIND the fixed
+  // clock's `z-index: 0` (an explicitly positioned z-index:0 layer always
+  // paints after a non-positioned or auto-z-index one, regardless of DOM
+  // order). The copyright line was disappearing behind the clock's disc.
   return (
-    <footer id="footer" data-field="8" data-loop className="relative border-t border-[var(--glass-border)] py-12 container-px">
+    <footer id="footer" data-field="8" data-loop className="relative z-[1] border-t border-[var(--glass-border)] py-12 container-px">
       <Signature />
 
       {/* Outlined wordmark — letters fill with gold on hover, spark #5 hides inside */}
@@ -101,20 +108,6 @@ export default function Footer() {
         <div className="flex flex-col items-center md:items-start gap-1">
           <p className="font-mono text-xs text-[var(--ink-low)]">
             &copy; {new Date().getFullYear()} Gaurav Barhate. All rights reserved.
-          </p>
-          {/* §10 trust signals — "built from scratch" and a freshness date are
-              both explicit recruiter screening heuristics. */}
-          <p className="font-mono text-[12px] text-[var(--ink-low)]">
-            Built from scratch — React 18, no template ·{' '}
-            <a
-              href={SOCIALS.github}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-[var(--accent-bright)]"
-            >
-              view source
-            </a>
-            {typeof __BUILD_DATE__ !== 'undefined' && <> · deployed {__BUILD_DATE__}</>}
           </p>
         </div>
         <div className="flex items-center gap-6">

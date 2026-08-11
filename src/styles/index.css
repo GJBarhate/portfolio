@@ -1906,32 +1906,63 @@ main section:not(#hero) {
   transition: border-color var(--dur-fast) var(--ease-forge), color var(--dur-fast) var(--ease-forge);
 }
 .appearance-btn:hover { border-color: var(--accent-dim); color: var(--ink); }
+/*
+ * P5.3 — the first-visit hint. No card, no text, no dismiss: a ring pulse
+ * the button already owns the shape for. `claimOverlay('appearance-hint', …)`
+ * publishes `data-overlay` for exactly its TTL, so the ring is gone on its
+ * own — same contract as every other overlay on the site.
+ */
+@keyframes appearanceHintRing {
+  0%   { box-shadow: 0 0 0 0 color-mix(in oklch, var(--accent) 55%, transparent); }
+  100% { box-shadow: 0 0 0 14px transparent; }
+}
+html[data-overlay='appearance-hint'] .appearance-btn {
+  animation: appearanceHintRing 1100ms var(--ease-forge) 2;
+}
+html[data-motion='off'] .appearance-btn { animation: none; }
+/*
+ * P5.2 — a preview, not a stripe. Three EQUAL vertical bars read as a
+ * loading indicator, which is what the 22px version this replaces looked
+ * like at a glance. A true diagonal split reads as "a swatch of something"
+ * instead — three `clip-path` wedges rather than the plan's own flex-ratio
+ * sketch, because unequal-width vertical bars are still vertical bars; only
+ * an actual diagonal cut delivers the "two things, not a loading bar" read
+ * the plan asks for.
+ */
 .appearance-btn__swatch {
-  display: flex;
-  inline-size: 22px;
-  block-size: 22px;
-  border-radius: 6px;
+  position: relative;
+  inline-size: 26px;
+  block-size: 26px;
+  border-radius: 8px;
   overflow: hidden;
-  border: 1px solid rgb(255 255 255 / 0.14);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
   flex-shrink: 0;
 }
-.appearance-btn__swatch > span { flex: 1; }
+.appearance-btn__swatch > span { position: absolute; inset: 0; }
+.appearance-btn__swatch > span:nth-child(1) { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+.appearance-btn__swatch > span:nth-child(2) { clip-path: polygon(38% 0, 100% 0, 100% 100%, 62% 100%); }
+.appearance-btn__swatch > span:nth-child(3) { clip-path: polygon(72% 0, 100% 0, 100% 100%, 88% 100%); }
 /*
  * The word is dropped where the header is tight; the swatch plus the
  * accessible name and the tooltip carry it. Unlike the control this replaces,
  * the BUTTON is never hidden — only its label is.
  *
- * 100rem, not 64rem, and the number is measured rather than chosen.
- * `check-layout.mjs` reported CONTROL-OFF-SCREEN for the RESUME call-to-action
- * at 1152 and 1440: with the label the button is 132px, the widest item in a
- * cluster that also carries search, the recruiter chip, the spark counter, the
- * sound switch, the progress ring and the CTA, and at 1440 the row overflowed
- * by 3px. That is the same failure mode that drove the old `.scene-toggle` to
- * 112rem — the difference is that this control stays fully usable without its
- * label, and the setting it opens is no longer hiding behind it.
+ * P5.1 — 64rem (1024px), not the 100rem this used to need. The 100rem
+ * threshold predates the recruiter-chip compaction a few hundred lines down
+ * (`@media (64rem <= width < 100rem)`, "the recruiter label — the dot and
+ * the tooltip carry it"): that block already shrinks the chip to a 2rem dot
+ * through the exact band this label now wants to occupy. The chip and the
+ * spark counter giving up their words is not, on its own, enough room for
+ * this one to claim its own — that block's gutter and gap values were
+ * tightened again after this label started rendering here; see its own
+ * comment for the measured numbers.
  */
 .appearance-btn__label { display: none; }
-@media (width >= 100rem) { .appearance-btn__label { display: inline; } }
+@media (width >= 64rem) { .appearance-btn__label { display: inline; } }
+
+/* P5.5 — 44px minimum (§6.6 / WCAG 2.5.5) for the header RESUME link at the
+   widths where it is the only way to reach the résumé without the drawer. */
+.nav-resume-cta { min-block-size: 44px; }
 
 @layer utilities {
   /* §2.3 — one container, one gutter formula. */
@@ -2368,20 +2399,19 @@ body > footer {
   box-shadow: 0 0 6px var(--accent);
 }
 
-/* === A11y: keyboard focus ring refinements === */
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
-select:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-  border-radius: 4px;
-}
-[role="button"]:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
-}
+/*
+ * P5.5 — one focus ring, everywhere, for real this time.
+ *
+ * This block used to redefine `outline: 2px solid var(--accent)` for
+ * button/a/input/textarea/select/[role="button"] — type selectors beat the
+ * universal `:focus-visible` rule near the top of this sheet on specificity
+ * alone, so every one of those elements was silently getting the WEAKER
+ * `--accent` ring instead of the `--accent-bright` one that rule's own
+ * comment explains is required (the custom cursor hides the native one, so a
+ * faint ring is both an a11y gap and a polish gap). Two "the ring is defined
+ * once" comments already existed in this file and neither was true; this is
+ * the one that makes it true. What is left here is refinements that do not
+ * touch colour — offset and a soft halo — layered on the canonical ring. */
 .clay-btn:focus-visible {
   outline-offset: 4px;
   box-shadow: 0 0 0 4px color-mix(in oklch, var(--accent) 25%, transparent);
@@ -3774,26 +3804,41 @@ html {
   border: 1px solid var(--glass-border);
   background: var(--surface-1);
 }
+/*
+ * P5.4 — the "movie change" control (the brief's own words for this toggle):
+ * 44px minimum (§6.6), and two states drawn clearly enough that a recruiter
+ * skimming, not reading, still gets it. Inactive drops to 0.55 opacity and
+ * carries no border accent; active is the filled accent pill it already
+ * was — a solid fill reads at a glance at least as clearly as the plan's own
+ * suggested underline, and changing it would cost the one thing this button
+ * already does right.
+ */
 .view-toggle__btn {
-  padding: 6px 14px;
+  min-inline-size: 44px;
+  min-block-size: 44px;
+  padding: 6px 16px;
   border-radius: 999px;
   font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
   font-size: 12px;
   letter-spacing: 0.15em;
   color: var(--ink-mid);
+  opacity: 0.55;
   box-shadow: inset 0 0 0 1px transparent;
   transition: color var(--dur-fast) var(--ease-forge),
               background-color var(--dur-fast) var(--ease-forge),
-              box-shadow var(--dur-fast) var(--ease-forge);
+              box-shadow var(--dur-fast) var(--ease-forge),
+              opacity var(--dur-fast) var(--ease-forge);
 }
 .view-toggle__btn:hover {
   color: var(--ink);
+  opacity: 0.85;
   background: var(--surface-2);
   box-shadow: inset 0 0 0 1px var(--glass-border);
 }
 .view-toggle__btn[data-active='true'] {
   background: var(--accent);
   color: var(--surface-0);
+  opacity: 1;
   box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--accent) 60%, var(--ink));
 }
 
@@ -4274,7 +4319,10 @@ html[data-recruiter] .section-rhythm {
   background: currentColor;
 }
 
-/* W6 — the arcade is a differentiator only if it is discoverable. */
+/* W6 — the arcade is a differentiator only if it is discoverable.
+   P5.5 — 44px minimum block-size (§6.6 / WCAG 2.5.5): this is a real button
+   a visitor taps to open the arcade, not brand chrome competing for header
+   width, so there is no overflow trade to weigh against giving it one. */
 .secret-hint {
   font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
   font-size: 12px;
@@ -4283,6 +4331,7 @@ html[data-recruiter] .section-rhythm {
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  min-block-size: 44px;
   border: 1px dashed var(--glass-border);
   border-radius: 999px;
   padding: 6px 14px;
@@ -4997,7 +5046,15 @@ html[data-recruiter] .section-rhythm {
     inset 0 1px 0 color-mix(in oklch, white 8%, transparent);
 }
 
-.footer-top { transition: transform var(--dur-fast) var(--ease-forge), color var(--dur-fast) var(--ease-forge); }
+/* P5.5 — 44px minimum (§6.6 / WCAG 2.5.5), via padding rather than a
+   larger line, so the "BACK TO TOP" mark keeps its own type size. */
+.footer-top {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 44px;
+  padding-block: 10px;
+  transition: transform var(--dur-fast) var(--ease-forge), color var(--dur-fast) var(--ease-forge);
+}
 .footer-top:hover { transform: translateY(-3px); }
 
 /* §15.2 — anchor integrity. Every section is a scroll target for the navbar,
@@ -5077,11 +5134,46 @@ html[data-recruiter] .section-rhythm {
   color: var(--ink-hi);
   font-variant-numeric: tabular-nums;
 }
-.recruiter-bar__actions { display: flex; gap: 8px; flex: 0 0 auto; }
+/*
+ * P8 — `flex-wrap: wrap`, not the `flex: 0 0 auto` no-shrink row this used
+ * to be alone. At narrow widths (measured: 390px, with the stats row
+ * already wrapped above it) the three buttons together are wider than the
+ * viewport, and `overflow-x: visible` on a `position: fixed` ancestor does
+ * not expand the document's scrollWidth — so this was invisible to every
+ * horizontal-overflow check on the site, while "Show everything" rendered
+ * measurably off-screen and unreachable. Wrapping keeps every action
+ * reachable at every width, without asking a visitor to discover a
+ * scrollable row with no visible scrollbar.
+ *
+ * `flex: 1 1 auto` (not `0 0 auto`) and `min-width: 0`, together, are both
+ * required for the wrap above to do anything: `flex-shrink: 0` refused to
+ * let this box narrower than its content's one-line width regardless of
+ * `flex-wrap`, and even with shrinking allowed, a flex item's default
+ * `min-width: auto` still floors it at that same one-line width — the
+ * classic reason a nested `flex-wrap` silently does nothing. Reset both and
+ * the box takes whatever its actual line has room for, which is what lets
+ * its own children wrap into it instead of past the viewport edge.
+ */
+.recruiter-bar__actions { display: flex; flex-wrap: wrap; gap: 8px; flex: 1 1 auto; min-width: 0; }
+/*
+ * P8 — these three (Résumé, Email me, Show everything) are the entire point
+ * of turning Recruiter Mode on, and they were the one control cluster on the
+ * site the 44px touch-target sweep never reached: `check-layout.mjs` probes
+ * the page in its default state, and this bar only exists once Recruiter
+ * Mode is actually toggled on, so it was invisible to that gate by
+ * construction rather than by oversight in the gate itself. 8px padding
+ * around a 12px line gave a ~28px tall hit target — hard to hit on exactly
+ * the audience (screeners on a phone, in a hurry) this mode exists for.
+ */
 .recruiter-bar__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-block-size: 44px;
+  min-inline-size: 44px;
   font-size: 12px;
   letter-spacing: 0.16em;
-  padding: 8px 14px;
+  padding: 8px 16px;
   border-radius: 999px;
   border: 1px solid var(--glass-border);
   color: var(--ink-mid);
@@ -5102,8 +5194,11 @@ html[data-recruiter] .section-rhythm {
   border-color: var(--accent-bright);
   color: var(--surface-0);
 }
-/* The bar is fixed, so the page needs room under it. */
-html[data-recruiter] body { padding-bottom: 84px; }
+/* The bar is fixed, so the page needs room under it. `--recruiter-bar-h` is
+   measured live (RecruiterMode.jsx) — 84px is the pre-measurement fallback
+   for the one frame before the ResizeObserver's first callback runs, not a
+   guess this rule depends on being right. */
+html[data-recruiter] body { padding-bottom: var(--recruiter-bar-h, 84px); }
 
 /* A visible, structural difference — not just "some decorations left". */
 html[data-recruiter] .hero-name { --fs-hero: clamp(2.4rem, 6vw, 4.5rem); }
@@ -5310,13 +5405,53 @@ header.site-header {
   position: fixed;
   left: max(clamp(1rem, 4vw, 20px), env(safe-area-inset-left, 0px));
   bottom: max(clamp(1rem, 4vh, 20px), env(safe-area-inset-bottom, 0px));
-  inline-size: 72px;
-  block-size: 72px;
-  z-index: 60;
-  /* The disc re-enables its own pointer events for the hover tilt; the box
-     around it must never eat a click meant for the page. */
+  /*
+   * P8 — 72px was too small to read on a phone: a diorama carrying a
+   * mountain ridge, water, a crescent, tree silhouettes and animal
+   * silhouettes all had to resolve into a ~72×dpr pixel circle, which is
+   * also why fine detail near the rim read as rough rather than smooth —
+   * the same geometry gets far fewer actual pixels to fill at that size.
+   * 100px keeps the widget modest against a small screen while giving the
+   * scene enough resolution to actually show what it is; it also makes the
+   * step to the next breakpoint (150px at 48rem) a sensible 1.5x rather
+   * than the original's 2.08x jump.
+   */
+  inline-size: 100px;
+  block-size: 100px;
+  /*
+   * P3.4 — a background layer, not a foreground one.
+   *
+   * At z-index: 60 the clock painted ON TOP OF `<main>` (`z-index: 1`) —
+   * every visitor's actual page content — because it is mounted as a sibling
+   * of `<main>`, not a descendant of it. Any content that scrolled through
+   * the fixed bottom-left corner was hidden behind an opaque disc: the hero's
+   * primary CTA, a stat card's number, the rating graph's axis label, the
+   * footer's copyright line, all found by walking the page and sampling every
+   * point inside the clock's box at every scroll position. `z-index: 0`
+   * matches `.bg-engine`'s own value (it is mounted right after it, for the
+   * same reason) — the clock is decoration behind the page, exactly like the
+   * background scene it sits in front of, and `<main>`'s own stacking context
+   * now wins wherever real content exists. `pointer-events: none` already
+   * meant a click always reached the page; this is the same fix for sight.
+   */
+  z-index: 0;
+  /*
+   * P3.1 — there is no hover tilt left, so nothing ever needs to opt back
+   * into pointer events. The box never eats a click meant for the page.
+   */
   pointer-events: none;
-  filter: drop-shadow(0 0 20px color-mix(in oklch, var(--accent) 38%, transparent));
+  /*
+   * P3.1 — the widget is a fixed, self-contained square that never affects
+   * anything outside itself. Telling the browser that is what lets it skip
+   * the box during page-level layout and paint.
+   */
+  contain: layout paint size style;
+  /* drop-shadow on a fixed element re-runs a filter pass on every composite.
+     A pre-multiplied box-shadow on a round element is the same picture for
+     none of the cost. */
+  filter: none;
+  box-shadow: 0 0 20px color-mix(in oklch, var(--accent) 38%, transparent);
+  border-radius: 50%;
   animation: forge-clock-in 900ms var(--ease-forge, cubic-bezier(0.22, 1, 0.36, 1)) both;
 }
 @media (width >= 48rem) { .forge-clock { inline-size: 150px; block-size: 150px; } }
@@ -6276,12 +6411,20 @@ html[data-motion='off'] .coach-chip__rail { display: none; }
      it on specificity and then loses on source order. Measured 46.08px still
      applied after the first attempt — the header has to out-specify the
      utility it is overriding. */
-  .site-header.container-px { padding-inline: 28px; }
+  /* P7 — 28px (and the spark-counter compaction below, alone) was measured to
+     still clip RESUME by 48px once `.appearance-btn__label` was actually
+     rendered at this width: the two compactions this block already had were
+     necessary but not sufficient. Retested empirically (Playwright, exact
+     1152px viewport, real computed layout — not arithmetic on paper) after
+     tightening this padding to 18px and the two gaps below: RESUME's right
+     edge lands at 1137px inside a 1152px viewport, a real 15px margin rather
+     than a value that happens to round to zero. */
+  .site-header.container-px { padding-inline: 18px; }
   .site-header nav[aria-label='Sections'] {
-    gap: 1.15rem;
+    gap: 0.85rem;
   }
   .nav-cluster {
-    gap: 0.6rem;
+    gap: 0.3rem;
   }
   .nav-cluster > .nav-sound,
   .nav-cluster > svg {
@@ -6294,6 +6437,31 @@ html[data-motion='off'] .coach-chip__rail { display: none; }
     gap: 0;
   }
   .nav-cluster > .recruiter-chip .recruiter-chip__label {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  /*
+   * P5.1 — the spark counter joins the compaction, for the same reason and
+   * by the same recipe: `.appearance-btn__label` now shows starting at
+   * 64rem instead of 100rem (see its own comment), which reopened this
+   * band's overflow (measured: RESUME went `CONTROL-OFF-SCREEN` at 1152
+   * again). The counter's own fraction ("0/5") is the one still-uncompacted
+   * control left in this row — the dot alone still says "there is a hunt",
+   * which is all this row has room to say between 1024 and 1600px; the
+   * fraction is one line away in the title tooltip and unabbreviated again
+   * once the row has room, past 1600px.
+   */
+  .nav-cluster > .spark-counter {
+    padding: 0;
+    inline-size: 2rem;
+    justify-content: center;
+    gap: 0;
+  }
+  .nav-cluster > .spark-counter .spark-counter__value {
     position: absolute;
     inline-size: 1px;
     block-size: 1px;

@@ -12,8 +12,8 @@ what stops the tenth effect from being the one nobody measured.
 
 | Tier | Effects running | GPU / frame | Budget | CPU / frame | Budget |
 |---|---:|---:|---:|---:|---:|
-| 3 | 14 | 4.45 ms | 5 ms | 1.95 ms | 3 ms |
-| 2 | 14 | 1.56 ms | 2 ms | 0.68 ms | 1.5 ms |
+| 3 | 13 | 4.45 ms | 5 ms | 1.55 ms | 3 ms |
+| 2 | 13 | 1.56 ms | 2 ms | 0.54 ms | 1.5 ms |
 | 1 | 8 | 0.00 ms | 0 ms | 0.06 ms | 0.5 ms |
 | 0 | 0 | 0.00 ms | 0 ms | 0.00 ms | 0 ms |
 
@@ -139,19 +139,6 @@ Cost at tier 3: **0.2 ms GPU**, **0.4 ms CPU**, 1.4 KB.
 Requires: `hover`, `fine-pointer`.
 Respects: `reduced-motion`.
 Group: `hero`.
-
-### `physics-footer` · canvas2d
-
-**Purpose.** A last, deliberately playful note at the end of the page, where nothing is competing for attention.
-
-| Tier 3 | Tier 2 | Tier 1 | Tier 0 |
-|---|---|---|---|
-| full matter-js simulation, draggable | simulation without drag | static type | static type |
-
-Cost at tier 3: **0.4 ms GPU**, **1.1 ms CPU**, 8.6 KB.
-Requires: nothing.
-Respects: `reduced-motion`, `save-data`.
-Group: `ambient`.
 
 ### `orrery` · css
 

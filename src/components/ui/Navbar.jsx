@@ -334,7 +334,10 @@ export default function Navbar() {
           target="_blank"
           rel="noopener noreferrer"
           data-cursor="view"
-          className="hidden sm:inline-flex items-center px-5 py-2 rounded-full border border-[var(--accent-dim)] text-xs font-mono tracking-wider hover:border-[var(--accent)] hover:shadow-[0_0_24px_var(--accent-dim)]"
+          /* P5.5 — `nav-resume-cta` only sets a min-block-size (index.css):
+             44px (§6.6 / WCAG 2.5.5) at the 640–1024px widths where this is
+             the only way to reach the résumé without opening the drawer. */
+          className="nav-resume-cta hidden sm:inline-flex items-center px-5 py-2 rounded-full border border-[var(--accent-dim)] text-xs font-mono tracking-wider hover:border-[var(--accent)] hover:shadow-[0_0_24px_var(--accent-dim)]"
         >
           RESUME
         </MagneticButton>

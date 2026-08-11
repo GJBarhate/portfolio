@@ -19,7 +19,7 @@ import { initTier } from './lib/raf.js'
 import { useDeviceTier } from './lib/useMedia.js'
 import { installMotionMode } from './lib/motion.js'
 import { installBgScene } from './lib/bgScene.js'
-import { installNotices } from './lib/overlayBus.js'
+import { installNotices, claimOverlay } from './lib/overlayBus.js'
 import { OPEN_CONSOLE_EVENT, isAppearanceShortcut, openAppearanceConsole } from './lib/appearance.js'
 import { PALETTE_HINT, isPaletteShortcut } from './lib/platform.js'
 import { getStore, hasSeen, markSeen } from './lib/store.js'
@@ -530,6 +530,36 @@ export default function App() {
       openAppearanceConsole({ source: 'first-run', autoClose: FIRST_RUN_MS })
     }, FIRST_RUN_DELAY_MS)
     return () => clearTimeout(id)
+  }, [idle, recruiter])
+
+  /*
+   * P5.3 — a quieter fallback for the visitor the panel-opening above never
+   * reaches.
+   *
+   * That effect spends the visit's one Do-Not-Disturb interruption opening
+   * the full panel — but only on a visitor's very first-ever visit, before
+   * `lastVisit` exists. Anyone who arrives later (a second visit, a link from
+   * somewhere, a recruiter who came back) never sees any hint that the
+   * Appearance button does anything at all. This is that hint: a 2.2s ring
+   * pulse on the button itself, no card, no text, no dismiss control —
+   * `claimOverlay` already refuses it outright in Recruiter Mode and when
+   * the budget is spent, which on the visit the panel auto-opens is exactly
+   * what happens (one budget, already claimed) — so the two can never stack.
+   */
+  useEffect(() => {
+    if (!idle || recruiter) return
+    if (hasSeen('appearance-hint', FIRST_RUN_TTL)) return
+    let release = null
+    const id = setTimeout(() => {
+      // The bus owns the 2.2s TTL and clears `data-overlay` itself when it
+      // expires — `release` is kept only so an early unmount (a recruiter
+      // toggling mid-hint, a route change) cannot leave the claim dangling.
+      release = claimOverlay('appearance-hint', { ttl: 2200, once: true })
+    }, FIRST_RUN_DELAY_MS + 2000)
+    return () => {
+      clearTimeout(id)
+      release?.()
+    }
   }, [idle, recruiter])
 
   /**

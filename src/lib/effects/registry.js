@@ -267,22 +267,17 @@ export const EFFECTS = [
     group: 'hero',
     region: 'hero',
   },
-  {
-    id: 'physics-footer',
-    kind: 'canvas2d',
-    purpose: 'A last, deliberately playful note at the end of the page, where nothing is competing for attention.',
-    tiers: {
-      3: 'full matter-js simulation, draggable',
-      2: 'simulation without drag',
-      1: 'static type',
-      0: 'static type',
-    },
-    cost: { gpuMs: 0.4, cpuMs: 1.1, bytes: 8800 },
-    requires: [],
-    respects: ['reduced-motion', 'save-data'],
-    group: 'ambient',
-    region: 'footer',
-  },
+  /*
+   * `physics-footer` was here — a matter-js body simulation over the footer
+   * wordmark. P7 found `ui/PhysicsFooter.jsx` unimported anywhere in the
+   * component tree (`Footer.jsx` never rendered it) while this entry kept
+   * charging the tier-3 budget 0.4ms GPU / 1.1ms CPU for a canvas nobody was
+   * shown, and `docs/effects.md` kept documenting a layer that did not exist
+   * on the page. Deleted, not disabled, for the same reason `film-grain` was:
+   * an accurate budget over a feature that is not there beats a gate that
+   * passes on a cost nothing pays. `matter-js` was this component's only
+   * consumer in the codebase and is removed from `package.json` with it.
+   */
   /*
    * `film-grain` was here. It is deleted, not disabled — P5.5 removed the DOM
    * node and the CSS in the same change.

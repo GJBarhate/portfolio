@@ -33,6 +33,10 @@ export default function MemoryMatch() {
   const [matched, setMatched] = useState([])
   const [showHint, setShowHint] = useState(null)
   const [moves, setMoves] = useState(0)
+  /** One-shot animation classes — cleared once the keyframes finish, so a
+   *  later match/mismatch on the same cards can replay them. */
+  const [popIds, setPopIds] = useState([])
+  const [shakeIds, setShakeIds] = useState([])
 
   useEffect(() => {
     if (flipped.length !== 2) return
@@ -41,11 +45,15 @@ export default function MemoryMatch() {
       setMatched((m) => [...m, cards[a].pairId])
       setShowHint(cards[a])
       setFlipped([])
+      setPopIds([a, b])
       const hintTimer = setTimeout(() => setShowHint(null), 2000)
-      return () => clearTimeout(hintTimer)
+      const popTimer = setTimeout(() => setPopIds([]), 380)
+      return () => { clearTimeout(hintTimer); clearTimeout(popTimer) }
     } else {
+      setShakeIds([a, b])
       const timer = setTimeout(() => setFlipped([]), 800)
-      return () => clearTimeout(timer)
+      const shakeTimer = setTimeout(() => setShakeIds([]), 320)
+      return () => { clearTimeout(timer); clearTimeout(shakeTimer) }
     }
   }, [flipped, cards])
 
@@ -71,7 +79,7 @@ export default function MemoryMatch() {
         <span>MOVES: <span className="text-[var(--ink)]">{moves}</span></span>
         <span>PAIRS: <span className="text-[var(--accent-bright)]">{matched.length}/{TECH.length}</span></span>
         <button
-          onClick={() => { setFlipped([]); setMatched([]); setMoves(0); setShowHint(null) }}
+          onClick={() => { setFlipped([]); setMatched([]); setMoves(0); setShowHint(null); setPopIds([]); setShakeIds([]) }}
           className="px-3 py-1 rounded-full border border-[var(--glass-border)] text-[var(--ink-low)] hover:text-[var(--ink)] transition-colors"
         >
           RESET
@@ -85,7 +93,11 @@ export default function MemoryMatch() {
             <button
               key={card.id}
               onClick={() => onFlip(card.id)}
-              className="w-16 h-16 rounded-xl transition-all duration-fast"
+              className={
+                'w-16 h-16 rounded-xl transition-all duration-fast'
+                + (popIds.includes(card.id) ? ' card-match-pop' : '')
+                + (shakeIds.includes(card.id) ? ' card-shake' : '')
+              }
               style={{
                 background: isFlipped ? 'var(--surface-2)' : 'var(--surface-1)',
                 border: `1px solid ${isFlipped ? 'var(--accent-dim)' : 'var(--glass-border)'}`,

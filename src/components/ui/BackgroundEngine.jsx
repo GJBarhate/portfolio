@@ -111,6 +111,20 @@ export default function BackgroundEngine() {
     let section = 0
     let smoothSection = 0
 
+    /*
+     * §4.18 — the normalised hour, read from the real clock and pushed to
+     * `uHour` on a throttle, not every frame. `Date.now()` on every frame is
+     * the exact allocation MoonForestClock.jsx's own `clockNow` comment (P3.8)
+     * already measured as a real cost at 60–120 calls/sec; the hour only
+     * needs to be honest to within a minute for the background and the
+     * corner clock to visibly agree.
+     */
+    let lastHourCheckMs = 0
+    let hourFloat = (() => {
+      const d = new Date()
+      return d.getHours() + d.getMinutes() / 60
+    })()
+
     // ── resolution ladder (§14.4) ────────────────────────────────────────
     // Tier 2 renders at half resolution and lets the compositor upscale.
     // For a soft gradient field that is imperceptible and roughly 4× cheaper.
@@ -275,7 +289,7 @@ export default function BackgroundEngine() {
     const onSceneChange = () => { scene = bgSceneId() }
     document.documentElement.addEventListener('forge:bg-scene-changed', onSceneChange)
 
-    let stopFrame = onFrame((_t, dt) => {
+    let stopFrame = onFrame((frameNow, dt) => {
       if (disposed) return
       const tier = getTier()
 
@@ -309,6 +323,13 @@ export default function BackgroundEngine() {
       // ~1.4 s from strike to silence, in real seconds rather than frames.
       if (ripple.life > 0) ripple.life = Math.max(0, ripple.life - dt / 1400)
 
+      // §4.18 — re-read the clock once a minute, not once a frame.
+      if (frameNow - lastHourCheckMs > 60_000) {
+        lastHourCheckMs = frameNow
+        const d = new Date()
+        hourFloat = d.getHours() + d.getMinutes() / 60
+      }
+
       if (probe && !query && queryFrame++ % 240 === 0) {
         query = probe.createQueryEXT()
         probe.beginQueryEXT(probe.TIME_ELAPSED_EXT, query)
@@ -336,6 +357,13 @@ export default function BackgroundEngine() {
       gl.uniform1f(uniforms.uIntensity, tier >= 3 ? 1.0 : 0.9)
       gl.uniform3f(uniforms.uRipple, ripple.x, ripple.y, ripple.life)
       gl.uniform1f(uniforms.uScene, scene)
+      // §4.18 — the same hour the corner clock is showing, so the two
+      // elements of the page can never disagree about what time it is.
+      gl.uniform1f(uniforms.uHour, hourFloat)
+      // §4.19 — the tier ladder, as a float the biome's mix() calls read
+      // directly. BackgroundEngine never mounts below tier 2 (see this
+      // file's own header comment), so this is 2 or 3 in practice.
+      gl.uniform1f(uniforms.uDetail, tier)
       gl.drawArrays(gl.TRIANGLES, 0, 3)
 
       if (probe && query) {

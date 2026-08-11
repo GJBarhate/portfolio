@@ -286,21 +286,32 @@ test.describe('appearance matrix — 3 themes x 3 backdrops x 4 motion modes', (
            */
           await page.evaluate(async () => {
             /*
-             * Ask for the DISPLAY face by name, then wait for the font set.
+             * Ask for every face actually used inside this panel by name,
+             * then wait for the font set — not just the display face.
              *
-             * `document.fonts.ready` resolves when everything requested SO FAR
-             * has settled — and the panel's heading is the only Clash Display
-             * text in the dialog, so on a cold page that face can still be in
-             * flight when `ready` resolves for the mono and body faces. Four of
-             * the 36 cells failed on a 1 % diff that was entirely the word
+             * `document.fonts.ready` only resolves for faces something has
+             * already REQUESTED. The panel's heading is the only Clash
+             * Display text in the dialog, so on a cold page that face can
+             * still be in flight when `ready` resolves for whatever else
+             * happened to have been requested already. Four of the 36 cells
+             * originally failed on a 1% diff that was entirely the word
              * "Appearance", rendered in the fallback in one capture and in
-             * Clash Display in the other.
+             * Clash Display in the other — fixed by requesting it explicitly.
              *
-             * `fonts.load()` requests the face explicitly and resolves when it
+             * The body/hint text (`.appearance__group-hint`, `.appearance__cost`
+             * and friends) inherits the page's default `"Space Grotesk"` — a
+             * separate face this block did not request, so it raced the same
+             * way, concentrated on whichever states took longest to reach this
+             * point (in practice, `forest`, the heaviest backdrop). Confirmed
+             * by reading `getComputedStyle(...).fontFamily` on the hint element
+             * directly rather than assumed from the diff alone.
+             *
+             * `fonts.load()` requests a face explicitly and resolves when it
              * is usable, which removes the race rather than waiting longer.
              */
             await document.fonts.load('700 18px "Clash Display"')
             await document.fonts.load('400 12px "JetBrains Mono"')
+            await document.fonts.load('400 12px "Space Grotesk"')
             await document.fonts.ready
           })
           await expect(panel).toHaveScreenshot(`matrix/${id}-console.png`, {

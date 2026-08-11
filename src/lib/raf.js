@@ -426,8 +426,12 @@ function runBand(band, t, dt, { exempt = false } = {}) {
     const start = performance.now()
     try {
       fn(t, own)
-    } catch {
-      /* one broken subscriber must not kill the rest */
+    } catch (err) {
+      /* One broken subscriber must not kill the rest — the SILENCE was the
+         bug. A subscriber that throws used to fail with zero trace: no
+         console output, nothing to search for, just a canvas that stopped
+         updating. DEV-only, so production stays exactly as quiet as before. */
+      if (import.meta.env.DEV) console.error('[raf] a frame subscriber threw and was skipped this frame:', err)
     }
     const elapsed = performance.now() - start
 

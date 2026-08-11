@@ -147,6 +147,12 @@ export const SEEN_TTL_MS = 30 * 24 * 60 * 60 * 1000
 /** Higher wins. Anything not listed is 0. */
 const PRIORITY = {
   'coach': 0,
+  // P5.3 — the lowest-priority claim on the site: a 2.2s ring pulse on the
+  // Appearance button, no card, no text. `check-attr-selectors.mjs` derives
+  // its `data-overlay` whitelist from the keys of this object, which is why
+  // an id needs an entry here the moment any CSS selector references it —
+  // even one that, like this one, is content to take the default priority.
+  'appearance-hint': 0,
   'welcome-back': 1,
   'time-suggestion': 1,
   // P2.3 — the two that never registered. `spark-complete` is the D-4 bug;

@@ -29,6 +29,7 @@ export default function SnakeLaddersCV() {
   const [won, setWon] = useState(false)
   const [moveCount, setMoveCount] = useState(0)
   const rollTimer = useRef(null)
+  const stepTimer = useRef(null)
   const sound = useSound()
 
   const moveCountRef = useRef(0)
@@ -41,24 +42,43 @@ export default function SnakeLaddersCV() {
 
     rollTimer.current = setTimeout(() => {
       const r = rollDice()
-      let next = Math.min(BOARD_SIZE, position + r.val)
-      const snake = SNAKES[next]
-      const ladder = LADDERS[next]
-      if (snake) next = snake
-      else if (ladder) next = ladder
+      const landed = Math.min(BOARD_SIZE, position + r.val)
+      const snake = SNAKES[landed]
+      const ladder = LADDERS[landed]
+      const finalPos = snake || ladder || landed
 
       moveCountRef.current += 1
       setDice(r)
-      setPosition(next)
       setMoveCount(moveCountRef.current)
-      setHistory((h) => [{ from: position, to: next, val: r.val, snake: !!snake, ladder: !!ladder, fact: r.fact }, ...h].slice(0, 10))
-      if (next >= BOARD_SIZE) { setWon(true); setStore({ scores: { snakes: moveCountRef.current } }) }
-      setRolling(false)
+      setHistory((h) => [{ from: position, to: finalPos, val: r.val, snake: !!snake, ladder: !!ladder, fact: r.fact }, ...h].slice(0, 10))
+
+      const finish = () => {
+        if (finalPos >= BOARD_SIZE) { setWon(true); setStore({ scores: { snakes: moveCountRef.current } }) }
+        setRolling(false)
+      }
+
+      // The token hops one square at a time across the dice roll rather than
+      // teleporting straight to the landing square — a snake or ladder still
+      // teleports once the steps reach it, because that IS what one does.
+      let step = position
+      const advance = () => {
+        step += 1
+        setPosition(Math.min(step, landed))
+        if (step < landed) {
+          stepTimer.current = setTimeout(advance, 110)
+        } else if (finalPos !== landed) {
+          stepTimer.current = setTimeout(() => { setPosition(finalPos); finish() }, 260)
+        } else {
+          finish()
+        }
+      }
+      advance()
     }, 600)
   }, [position, rolling, won, sound])
 
   const reset = () => {
     if (rollTimer.current) clearTimeout(rollTimer.current)
+    if (stepTimer.current) clearTimeout(stepTimer.current)
     moveCountRef.current = 0
     setPosition(0)
     setDice(null)

@@ -76,8 +76,17 @@ export default function PlayerStats() {
           </motion.p>
         </div>
 
-        {/* Stat cards */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-16">
+        {/*
+          Stat cards. `lg:grid-cols-5` with a leading spacer cell, not
+          `grid-cols-4` — the fixed clock (`.forge-clock`) sits in the
+          viewport's bottom-left corner, up to 260px square, and on arrival
+          at this section the first 4-column card used to land exactly
+          there, its number and tag cut by the clock's disc. The spacer is
+          `hidden` below `lg` so the 2-column mobile/tablet layout, where
+          this collision doesn't happen, is untouched.
+        */}
+        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-5 mb-16">
+          <div className="hidden lg:block" aria-hidden="true" />
           {STATS.map((s, i) => (
             <Reveal key={s.label} delay={i * 0.08}>
               <StatCard stat={s} />
