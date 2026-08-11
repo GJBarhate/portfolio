@@ -1778,6 +1778,30 @@ main section:not(#hero) {
 }
 .appearance__dot { margin-inline-start: 5px; color: var(--accent-bright); }
 .appearance__cost { font-size: 12px; color: var(--ink-low); }
+/* P1.4 — the Recommended chip. Quiet by design: it marks the default as
+   intended, it does not sell it. Accent at low alpha, no glow, no border. */
+.appearance__rec {
+  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--accent-bright);
+  background: color-mix(in oklch, var(--accent) 14%, transparent);
+  border-radius: 999px;
+  padding: 1px 7px;
+  justify-self: center;
+}
+/* P1.5 — the escape hatch. A link, not a button-looking control: it is a
+   recovery action, and it must not compete with the three groups above it. */
+.appearance__restore {
+  font-size: 12px;
+  color: var(--ink-mid);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  min-block-size: 44px;
+  padding-inline: 2px;
+  transition: color var(--dur-fast) var(--ease-forge);
+}
+.appearance__restore:hover { color: var(--accent-bright); }
 .appearance__glyph { font-size: 16px; line-height: 1.2; color: var(--accent); }
 
 /*
@@ -2464,11 +2488,12 @@ select:focus-visible {
   border-color: var(--accent-dim);
 }
 
-/* === The spark completion toast (D-4) ===================================
-   A toast, and it now behaves like one: it claims the overlay slot, it has a
-   visible countdown, and the bus takes the slot back after 6s whether or not
-   anyone clicks. The previous version had none of those and stayed until
-   dismissed — from a button that another overlay's backdrop could cover. */
+/* === The spark completion toast (D-4, P2.2) ==============================
+   A toast, and it behaves like one: it claims the overlay slot, it has a
+   visible countdown, and the bus takes the slot back at 2.2s whether or not
+   anyone is looking. It is pointer-events: none — non-interactive by
+   construction, so it cannot need a close button and cannot eat a click
+   meant for the page underneath it. */
 .spark-toast {
   position: fixed;
   inset-block-end: calc(2rem + env(safe-area-inset-bottom, 0px));
@@ -2483,6 +2508,7 @@ select:focus-visible {
   background: var(--surface-1);
   border: 1px solid var(--accent-dim);
   box-shadow: 0 2px 4px rgb(0 0 0 / 0.4), 0 24px 60px -20px rgb(0 0 0 / 0.55);
+  pointer-events: none;
 }
 /* The countdown rail — the visitor can see the toast is leaving on its own,
    which is what stops a disappearing card from reading as a glitch. */
@@ -2507,20 +2533,26 @@ select:focus-visible {
   font-size: 12px;
   color: var(--ink-mid);
 }
-.spark-toast__close {
-  margin-block-start: 10px;
-  min-block-size: 44px;
-  padding-inline: 16px;
-  border-radius: 999px;
-  border: 1px solid var(--glass-border);
-  font-family: 'JetBrains Mono', 'Mono Fallback', monospace;
-  font-size: 12px;
-  color: var(--ink-mid);
-}
-.spark-toast__close:hover { color: var(--ink-hi); border-color: var(--accent-dim); }
 /* At Minimal motion the rail must not animate — but it must also not sit at
    full width implying nothing is happening, so it is simply not drawn. */
 html[data-motion='off'] .spark-toast__rail { display: none; }
+
+/* P2.3 — the achievement toast's rail, same pattern, same keyframe. */
+.achievement-toast {
+  position: relative;
+  overflow: hidden;
+}
+.achievement-toast__rail {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  block-size: 2px;
+  inline-size: 100%;
+  transform-origin: left;
+  background: var(--accent);
+  animation: sparkToastRail var(--toast-ms, 2200ms) linear both;
+}
+html[data-motion='off'] .achievement-toast__rail { display: none; }
 
 /* === §4.6 Idle pixel bot === */
 @keyframes botWalk {
@@ -2541,11 +2573,27 @@ html[data-motion='off'] .spark-toast__rail { display: none; }
   .idle-bot, .idle-bot__body { animation: none; }
 }
 
-/* === §4.8 Welcome back toast === */
+/* === §4.8 Welcome back toast (P2.2/2.3) ===
+   pointer-events: none inline (see WelcomeBackToast.jsx) — non-interactive by
+   construction, same as the spark toast. The rail reuses sparkToastRail's
+   keyframe so every auto-dismissing surface says it is leaving the same way. */
 .welcome-toast {
+  position: relative;
+  overflow: hidden;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
 }
+.welcome-toast__rail {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  block-size: 2px;
+  inline-size: 100%;
+  transform-origin: left;
+  background: var(--accent);
+  animation: sparkToastRail var(--toast-ms, 3500ms) linear both;
+}
+html[data-motion='off'] .welcome-toast__rail { display: none; }
 
 /* === §6.2 Color role tokens (60-30-10, consumed by components) ===
    --accent-reward is defined once, in the palette block, as var(--warm). */
@@ -3372,6 +3420,118 @@ html {
   z-index: 0;
   opacity: 0.85;
 }
+/* ══════════════════════════════════════════════════════════════════════════
+   P1.3 — THE CSS FOREST. What a visitor with no WebGL gets.
+
+   Before this, no WebGL meant no background at all: `BackgroundEngine` calls
+   `markGlUnavailable()` and renders nothing, so the page fell back to a flat
+   surface colour. That is deletion, not degradation — the exact thing P5
+   forbids — and it is the worst case to get wrong, because a browser without
+   WebGL is disproportionately likely to be a locked-down work laptop, i.e. a
+   recruiter.
+
+   Zero JS and zero GPU context. Three parallax tree lines, a sky ramp and a
+   water band, all from gradients and two inline SVGs. The parallax rides
+   `animation-timeline: scroll()`, which the repo already detects and which
+   costs nothing on the main thread; without support the layers simply sit
+   still, which still reads as a forest.
+
+   Scoped to `[data-gl-fallback='true']` — the attribute `glResilience.js`
+   already publishes. No second detector.
+   ══════════════════════════════════════════════════════════════════════════ */
+html[data-gl-fallback='true'][data-bg-scene='forest'] .bg-css-forest { display: block; }
+
+.bg-css-forest {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  /* The same tint → lit ramp the shader runs, sampled at three stops. */
+  background:
+    linear-gradient(
+      to bottom,
+      color-mix(in oklch, var(--surface-0) 92%, var(--accent) 8%) 0%,
+      color-mix(in oklch, var(--surface-0) 78%, var(--accent) 22%) 46%,
+      color-mix(in oklch, var(--accent-glow, var(--accent)) 26%, var(--surface-0)) 62%,
+      var(--surface-0) 100%
+    );
+}
+
+/* Three tree lines. One SVG, three sizes, three opacities, three speeds —
+   which is what parallax is, and it costs one element each. */
+.bg-css-forest::before,
+.bg-css-forest::after,
+.bg-css-forest > i {
+  content: '';
+  position: absolute;
+  inset-inline: -10%;
+  inset-block-end: 26%;
+  block-size: 34%;
+  background-repeat: repeat-x;
+  background-position: 0 100%;
+  /* A conifer line: irregular spire heights, gaps of sky between the trunks.
+     The gaps are the point — a solid mass with a spiky top is the tell the
+     shader work in §4.1 exists to fix, and the fallback must not ship it. */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='80'%3E%3Cpath d='M0 80h120V66l-7-3-5 3-4-13-6 13-4-2-5 2-8-21-7 21-5-2-6 2-5-10-7 10-4-3-6 3-8-18-8 18-5-2-6 2z'/%3E%3C/svg%3E");
+}
+.bg-css-forest::before { /* far */
+  block-size: 26%;
+  inset-block-end: 30%;
+  background-size: 150px 60px;
+  opacity: 0.3;
+}
+.bg-css-forest > i { /* mid */
+  block-size: 30%;
+  inset-block-end: 27%;
+  background-size: 110px 72px;
+  opacity: 0.55;
+}
+.bg-css-forest::after { /* near */
+  block-size: 36%;
+  inset-block-end: 22%;
+  background-size: 80px 86px;
+  opacity: 0.85;
+}
+
+/* Water: a banded reflection under a fade, which is all the shader's mirrored
+   surface reads as at this scale. */
+.bg-css-forest > b {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  block-size: 26%;
+  background: repeating-linear-gradient(
+    to bottom,
+    color-mix(in oklch, var(--accent) 16%, transparent) 0 2px,
+    var(--surface-0) 2px 7px
+  );
+  mask-image: linear-gradient(#000, transparent);
+}
+
+/* Parallax, only where the browser can do it without JS. Three speeds; the
+   near line travels furthest, which is the whole illusion. */
+@supports (animation-timeline: scroll()) {
+  html[data-sda='on'] .bg-css-forest::before,
+  html[data-sda='on'] .bg-css-forest > i,
+  html[data-sda='on'] .bg-css-forest::after {
+    animation: cssForestDrift linear both;
+    animation-timeline: scroll();
+  }
+  html[data-sda='on'] .bg-css-forest::before { --drift: -40px; }
+  html[data-sda='on'] .bg-css-forest > i     { --drift: -110px; }
+  html[data-sda='on'] .bg-css-forest::after  { --drift: -240px; }
+}
+@keyframes cssForestDrift {
+  from { background-position-x: 0; }
+  to   { background-position-x: var(--drift, -100px); }
+}
+/* Motion off means still, not gone — the same contract as everything else. */
+html[data-motion='off'] .bg-css-forest::before,
+html[data-motion='off'] .bg-css-forest > i,
+html[data-motion='off'] .bg-css-forest::after { animation: none; }
+
 /* §14.5 — the backdrop switch used to live here as `.scene-toggle`: a
  * segmented pill in the header, `display: none` until 112rem (1,792 CSS px)
  * because at any narrower width it pushed the RESUME button off the right
@@ -5719,7 +5879,8 @@ html[data-recruiter] .forge-clock { display: none; }
   margin-inline: var(--space-m);
 }
 
-/* The one-time coach mark for the terminal (T-003.4). */
+/* The one-time coach mark for the terminal (T-003.4), non-interactive by
+   construction (P2.2) — pointer-events: none inline, no button, no close. */
 .coach-chip {
   position: fixed;
   inset-block-start: calc(var(--header-h, 64px) + 8px);
@@ -5731,6 +5892,7 @@ html[data-recruiter] .forge-clock { display: none; }
   max-inline-size: min(88vw, 22rem);
   padding: 10px 12px;
   border-radius: 12px;
+  overflow: hidden;
   border: 1px solid color-mix(in oklch, var(--accent) 35%, transparent);
   background: color-mix(in oklch, var(--surface-1) 94%, transparent);
   backdrop-filter: blur(8px);
@@ -5744,14 +5906,18 @@ html[data-recruiter] .forge-clock { display: none; }
   from { opacity: 0; translate: 0 calc(-8px * var(--motion-distance)); }
   to { opacity: 1; translate: 0 0; }
 }
-.coach-chip__close {
-  margin-inline-start: auto;
-  inline-size: 28px;
-  block-size: 28px;
-  border-radius: 8px;
-  color: var(--ink-low);
-  flex-shrink: 0;
+/* P2.3 — the same countdown rail as the spark and welcome-back toasts. */
+.coach-chip__rail {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  block-size: 2px;
+  inline-size: 100%;
+  transform-origin: left;
+  background: var(--accent);
+  animation: sparkToastRail 7000ms linear both;
 }
+html[data-motion='off'] .coach-chip__rail { display: none; }
 
 /* ── Contact form — T-044 ─────────────────────────────────────────────────
    The honeypot must be invisible to people and present to a bot. `display:

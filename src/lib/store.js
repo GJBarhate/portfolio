@@ -25,7 +25,7 @@
  */
 
 export const STORE_KEY = 'forge:v1'
-export const SCHEMA_VERSION = 1
+export const SCHEMA_VERSION = 2
 
 /** Legacy keys migrated on first read, then deleted. */
 const LEGACY = {
@@ -55,7 +55,17 @@ export const DEFAULTS = {
   scores: {},
   /** One-shot flags with timestamps: intro, coachmark, welcome, … */
   seen: {},
-  prefs: { recruiter: false, sound: false, tier: null },
+  /*
+   * `bgSceneExplicit` / `themeExplicit` — P1.1.
+   *
+   * v1 stored `prefs.bgScene` and could not tell "the visitor chose Calm" from
+   * "some build wrote Calm". Those are completely different facts and they
+   * deserve opposite treatment: the first must be preserved forever, the second
+   * must be corrected once. Without the distinction the only safe option is to
+   * preserve everything, which is why a visitor who tapped Calm on one build in
+   * 2025 was pinned to it for life with no way back to the designed default.
+   */
+  prefs: { recruiter: false, sound: false, tier: null, bgSceneExplicit: false, themeExplicit: false },
 }
 
 // ── storage access, never throwing ────────────────────────────────────────
@@ -139,7 +149,9 @@ function migrateV0() {
 
   const migrated = {
     ...structuredCloneish(DEFAULTS),
-    version: 1,
+    // v0 predates the backdrop control entirely, so nothing in it can be an
+    // explicit backdrop choice. It goes straight to the current schema.
+    version: SCHEMA_VERSION,
     theme,
     progress: progress && Array.isArray(progress.unlocked) ? progress : DEFAULTS.progress,
     sparks: Array.isArray(sparks) ? sparks : [],
@@ -180,10 +192,51 @@ function withDefaults(value) {
 }
 
 /**
+ * v1 → v2: separate a CHOSEN backdrop from an INHERITED one.
+ *
+ * v1 had no way to express the difference, so `prefs.bgScene: 'calm'` might
+ * mean "I picked Calm and I like it" or "a build I visited once wrote this".
+ * v2 adds `prefs.bgSceneExplicit` and `prefs.themeExplicit`, which every
+ * setter now sets.
+ *
+ * For an existing payload the flag has to be INFERRED, and the inference is
+ * deliberately conservative in the direction of keeping the visitor's choice:
+ * a non-default value is treated as explicit if there is ANY other evidence
+ * that this person actually used the site — sparks collected, achievements
+ * unlocked, a theme stored, games played, or anything marked seen. Only a
+ * profile carrying a non-default backdrop and no other trace at all is
+ * returned to the default, because that combination is what an inherited
+ * write looks like and a real visitor almost never does.
+ *
+ * Getting it wrong in either direction is survivable: §1.5's "Restore
+ * recommended" puts anyone back on the designed defaults in one click, and
+ * choosing a backdrop again re-sets the flag permanently.
+ */
+function migrateV1toV2(value) {
+  const prefs = { ...(value.prefs || {}) }
+
+  const usedTheSite =
+    (Array.isArray(value.sparks) && value.sparks.length > 0) ||
+    (Array.isArray(value.progress?.unlocked) && value.progress.unlocked.length > 0) ||
+    (value.scores && Object.keys(value.scores).length > 0) ||
+    (value.seen && Object.keys(value.seen).some((k) => k !== 'lastVisit')) ||
+    !!value.theme
+
+  prefs.bgSceneExplicit = !!prefs.bgScene && usedTheSite
+  prefs.themeExplicit = !!value.theme
+
+  // Not merely flagged as inherited — REMOVED, so `bgScene()` falls through to
+  // DEFAULT_SCENE rather than reading a value it has just decided to distrust.
+  if (!prefs.bgSceneExplicit) delete prefs.bgScene
+
+  return { ...value, version: 2, prefs }
+}
+
+/**
  * The migration chain. Index N upgrades a vN payload to v(N+1).
  * Exported for the unit test that proves a v0 payload upgrades losslessly.
  */
-export const MIGRATIONS = []
+export const MIGRATIONS = [null, migrateV1toV2]
 
 export function readRaw() {
   const raw = safeLocal.get(STORE_KEY)

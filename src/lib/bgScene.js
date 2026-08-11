@@ -44,7 +44,7 @@ export const BG_SCENES = ['calm', 'motifs', 'forest']
 export const BG_SCENE_LABELS = {
   calm: 'Calm — nothing moving behind the text',
   motifs: 'Motifs — a different pattern per section',
-  forest: 'Forest — a living scene. Costs the most.',
+  forest: 'Forest — a living scene. The default.',
 }
 
 /** The value the shader reads. Keep in step with `uScene` in bgEngine.js. */
@@ -77,12 +77,22 @@ export function applyBgScene(scene = bgScene()) {
   )
 }
 
-/** Persist and apply — used by the palette, the drawer and the console CLI. */
+/**
+ * Persist and apply — used by the palette, the drawer and the console CLI.
+ *
+ * `bgSceneExplicit` is set here and only here. Reaching this function means a
+ * human moved a control, which is exactly the fact v1 could not record and
+ * which the v1→v2 migration otherwise has to guess (see store.js). Once it is
+ * true, no future migration will ever second-guess this choice again.
+ */
 export function setBgScene(scene) {
   const value = BG_SCENES.includes(scene) ? scene : DEFAULT_SCENE
-  setStore({ prefs: { ...getStore().prefs, bgScene: value } })
+  setStore({ prefs: { ...getStore().prefs, bgScene: value, bgSceneExplicit: true } })
   applyBgScene(value)
 }
+
+/** The designed default, for §1.5's "Restore recommended". */
+export { DEFAULT_SCENE }
 
 /** Wire the store and the DOM attribute together, once, from App. */
 export function installBgScene() {

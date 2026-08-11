@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { getStore } from '../../lib/store.js'
-import { claimOverlay } from '../../lib/overlayBus.js'
+import { claimOverlay, ACTIONABLE_TTL } from '../../lib/overlayBus.js'
 
 /**
  * P2.6 — kept, but only under the conditions that make it defensible.
@@ -29,7 +29,13 @@ import { claimOverlay } from '../../lib/overlayBus.js'
  * chunk had to be 45 KB.
  */
 const NINETY_DAYS = 90 * 24 * 60 * 60 * 1000
-const VISIBLE_MS = 4000
+/*
+ * P2.1 — this is the one candidate ACTIONABLE_TTL exists for: the only
+ * overlay on the site that keeps a button (see the JSX below), so it is the
+ * only one where a fixed dwell is a WCAG 2.2.1 Timing Adjustable problem
+ * rather than just a design choice.
+ */
+const VISIBLE_MS = ACTIONABLE_TTL
 
 export default function ExitIntent() {
   const [show, setShow] = useState(false)

@@ -13,6 +13,8 @@ import {
   interruptionsSpent,
   resetOverlayBus,
   forgetOverlay,
+  setNotices,
+  DEFAULT_TTL,
   SESSION_BUDGET,
   PREEMPT_WINDOW_MS,
 } from '../../src/lib/overlayBus.js'
@@ -60,18 +62,16 @@ afterEach(() => {
 })
 
 describe('the session budget', () => {
-  it(`grants exactly ${SESSION_BUDGET} uninvited overlays and then refuses`, () => {
+  it(`grants exactly ${SESSION_BUDGET} uninvited overlay(s) at the default notices mode and then refuses`, () => {
     expect(claimOverlay('coach')).toBeTypeOf('function')
     expect(interruptionsSpent()).toBe(1)
     // Release so the slot is free — the budget is about COUNT, not concurrency.
     currentRelease()
 
-    expect(claimOverlay('welcome-back')).toBeTypeOf('function')
-    expect(interruptionsSpent()).toBe(2)
-    currentRelease()
-
-    // The third is refused even though nothing is on screen.
-    expect(claimOverlay('achievement')).toBeNull()
+    // The second is refused even though nothing is on screen — DND v2's
+    // `brief` policy is budget 1, not 2 (see overlayBus.js's NOTICES_POLICY).
+    expect(claimOverlay('welcome-back')).toBeNull()
+    expect(interruptionsSpent()).toBe(1)
     expect(currentOverlay()).toBeNull()
   })
 
@@ -84,6 +84,44 @@ describe('the session budget', () => {
 
   it('does not charge an overlay the visitor asked for', () => {
     expect(claimOverlay('run-complete', { budgeted: false })).toBeTypeOf('function')
+    expect(interruptionsSpent()).toBe(0)
+  })
+})
+
+describe('the notices policy (P2.5)', () => {
+  it('holds a default claim for exactly DEFAULT_TTL at brief, then releases it', () => {
+    const onExpire = vi.fn()
+    claimOverlay('coach', { onExpire })
+    vi.advanceTimersByTime(DEFAULT_TTL - 1)
+    expect(currentOverlay()).toBe('coach')
+    vi.advanceTimersByTime(1)
+    expect(currentOverlay()).toBeNull()
+    expect(onExpire).toHaveBeenCalledTimes(1)
+  })
+
+  it('relaxes the budget to 2 at longer', () => {
+    setNotices('longer')
+    expect(claimOverlay('coach')).toBeTypeOf('function')
+    currentRelease()
+    expect(claimOverlay('welcome-back')).toBeTypeOf('function')
+    currentRelease()
+    expect(claimOverlay('achievement')).toBeNull()
+  })
+
+  it('multiplies ttl by 10x at longer — the WCAG 2.2.1 Timing Adjustable threshold', () => {
+    setNotices('longer')
+    claimOverlay('coach', { ttl: DEFAULT_TTL })
+    vi.advanceTimersByTime(DEFAULT_TTL * 10 - 1)
+    expect(currentOverlay()).toBe('coach')
+    vi.advanceTimersByTime(1)
+    expect(currentOverlay()).toBeNull()
+  })
+
+  it('refuses everything, including unbudgeted claims, at off', () => {
+    setNotices('off')
+    expect(claimOverlay('coach')).toBeNull()
+    expect(claimOverlay('run-complete', { budgeted: false })).toBeNull()
+    expect(currentOverlay()).toBeNull()
     expect(interruptionsSpent()).toBe(0)
   })
 })
@@ -168,11 +206,18 @@ describe('once-only overlays', () => {
   })
 })
 
+/*
+ * Every `run-complete` claim below passes `{ budgeted: false }`, matching its
+ * real call site (RunComplete.jsx) after the P2.1 fix: at `brief` (budget 1),
+ * a budgeted second claim is refused by the budget check before priority is
+ * ever consulted, which would make these tests exercise budget exhaustion
+ * instead of the pre-emption logic they are named for.
+ */
 describe('pre-emption', () => {
   it('lets a higher priority take a slot claimed moments ago', () => {
     claimOverlay('coach')            // priority 0
     now += 100                       // still inside the window
-    expect(claimOverlay('run-complete')).toBeTypeOf('function') // priority 3
+    expect(claimOverlay('run-complete', { budgeted: false })).toBeTypeOf('function') // priority 3
     expect(currentOverlay()).toBe('run-complete')
   })
 
@@ -182,12 +227,12 @@ describe('pre-emption', () => {
     // D-10f: outranking is not a licence to yank a toast out mid-read. The
     // higher-priority claim is REFUSED rather than granted, which is the
     // difference between a priority system and a glitch.
-    expect(claimOverlay('run-complete')).toBeNull()
+    expect(claimOverlay('run-complete', { budgeted: false })).toBeNull()
     expect(currentOverlay()).toBe('coach')
   })
 
   it('refuses a lower priority outright', () => {
-    claimOverlay('run-complete')
+    claimOverlay('run-complete', { budgeted: false })
     expect(claimOverlay('coach')).toBeNull()
     expect(currentOverlay()).toBe('run-complete')
   })
@@ -196,7 +241,7 @@ describe('pre-emption', () => {
     const onExpire = vi.fn()
     claimOverlay('coach', { onExpire })
     now += 100
-    claimOverlay('run-complete')
+    claimOverlay('run-complete', { budgeted: false })
     // The displaced component must stop rendering into a slot it no longer
     // owns; it finds out by having its release called for it.
     expect(currentOverlay()).toBe('run-complete')

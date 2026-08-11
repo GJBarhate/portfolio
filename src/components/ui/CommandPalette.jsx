@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTheme } from '../../contexts/ThemeContext.jsx'
 import { useSound } from '../../contexts/SoundContext.jsx'
+import { useGame } from '../../contexts/GameContext.jsx'
+import { useSparks } from './SparkHunt.jsx'
+import { getAchievement } from '../../lib/achievements.js'
 import { SOCIALS } from '../../lib/content.js'
 import { navigateToSection, withViewTransition } from '../../lib/viewTransition.js'
 import { COMMANDS, completions, runLine } from '../../lib/forgeCli.js'
@@ -15,6 +18,7 @@ import {
   setTheme as setAppearanceTheme,
   setBackdrop,
   setMotion,
+  restoreRecommended,
   openAppearanceConsole,
 } from '../../lib/appearance.js'
 import { RESUME_PATH } from '../../lib/siteConfig.js'
@@ -56,7 +60,7 @@ import { RESUME_PATH } from '../../lib/siteConfig.js'
  * `keywords` exist so the fuzzy match works on intent as well as on wording —
  * "dark" finds Eclipse, "cv" finds the résumé, "quiet" finds the sound toggle.
  */
-const GROUPS = ['Navigate', 'Play', 'Appearance', 'Links', 'Advanced']
+const GROUPS = ['Navigate', 'Play', 'Progress', 'Appearance', 'Links', 'Advanced']
 
 const ACTIONS = [
   // ── Navigate ───────────────────────────────────────────────────────────
@@ -87,6 +91,10 @@ const ACTIONS = [
   // this file. Now the palette renders whatever the facade declares, in the
   // facade's order, with the facade's human labels, so it cannot fall behind.
   { id: 'appearance', group: 'Appearance', label: 'Appearance… (theme, backdrop, motion)', icon: '◐', keywords: 'settings customise look colour scheme panel shift a', openAppearance: true },
+  // P1.5 — reachable from the palette as well as the console, because someone
+  // who has got themselves into a look they dislike is exactly the person who
+  // reaches for the command bar.
+  { id: 'restore-recommended', group: 'Appearance', label: 'Restore recommended (Eclipse, Forest, Full motion)', icon: '↺', keywords: 'default reset defaults recommended back original eclipse forest', restoreRecommended: true },
   ...[...THEMES, SYSTEM_THEME].map((t) => ({
     id: `theme-${t.id}`,
     group: 'Appearance',
@@ -133,6 +141,48 @@ const ACTIONS = [
   { id: 'reset', group: 'Advanced', label: 'Reset progress and preferences', icon: '⟲', keywords: 'clear wipe start over', command: 'reset' },
 ]
 
+/*
+ * P2.6 — nothing a toast said is lost once the toast is gone.
+ *
+ * Achievements and sparks already lived somewhere non-timed (`GameContext`,
+ * rendered by `LevelRibbon`/`XPBar`/`RunComplete`); the palette was the one
+ * surface that didn't say so. `progressActions` reads the same two contexts
+ * ACTIONS can't (it is a module-level array, built before any provider
+ * exists) and is merged into the flat list below, under a `Progress` group.
+ */
+function useProgressActions() {
+  const game = useGame()
+  const sparks = useSparks()
+
+  return useMemo(() => {
+    const items = []
+    const recent = game ? [...game.unlocked].reverse().slice(0, 5) : []
+    for (const id of recent) {
+      const a = getAchievement(id)
+      if (!a) continue
+      items.push({
+        id: `progress-${id}`,
+        group: 'Progress',
+        label: `${a.title} — ${a.desc}`,
+        icon: '★',
+        keywords: `achievement unlocked recent progress ${a.title.toLowerCase()}`,
+        info: true,
+      })
+    }
+    if (sparks?.enabled && sparks.total) {
+      items.push({
+        id: 'progress-sparks',
+        group: 'Progress',
+        label: `Hidden sparks — ${sparks.collected.length}/${sparks.total} found`,
+        icon: '✦',
+        keywords: 'sparks hunt collectibles forge master hidden',
+        info: true,
+      })
+    }
+    return items
+  }, [game, sparks])
+}
+
 /**
  * Subsequence match, so "gtp" finds "Go to Projects" the way a fuzzy finder
  * does. Keywords are searched alongside the label but never displayed, which
@@ -171,6 +221,8 @@ export default function CommandPalette({ onPlayGame, onOpenArcade, defaultOpen =
   const historyRef = useRef({ lines: [], index: -1 })
   const { setTheme } = useTheme()
   const sound = useSound()
+  const progressActions = useProgressActions()
+  const allActions = useMemo(() => [...ACTIONS, ...progressActions], [progressActions])
 
   const isTerminal = query.startsWith('>')
 
@@ -186,12 +238,12 @@ export default function CommandPalette({ onPlayGame, onOpenArcade, defaultOpen =
     const out = []
     let cursor = 0
     for (const group of GROUPS) {
-      const items = ACTIONS.filter((a) => a.group === group && matches(a, query))
+      const items = allActions.filter((a) => a.group === group && matches(a, query))
       if (!items.length) continue
       out.push({ group, items: items.map((action) => ({ action, index: cursor++ })) })
     }
     return out
-  }, [isTerminal, query])
+  }, [isTerminal, query, allActions])
 
   const filtered = useMemo(
     () => grouped.flatMap((g) => g.items.map((i) => i.action)),
@@ -309,6 +361,9 @@ export default function CommandPalette({ onPlayGame, onOpenArcade, defaultOpen =
     } else if (action.href) {
       setOpen(false)
       window.open(action.href, '_blank', 'noopener,noreferrer')
+    } else if (action.restoreRecommended) {
+      setOpen(false)
+      restoreRecommended()
     } else if (action.openAppearance) {
       setOpen(false)
       openAppearanceConsole({ source: 'palette' })
@@ -345,6 +400,9 @@ export default function CommandPalette({ onPlayGame, onOpenArcade, defaultOpen =
     } else if (action.openArcade) {
       setOpen(false)
       onOpenArcade?.()
+    } else if (action.info) {
+      // Progress rows are read-only — there is nothing to run, only to see.
+      setOpen(false)
     } else if (action.command) {
       // Registry commands with no navigation of their own stay open so the
       // visitor sees what happened.

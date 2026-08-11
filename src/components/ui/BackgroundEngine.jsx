@@ -254,6 +254,23 @@ export default function BackgroundEngine() {
      * visitor flipping through them from the palette should see the page
      * change, not see it reload.
      */
+    /*
+     * P5 — degrade by resolution, never by deletion.
+     *
+     * `uScene` comes from the visitor's stored preference and from NOWHERE
+     * else. Tier may change the pixel ratio, the frame rate, the octave count
+     * and the wildlife guard band. Tier may never change this uniform.
+     *
+     * If you are reading this because you want a "low-end fallback scene":
+     * lower uIntensity, drop DPR to 0.75, halve the frame rate, skip the
+     * god-ray taps. Do not change this value. A visitor who chose Forest and
+     * was silently given Calm cannot tell the difference between the site
+     * respecting their machine and the site ignoring them, and the second
+     * reading is the one they will reach.
+     *
+     * `scripts/check-appearance-parity.mjs` fails the build if this uniform is
+     * ever assigned from anything but `bgSceneId()`.
+     */
     let scene = bgSceneId()
     const onSceneChange = () => { scene = bgSceneId() }
     document.documentElement.addEventListener('forge:bg-scene-changed', onSceneChange)
@@ -367,6 +384,16 @@ export default function BackgroundEngine() {
         className="bg-engine"
         aria-hidden="true"
       />
+      {/*
+        P1.3 — the CSS forest.
+        Always in the DOM, `display: none` until `glResilience` publishes
+        `data-gl-fallback='true'`. Rendering it conditionally in React would
+        mean the element arrives one commit AFTER the failure is known, and the
+        failure is known during the very first paint attempt — so the visitor
+        would see the flat surface colour flash first, which is the thing this
+        exists to prevent. Two empty elements are the entire cost.
+      */}
+      <div className="bg-css-forest" aria-hidden="true"><i /><b /></div>
       {/*
         §14.6 — painted after the canvas and before <main>, which is the whole
         trick: both are z-index 0, so DOM order alone puts the scrim between

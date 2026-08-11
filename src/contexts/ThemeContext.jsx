@@ -83,7 +83,9 @@ export function ThemeProvider({ children }) {
     if (id !== 'system' && !THEMES.some((t) => t.id === id)) return
     setPreference(id)
     setResolved(id === 'system' ? systemTheme() : id)
-    setStore({ theme: id })
+    // `themeExplicit` for the same reason as `bgSceneExplicit` — see store.js.
+    // Reaching this setter means a human picked a palette.
+    setStore({ theme: id, prefs: { ...getStore().prefs, themeExplicit: true } })
   }
 
   // Following the OS means following it *live* — a visitor whose machine

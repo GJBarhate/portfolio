@@ -26,7 +26,7 @@
  */
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
-import { claimOverlay } from '../../lib/overlayBus.js'
+import { claimOverlay, NOTICES, noticesPreference, setNotices } from '../../lib/overlayBus.js'
 import {
   THEMES,
   SYSTEM_THEME,
@@ -37,6 +37,7 @@ import {
   setTheme,
   setBackdrop,
   setMotion,
+  restoreRecommended,
   OPEN_CONSOLE_EVENT,
 } from '../../lib/appearance.js'
 import { useSound } from '../../contexts/SoundContext.jsx'
@@ -147,6 +148,11 @@ export default function AppearanceConsole({ defaultOpen = true, defaultAutoClose
   /** ms, or 0 for a panel the visitor opened themselves (which never closes). */
   const [autoClose, setAutoClose] = useState(defaultAutoClose)
   const [state, setState] = useState(getAppearance)
+  // P2.5 — notices lives in overlayBus.js, not appearance.js: it governs
+  // interruptions, not theme/backdrop/motion, so it has no business in the
+  // facade whose entire job is those three. `onAppearanceChange` therefore
+  // does not cover it — this is its own bit of local state.
+  const [notices, setNoticesState] = useState(noticesPreference)
   const sound = useSound()
   const panelRef = useRef(null)
   const restoreRef = useRef(null)
@@ -270,6 +276,14 @@ export default function AppearanceConsole({ defaultOpen = true, defaultAutoClose
     sound?.play('click')
   }
 
+  const pickNotices = (id) => {
+    setAutoClose(0)
+    if (id === notices) return
+    setNotices(id)
+    setNoticesState(id)
+    sound?.play('click')
+  }
+
   if (!open) return null
 
   return (
@@ -327,6 +341,8 @@ export default function AppearanceConsole({ defaultOpen = true, defaultAutoClose
                 {theme.label}
                 {checked && <span className="appearance__dot" aria-hidden="true">●</span>}
               </span>
+              {/* P1.4 — the default is framed as the intended experience. */}
+              {theme.recommended && <span className="appearance__rec">Recommended</span>}
             </>
           )}
         />
@@ -339,7 +355,8 @@ export default function AppearanceConsole({ defaultOpen = true, defaultAutoClose
           onSelect={pickBackdrop}
           hint={(value) => {
             const b = BACKDROPS.find((x) => x.id === value)
-            return b ? `${b.meaning} — ${b.cost.toLowerCase()}.` : ''
+            if (!b) return ''
+            return b.detail ? `${b.meaning}. ${b.detail}` : `${b.meaning} — ${b.cost.toLowerCase()}.`
           }}
           renderCard={(backdrop, checked) => (
             <>
@@ -349,6 +366,7 @@ export default function AppearanceConsole({ defaultOpen = true, defaultAutoClose
                 {checked && <span className="appearance__dot" aria-hidden="true">●</span>}
               </span>
               <span className="appearance__cost">{backdrop.cost}</span>
+              {backdrop.recommended && <span className="appearance__rec">Recommended</span>}
             </>
           )}
         />
@@ -368,7 +386,41 @@ export default function AppearanceConsole({ defaultOpen = true, defaultAutoClose
           )}
         />
 
+        {/*
+          P2.5 — Do Not Disturb, made explicit. `brief` (the default) already
+          satisfies the "gone within a second, no cross to click" brief on its
+          own; this row exists for the visitor who wants either more time
+          (WCAG 2.2.1) or none at all.
+        */}
+        <Group
+          label="Notices"
+          columns={3}
+          options={NOTICES}
+          value={notices}
+          onSelect={pickNotices}
+          hint={(value) => NOTICES.find((n) => n.id === value)?.meaning ?? ''}
+          renderCard={(notice, checked) => (
+            <span className="appearance__option-label">
+              {notice.label}
+              {checked && <span className="appearance__dot" aria-hidden="true">●</span>}
+            </span>
+          )}
+        />
+
         <footer className="appearance__foot">
+          {/*
+            P1.5 — the escape hatch that makes the v1→v2 migration safe to
+            ship. That migration has to guess whether an old stored backdrop
+            was chosen or inherited; this makes a wrong guess cost one click.
+          */}
+          <button
+            type="button"
+            className="appearance__restore"
+            onClick={() => { restoreRecommended(); sound?.play('click') }}
+            data-cursor="view"
+          >
+            Restore recommended
+          </button>
           {/* Pre-empts the question a privacy-minded visitor would otherwise
               have to guess at, and it is the truth: there is no account, no
               sync and no request. */}

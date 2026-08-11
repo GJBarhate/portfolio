@@ -135,7 +135,71 @@ if (missing.length) {
   )
 }
 
-// ── 5. no theme colour for a theme that no longer exists ──────────────────
+// ── 5. uScene comes from the visitor's preference and nothing else ────────
+//
+// P1.2. The background scene is the one uniform a performance heuristic must
+// never touch. Lowering it is not "degrading gracefully", it is overriding a
+// stated preference with a guess about the hardware — and the visitor cannot
+// tell that apart from the control being broken.
+//
+// The rule is structural rather than textual: find every write to
+// `uniforms.uScene`, take the variable it passes, and assert that every
+// assignment to that variable in the same file comes from `bgSceneId()`.
+
+const GL_FILES = ['src/components/ui/BackgroundEngine.jsx']
+let sceneWrites = 0
+for (const file of GL_FILES) {
+  let source
+  try { source = readFileSync(root(file), 'utf8') } catch { continue }
+  for (const m of source.matchAll(/uniform1f\s*\(\s*uniforms\.uScene\s*,\s*([A-Za-z_$][\w$]*)\s*\)/g)) {
+    sceneWrites += 1
+    const variable = m[1]
+    const assignments = [
+      ...source.matchAll(new RegExp(`\\b${variable}\\b\\s*=\\s*([^\\n;]+)`, 'g')),
+    ].map((a) => a[1].trim()).filter((rhs) => !rhs.startsWith('='))
+    if (!assignments.length) {
+      failures.push(`${file}: uScene is written from \`${variable}\`, which is never assigned in this file`)
+      continue
+    }
+    for (const rhs of assignments) {
+      /*
+       * EXACT match, not "contains".
+       *
+       * The first version of this test asked whether the right-hand side
+       * mentioned `bgSceneId()` anywhere. Verified against a deliberate
+       * violation — `let scene = getTier() < 2 ? 0 : bgSceneId()` — and it
+       * passed, because the tier-gated expression still contains the call.
+       * That is precisely the line this gate exists to reject, so "contains"
+       * makes it decoration. The assignment must BE the call and nothing else.
+       */
+      const clean = rhs
+        .replace(/\/\/.*$/, '')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        // A single-expression arrow body — `() => { scene = bgSceneId() }` —
+        // runs to the end of the line, so the capture picks up the closing
+        // brace. Stripping unbalanced trailing braces is what keeps the
+        // legitimate re-read in `onSceneChange` from being reported as a
+        // violation. Verified in both directions before this was called done.
+        .replace(/[)\s]*[}\s]*$/, (m) => m.replace(/[}\s]/g, ''))
+        .trim()
+      if (!/^bgSceneId\s*\(\s*\)$/.test(clean)) {
+        failures.push(
+          `${file}: uScene is written from \`${variable}\`, which is assigned \`${rhs}\`. ` +
+          `The background scene must come from bgSceneId() — the visitor's stored preference — ` +
+          `and from nothing else. Tier scales resolution, never existence (P5).`
+        )
+      }
+    }
+  }
+}
+if (!sceneWrites) {
+  failures.push(
+    'no uScene write found in BackgroundEngine.jsx — this gate has gone blind. ' +
+    'Update GL_FILES rather than deleting the check.'
+  )
+}
+
+// ── 6. no theme colour for a theme that no longer exists ──────────────────
 
 const extra = htmlThemes.filter((id) => !moduleThemes.includes(id))
 if (extra.length && moduleThemes.length) {
@@ -150,6 +214,7 @@ console.log(`  themes    ${moduleThemes.join(' | ') || '(none parsed)'}`)
 console.log(`  default   ${moduleDefault ?? '(none parsed)'}`)
 console.log(`  legacy    ${moduleLegacy ? Object.entries(moduleLegacy).map(([k, v]) => `${k}→${v}`).join(' ') : '(none parsed)'}`)
 console.log(`  motion    ${modes.join(' | ') || '(none parsed)'}`)
+console.log(`  uScene    ${sceneWrites} write(s), all traced to bgSceneId()`)
 console.log('─'.repeat(52))
 
 if (failures.length) {

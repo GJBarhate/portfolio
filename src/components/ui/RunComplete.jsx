@@ -78,8 +78,15 @@ export default function RunComplete() {
      * D-47 — this outranks the coach chip, so the claim displaces it rather
      * than being refused. Measured at 390x844: both were on screen at once on
      * a first visit, the chip over the hero and this card over that.
+     *
+     * P2.1 — `budgeted: false`, matching overlayBus's own contract for this
+     * id (see claimOverlay's jsdoc): a run summary is earned by finishing the
+     * run, not volunteered by the site, so it must not compete with a genuine
+     * interruption for the session's one-per-visit budget — and, at `brief`
+     * (budget 1), an unbudgeted claim is also the only way this can still
+     * displace the coach chip once that budget is already spent.
      */
-    releaseRef.current = claimOverlay('run-complete')
+    releaseRef.current = claimOverlay('run-complete', { budgeted: false })
 
     setStats({
       time: formatTime(elapsed),

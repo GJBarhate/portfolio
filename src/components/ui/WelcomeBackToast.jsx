@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 import { getStore, setStore } from '../../lib/store.js'
@@ -22,12 +22,6 @@ export default function WelcomeBackToast() {
   const [show, setShow] = useState(false)
   const [message, setMessage] = useState('')
   const releaseRef = useRef(null)
-
-  const dismiss = useCallback(() => {
-    setShow(false)
-    releaseRef.current?.()
-    releaseRef.current = null
-  }, [])
 
   useEffect(() => {
     const store = getStore()
@@ -73,17 +67,15 @@ export default function WelcomeBackToast() {
           exit={{ opacity: 0, y: -10, scale: 0.98 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
           className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 welcome-toast glass rounded-full px-5 py-2.5 border border-[var(--glass-border)] flex items-center gap-3"
+          style={{ pointerEvents: 'none', '--toast-ms': `${VISIBLE_MS}ms` }}
         >
+          {/* P2.3 — the countdown rail, same pattern as the spark toast: a
+              surface that vanishes on its own should say so before it does. */}
+          <span className="welcome-toast__rail" aria-hidden="true" />
           <span className="w-2 h-2 rounded-full bg-[var(--accent)] shadow-[0_0_6px_var(--accent)]" />
           <span className="font-mono text-[12px] tracking-wide text-[var(--ink-mid)]">
             {message}
           </span>
-          <button
-            onClick={dismiss}
-            className="text-[var(--ink-low)] hover:text-[var(--ink)] text-xs ml-1"
-          >
-            ✕
-          </button>
         </motion.div>
       )}
     </AnimatePresence>

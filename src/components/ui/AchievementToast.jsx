@@ -66,8 +66,12 @@ export default function AchievementToast() {
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 40, scale: 0.95, transition: { duration: 0.25 } }}
             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-            className="glass sheen rounded-2xl px-4 py-3 w-64 border border-[var(--accent-dim)] shadow-[0_0_28px_color-mix(in_oklch,var(--accent)_35%,transparent)]"
+            className="achievement-toast glass sheen rounded-2xl px-4 py-3 w-64 border border-[var(--accent-dim)] shadow-[0_0_28px_color-mix(in_oklch,var(--accent)_35%,transparent)]"
+            style={{ '--toast-ms': '2200ms' }}
           >
+            {/* P2.3 — same countdown rail as the spark and welcome-back toasts:
+                a card that vanishes without warning reads as a bug. */}
+            <span className="achievement-toast__rail" aria-hidden="true" />
             <p className="font-mono text-[12px] tracking-[0.25em] text-[var(--warm)] mb-1">ACHIEVEMENT UNLOCKED</p>
             <p className="font-display text-sm text-[var(--ink)] mb-0.5">{t.title}</p>
             <div className="flex items-center justify-between">

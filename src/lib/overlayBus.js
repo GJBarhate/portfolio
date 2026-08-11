@@ -30,7 +30,7 @@
  * TTL, the budget, the recruiter refusal, the quiet period and the "once"
  * memory all live here, where a component cannot forget them.
  */
-import { hasSeen, markSeen, setStore } from './store.js'
+import { getStore, hasSeen, markSeen, setStore } from './store.js'
 
 const listeners = new Set()
 let holder = null
@@ -42,17 +42,83 @@ let holderRelease = null
 /** How many uninvited overlays have been granted this page view. */
 let spent = 0
 
-/**
- * Two. Not three, not "a sensible number".
+/*
+ * DND v2 — P2.1/P2.5. The numbers, and why each one is what it is.
  *
- * A visitor reading a portfolio has come to look at the work. One interruption
- * is a moment of personality; two is the ceiling before it reads as a site
- * that wants something. The first-run choreography (§9) spends one of these by
- * design, which leaves exactly one for everything else — and that is the
- * intended pressure: it forces the eight candidates to compete rather than
- * queue.
+ * The budget used to be a single constant (2). It is now a policy keyed by
+ * `prefs.notices`, because the brief's "gone within a second, no cross to
+ * click" and WCAG 2.2.1's "a visitor may need more time to read it" are both
+ * legitimate and they pull in opposite directions — the only way to satisfy
+ * both is to make the dwell adjustable rather than picking one number.
+ *
+ *   brief    budget 1, ttl 2200    One moment of personality per visit, not
+ *                                  two — two was already the ceiling before
+ *                                  it read as a site that wants something,
+ *                                  and the first-run choreography (§9) spends
+ *                                  one of them by design. 2200 ms matches
+ *                                  GameContext's achievement toast, the one
+ *                                  that has always felt right: long enough to
+ *                                  read four words and a number, short enough
+ *                                  to be gone before it is annoying.
+ *   longer   budget 2, ttl 22000   Exactly 10x brief's TTL — the WCAG 2.2.1
+ *                                  "Timing Adjustable" threshold — for anyone
+ *                                  who explicitly asked for more time. Budget
+ *                                  also relaxes to 2, because "give me longer
+ *                                  to read things" and "limit how many things
+ *                                  appear" are different asks.
+ *   off      budget 0              `claimOverlay` refuses unconditionally,
+ *                                  the same code path as Recruiter Mode.
+ *
+ * The multiplier applies to every claim's ttl, not only the ones that omit it
+ * — `Infinity * 10` is still `Infinity` in JS, so budgeted:false claims
+ * (Achievement, RunComplete) are unaffected for free.
  */
-export const SESSION_BUDGET = 2
+export const NOTICES = [
+  { id: 'brief', label: 'Brief', meaning: 'A moment, then gone (default)' },
+  { id: 'longer', label: 'Longer', meaning: 'Stays until you have read it' },
+  { id: 'off', label: 'Off', meaning: 'Nothing appears uninvited' },
+]
+export const DEFAULT_NOTICES = 'brief'
+export const DEFAULT_TTL = 2200
+export const ACTIONABLE_TTL = 8000
+
+const NOTICES_POLICY = {
+  brief: { budget: 1, multiplier: 1 },
+  longer: { budget: 2, multiplier: 10 },
+  off: { budget: 0, multiplier: 0 },
+}
+
+/** The stored notices preference, falling back to the default. */
+export function noticesPreference() {
+  const stored = getStore().prefs?.notices
+  return NOTICES.some((n) => n.id === stored) ? stored : DEFAULT_NOTICES
+}
+
+function policy() {
+  return NOTICES_POLICY[noticesPreference()] || NOTICES_POLICY[DEFAULT_NOTICES]
+}
+
+/** Persist and publish `html[data-notices]`, exactly like the other three settings. */
+export function setNotices(mode) {
+  const value = NOTICES.some((n) => n.id === mode) ? mode : DEFAULT_NOTICES
+  setStore({ prefs: { ...getStore().prefs, notices: value } })
+  if (typeof document !== 'undefined') {
+    document.documentElement.dataset.notices = value
+    document.documentElement.dispatchEvent(
+      new CustomEvent('forge:notices-changed', { bubbles: false, detail: value })
+    )
+  }
+}
+
+/** Wire the stored preference onto the DOM once, from App — mirrors installBgScene. */
+export function installNotices() {
+  if (typeof document === 'undefined') return () => {}
+  document.documentElement.dataset.notices = noticesPreference()
+  return () => {}
+}
+
+/** Two, kept for anything still reading the old export name. Prefer `policy().budget`. */
+export const SESSION_BUDGET = NOTICES_POLICY.brief.budget
 
 /**
  * Nothing for the first 10 seconds after load.
@@ -110,6 +176,14 @@ function publish() {
 const recruiterActive = () =>
   typeof document !== 'undefined' && document.documentElement.hasAttribute('data-recruiter')
 
+/**
+ * P2.5 — `Notices: Off` refuses everything, unconditionally — the SAME code
+ * path as Recruiter Mode, including claims that would otherwise skip the
+ * budget check (`budgeted: false`). A visitor who turned notices off does not
+ * want to see WHY a toast is uninvited; "off" means off.
+ */
+const noticesOffActive = () => noticesPreference() === 'off'
+
 function clearHolder() {
   if (holderTimer) { clearTimeout(holderTimer); holderTimer = null }
   holder = null
@@ -125,17 +199,22 @@ function clearHolder() {
  * @param {string} id
  * @param {object} [options]
  * @param {number} [options.ttl] ms after which the BUS releases the slot and
- *   calls `onExpire`. Defaults to 6 s. Pass `Infinity` only for an overlay the
- *   visitor explicitly opened (which is not an interruption and should not be
- *   using this module).
+ *   calls `onExpire`. Defaults to the current notices mode's base dwell
+ *   (2200 ms at `brief`). Whatever value is passed — default or explicit — is
+ *   scaled by the notices multiplier (1x brief, 10x longer), so a component
+ *   never has to know which mode is active. Pass `Infinity` only for an
+ *   overlay the visitor explicitly opened (which is not an interruption and
+ *   should not be using this module) — `Infinity * multiplier` is still
+ *   `Infinity`, so this is safe unconditionally.
  * @param {boolean} [options.once] remember the grant, and never grant again
  *   within {@link SEEN_TTL_MS}.
  * @param {number} [options.seenTtl] override that window for this overlay.
  *   Exit-intent uses 90 days rather than 30: an "are you leaving?" prompt is
  *   the one interruption whose second appearance is worse than its first.
  * @param {boolean} [options.budgeted] whether this claim spends one of the
- *   session's two. Defaults to true; `false` is for an overlay the visitor
- *   asked for.
+ *   session's budget (1 at `brief`, 2 at `longer`). Defaults to true; `false`
+ *   is for an overlay the visitor's own action earned (Achievement,
+ *   RunComplete) — but `Notices: Off` still refuses it, see `noticesOffActive`.
  * @param {() => void} [options.onExpire] called when the TTL fires, so the
  *   component can animate itself out. It is called exactly once.
  * @returns {(() => void) | null} the release function, or null if refused.
@@ -143,7 +222,7 @@ function clearHolder() {
  */
 export function claimOverlay(id, options = {}) {
   const {
-    ttl = 6000,
+    ttl,
     once = false,
     seenTtl = SEEN_TTL_MS,
     budgeted = true,
@@ -156,6 +235,12 @@ export function claimOverlay(id, options = {}) {
   // renders nothing and costs nothing.
   if (recruiterActive()) return null
 
+  // Zero at `Notices: Off`, unconditionally — see noticesOffActive's comment.
+  if (noticesOffActive()) return null
+
+  const { budget, multiplier } = policy()
+  const effectiveTtl = (ttl === undefined ? DEFAULT_TTL : ttl) * multiplier
+
   // Nothing during the entrance.
   if (budgeted && typeof performance !== 'undefined' && performance.now() - startedAt < QUIET_PERIOD_MS) {
     return null
@@ -166,7 +251,7 @@ export function claimOverlay(id, options = {}) {
 
   // The budget is spent. Re-claiming while already holding is free — a
   // component that re-renders must not be charged twice.
-  if (budgeted && holder !== id && spent >= SESSION_BUDGET) return null
+  if (budgeted && holder !== id && spent >= budget) return null
 
   const priority = PRIORITY[id] ?? 0
 
@@ -214,12 +299,12 @@ export function claimOverlay(id, options = {}) {
    * clicked, which is a modal wearing a toast's clothing. The bus cannot
    * forget, because there is one implementation.
    */
-  if (Number.isFinite(ttl) && ttl > 0) {
+  if (Number.isFinite(effectiveTtl) && effectiveTtl > 0) {
     holderTimer = setTimeout(() => {
       holderTimer = null
       try { onExpire?.() } catch { /* a component that throws on exit still loses the slot */ }
       release()
-    }, ttl)
+    }, effectiveTtl)
   }
 
   publish()

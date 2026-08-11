@@ -19,6 +19,7 @@ import { initTier } from './lib/raf.js'
 import { useDeviceTier } from './lib/useMedia.js'
 import { installMotionMode } from './lib/motion.js'
 import { installBgScene } from './lib/bgScene.js'
+import { installNotices } from './lib/overlayBus.js'
 import { OPEN_CONSOLE_EVENT, isAppearanceShortcut, openAppearanceConsole } from './lib/appearance.js'
 import { PALETTE_HINT, isPaletteShortcut } from './lib/platform.js'
 import { getStore, hasSeen, markSeen } from './lib/store.js'
@@ -392,6 +393,10 @@ export default function App() {
   // §14.5 — which backdrop is on: calm, motifs or forest. Published on
   // `<html data-bg-scene>` so the legibility scrim can be tuned per scene.
   useEffect(() => installBgScene(), [])
+
+  // P2.5 — the stored Do Not Disturb preference, published on
+  // `<html data-notices>` before the first overlay can possibly claim a slot.
+  useEffect(() => installNotices(), [])
 
   /*
    * D-45 — a motion change re-decides the graphics tier.

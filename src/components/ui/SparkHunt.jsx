@@ -6,8 +6,10 @@ import { isRecruiter, onRecruiterChange } from '../../lib/recruiter.js'
 
 const SPARK_IDS = ['spark-hero', 'spark-stats', 'spark-skills', 'spark-timeline', 'spark-footer']
 
-/** How long the completion toast stays. The rail below animates over it. */
-const TOAST_MS = 6000
+/** How long the completion toast stays. The rail below animates over it.
+ *  P2.3 — matched to overlayBus's DEFAULT_TTL: gone within a second-and-change,
+ *  no cross to click, the rail says so before it happens. */
+const TOAST_MS = 2200
 
 // T-030 — one key, one parse. See src/lib/store.js.
 const loadSparks = () => getStore().sparks
@@ -53,6 +55,20 @@ export function SparkProvider({ children }) {
     setCollected([])
     setStore({ sparks: [] })
   }, [])
+
+  /*
+   * P2.4 — the counter returns to 0/5 on its own, not a reset of the
+   * visitor's achievement: `forge:unlock` has already fired and the XP is
+   * banked in GameContext. This is the hunt becoming available again, which
+   * is the difference between a collectible and a trophy case. Timed to fire
+   * after the toast has left (800 ms pre-delay + TOAST_MS + a beat), so the
+   * visitor sees 5/5 for the length of the celebration and 0/5 after.
+   */
+  useEffect(() => {
+    if (collected.length !== SPARK_IDS.length) return
+    const id = setTimeout(reset, 800 + TOAST_MS + 400)
+    return () => clearTimeout(id)
+  }, [collected.length, reset])
 
   return (
     <SparkContext.Provider value={{ collected, total: SPARK_IDS.length, enabled, collect, reset }}>
@@ -132,26 +148,19 @@ export function SparkCounter() {
 }
 
 /**
- * The completion toast — the D-4 rewrite.
+ * The completion toast — the D-4 rewrite, non-interactive by construction (P2.2).
  *
  * Every one of the four original faults is fixed by *deleting* the local
- * mechanism and deferring to the bus, which is the point: the component now
- * describes what it wants ("6 seconds, once ever, and only if nothing more
- * important is happening") and the arbiter decides.
- *
- * What is left here is the one thing that genuinely belongs to this component:
- * Escape and click-outside, because the bus does not own the DOM.
+ * mechanism and deferring to the bus: the component describes what it wants
+ * ("2.2 seconds, once ever, and only if nothing more important is happening")
+ * and the arbiter decides. There is no Close button and no Escape/click-outside
+ * handler — a thing that cannot be clicked cannot need a way to dismiss it, and
+ * the countdown rail below says so before it happens.
  */
 export function SparkCompleteToast() {
   const { collected, total } = useSparkHunt()
   const [show, setShow] = useState(false)
   const releaseRef = useRef(null)
-
-  const dismiss = useCallback(() => {
-    setShow(false)
-    releaseRef.current?.()
-    releaseRef.current = null
-  }, [])
 
   useEffect(() => {
     if (collected.length !== total || total === 0) return
@@ -181,18 +190,6 @@ export function SparkCompleteToast() {
     }
   }, [collected.length, total])
 
-  useEffect(() => {
-    if (!show) return
-    const onKey = (e) => { if (e.key === 'Escape') dismiss() }
-    const onDown = (e) => { if (!e.target.closest?.('.spark-toast')) dismiss() }
-    document.addEventListener('keydown', onKey)
-    document.addEventListener('pointerdown', onDown)
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.removeEventListener('pointerdown', onDown)
-    }
-  }, [show, dismiss])
-
   if (!show) return null
 
   return (
@@ -209,9 +206,6 @@ export function SparkCompleteToast() {
           was never taught, in a register nothing else on the page uses. */}
       <p className="spark-toast__title">You found all five</p>
       <p className="spark-toast__name">Forge Master — nice.</p>
-      <button type="button" onClick={dismiss} className="spark-toast__close">
-        Close
-      </button>
     </div>
   )
 }

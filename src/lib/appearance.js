@@ -59,6 +59,7 @@ export const THEMES = [
     id: 'eclipse',
     label: 'Eclipse',
     meaning: 'Blue-black and electric teal — the default',
+    recommended: true,
     bg: '#0e1114',
     accent: '#3ac6c9',
     glow: '#7fe3e5',
@@ -165,10 +166,23 @@ export const BACKDROPS = [
   },
   {
     id: 'forest',
+    /*
+     * P1.4 — `cost: 'Costs the most'` was honest and it was the wrong
+     * emphasis for a DEFAULT. Telling a visitor that the thing they landed on
+     * is the expensive one is an invitation to change it, and the whole point
+     * of Forest being the default is that it is the designed experience.
+     *
+     * Honesty is not dropped — the panel still says Richest, and `detail`
+     * states plainly that it scales itself down. What changes is that the
+     * sentence now describes what the visitor GETS rather than what it costs
+     * them.
+     */
     label: 'Forest',
     meaning: 'A living scene — wind, water and wildlife',
-    cost: 'Costs the most',
+    cost: 'Richest',
+    detail: 'The default. Scales itself down on slower machines.',
     glyph: '▲',
+    recommended: true,
   },
 ]
 
@@ -296,6 +310,28 @@ export function onAppearanceChange(fn) {
 }
 
 // ── The one door into the panel ───────────────────────────────────────────
+
+/**
+ * P1.5 — one action that puts everything back to the designed defaults.
+ *
+ * This is what makes the v1→v2 migration in `store.js` safe to ship. That
+ * migration has to GUESS whether an old stored backdrop was chosen or
+ * inherited, and any guess is wrong for somebody. The escape hatch means the
+ * cost of guessing wrong is one click rather than a preference the visitor
+ * cannot find their way out of.
+ *
+ * It also clears the `*Explicit` flags, so the profile is genuinely returned
+ * to "never chose anything" rather than left asserting a choice of the
+ * defaults — which would make a future migration treat it as deliberate.
+ */
+export const RECOMMENDED = { theme: 'eclipse', backdrop: 'forest', motion: 'system' }
+
+export function restoreRecommended() {
+  setStore({ prefs: { ...getStore().prefs, bgSceneExplicit: false, themeExplicit: false } })
+  setTheme(RECOMMENDED.theme)
+  setBackdrop(RECOMMENDED.backdrop)
+  setMotion(RECOMMENDED.motion)
+}
 
 export const OPEN_CONSOLE_EVENT = 'forge:open-appearance'
 
