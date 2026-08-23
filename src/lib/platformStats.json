@@ -1,15 +1,15 @@
 {
   "github": {
-    "repos": 23,
+    "repos": 24,
     "followers": 0,
-    "stars": 127
+    "stars": 132
   },
   "leetcode": {
-    "solved": 386,
+    "solved": 387,
     "rating": 1972
   },
   "codechef": {},
-  "lastUpdated": "2026-08-22T04:29:22.629Z",
+  "lastUpdated": "2026-08-23T04:33:50.141Z",
   "sources": {
     "github": true,
     "leetcode": true,
