@@ -36,7 +36,7 @@ export const AUTHOR = {
 
 export const SOCIAL = {
   github: 'https://github.com/GJBarhate',
-  leetcode: 'https://leetcode.com/u/chgyCygKwQ/',
+  leetcode: 'https://leetcode.com/u/zorynth05/',
   codechef: 'https://www.codechef.com/users/gaurav_jb',
   linkedin: 'https://www.linkedin.com/in/gaurav-barhate-056175271/',
 }

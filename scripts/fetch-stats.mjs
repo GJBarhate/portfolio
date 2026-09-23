@@ -36,7 +36,7 @@ const TARGET = fileURLToPath(new URL('../src/lib/platformStats.json', import.met
 const TIMEOUT_MS = 10_000
 
 const GITHUB_USER = 'GJBarhate'
-const LEETCODE_USER = 'chgyCygKwQ'
+const LEETCODE_USER = 'zorynth05'
 const CODECHEF_USER = 'gaurav_jb'
 
 /** Never let one slow host hold up the whole refresh. */
