@@ -20,7 +20,10 @@
  * so a new deploy always evicts the old caches.
  */
 
-const VERSION = 'forge-v1'
+// Bump this whenever a deployment changes the application shell. A fixed
+// cache key can leave returning visitors on an old hashed chunk after a
+// deploy, which makes the Hero appear to disappear until storage is cleared.
+const VERSION = 'forge-v2'
 const STATIC_CACHE = `${VERSION}-static`
 const IMAGE_CACHE = `${VERSION}-images`
 const DOC_CACHE = `${VERSION}-docs`
