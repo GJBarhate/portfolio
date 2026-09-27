@@ -5,13 +5,13 @@
     "stars": 132
   },
   "leetcode": {
-    "solved": 460,
+    "solved": 466,
     "rating": 1972
   },
   "codechef": {},
-  "lastUpdated": "2026-09-26T09:04:40.668Z",
+  "lastUpdated": "2026-09-27T09:48:04.717Z",
   "sources": {
-    "github": false,
+    "github": true,
     "leetcode": true,
     "codechef": true
   }
