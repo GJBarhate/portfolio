@@ -9,9 +9,9 @@
     "rating": 2060
   },
   "codechef": {},
-  "lastUpdated": "2026-11-26T13:31:19.886Z",
+  "lastUpdated": "2026-11-27T13:27:49.866Z",
   "sources": {
-    "github": false,
+    "github": true,
     "leetcode": true,
     "codechef": true
   }
